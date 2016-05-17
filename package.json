@@ -16,6 +16,9 @@
 		"test": "grunt test"
 	},
 	"typings": "./typings/dist/umd/dojo-app.d.ts",
+	"peerDependencies": {
+		"dojo-core": "^2.0.0-alpha.7"
+	},
 	"devDependencies": {
 		"codecov.io": "0.1.6",
 		"dojo-loader": "2.0.0-beta.5",
