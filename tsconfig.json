@@ -23,6 +23,7 @@
 		"./node_modules/dojo-core/typings/symbol-shim/symbol-shim.d.ts",
 		"./node_modules/dojo-loader/typings/dojo-loader/dojo-loader.d.ts",
 		"./typings/main.d.ts",
+		"./src/IdentityRegistry.ts",
 		"./src/main.ts",
 		"./tests/functional/all.ts",
 		"./tests/intern-local.ts",
