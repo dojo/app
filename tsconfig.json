@@ -17,6 +17,7 @@
 	],
 	"files": [
 		"./typings/index.d.ts",
+		"./src/IdentityRegistry.ts",
 		"./src/main.ts",
 		"./tests/functional/all.ts",
 		"./tests/intern-local.ts",
@@ -24,6 +25,7 @@
 		"./tests/intern.ts",
 		"./tests/support/Reporter.ts",
 		"./tests/support/util.ts",
-		"./tests/unit/all.ts"
+		"./tests/unit/all.ts",
+		"./tests/unit/IdentityRegistry.ts"
 	]
 }
