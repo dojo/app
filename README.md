@@ -1,9 +1,7 @@
-# dojo-<< package-name >>
+# dojo-app
 
-<!-- TODO: change and uncomment
-[![Build Status](https://travis-ci.org/dojo/<< package-name >>.svg?branch=master)](https://travis-ci.org/dojo/<< package-name >>)
-[![codecov.io](http://codecov.io/gh/dojo/<< package-name >>/branch/master/graph/badge.svg)](http://codecov.io/gh/dojo/<< package-name >>/branch/master)
--->
+[![Build Status](https://travis-ci.org/dojo/app.svg?branch=master)](https://travis-ci.org/dojo/app)
+[![codecov.io](http://codecov.io/gh/dojo/app/branch/master/graph/badge.svg)](http://codecov.io/gh/dojo/app/branch/master)
 
 TODO: Replace with a description of this package
 
