@@ -18,11 +18,11 @@ export const capabilities = {
 // Browsers to run integration testing against. Note that version numbers must be strings if used with Sauce
 // OnDemand. Options that will be permutated are browserName, version, platform, and platformVersion; any other
 // capabilities options specified for an environment will be copied as-is
-export const environments = [
-	{ browserName: 'internet explorer', version: [ '10', '11' ], platform: 'WINDOWS' },
-	{ browserName: 'firefox', platform: 'WINDOWS' },
-	{ browserName: 'chrome', platform: 'WINDOWS' }/*,
-	{ browserName: 'Safari', version: '9', platform: 'OS X' }*/
+export const environments: { browserName: string; platform: string }[] = [
+	// { browserName: 'internet explorer', version: [ '10', '11' ], platform: 'WINDOWS' },
+	// { browserName: 'firefox', platform: 'WINDOWS' },
+	// { browserName: 'chrome', platform: 'WINDOWS' },
+	// { browserName: 'Safari', version: '9', platform: 'OS X' }
 ];
 
 // Maximum number of simultaneous integration tests that should be executed on the remote WebDriver service
