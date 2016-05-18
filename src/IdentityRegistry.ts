@@ -6,7 +6,7 @@ import WeakMap from 'dojo-core/WeakMap';
 const noop = () => {};
 
 // Copied from dojo-compose to avoid a dependency.
-interface Destroyable {
+export interface Destroyable {
 	own(handle: Handle): Handle;
 	destroy(): Promise<boolean>;
 }
