@@ -35,12 +35,13 @@ export default class IdentityRegistry<T extends Destroyable> {
 
 	/**
 	 * Look up a value by its identifier.
+	 * Throws if no value has been registered for the given identifier.
 	 * @param id The identifier
-	 * @return `null` if no value was registered with the given identifier, or else the value
+	 * @return The value
 	 */
-	byId(id: Identity): T | void {
+	byId(id: Identity): T {
 		if (!this.hasId(id)) {
-			return null;
+			throw new Error(`Could not find a value for identity '${id.toString()}'`);
 		}
 
 		return this._entryMap.get(id).value;
@@ -82,12 +83,13 @@ export default class IdentityRegistry<T extends Destroyable> {
 
 	/**
 	 * Look up the identifier for which the given value has been registered.
+	 * Throws if the value hasn't been registered.
 	 * @param value The value
-	 * @return `null` if the value has not been registered, the identifier otherwise
+	 * @return The identifier otherwise
 	 */
-	identify(value: T): Identity | void {
+	identify(value: T): Identity {
 		if (!this.contains(value)) {
-			return null;
+			throw new Error('Could not identify non-registered value');
 		}
 
 		return this._idMap.get(value);
@@ -103,13 +105,13 @@ export default class IdentityRegistry<T extends Destroyable> {
 	 *   the same identifier and value combination, the same handle is returned
 	 */
 	register(id: Identity, value: T): Handle {
-		const existingValue = this.byId(id);
+		const existingValue = this.hasId(id) ? this.byId(id) : null;
 		if (existingValue && existingValue !== value) {
 			const str = id.toString();
 			throw new Error(`A value has already been registered for the given identity (${str})`);
 		}
 
-		const existingId = this.identify(value);
+		const existingId = this.contains(value) ? this.identify(value) : null;
 		if (existingId && existingId !== id) {
 			const str = (<Identity> existingId).toString();
 			throw new Error(`The value has already been registered with a different identity (${str})`);

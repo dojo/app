@@ -19,9 +19,22 @@ registerSuite({
 	name: 'IdentityRegistry',
 
 	'#byId': {
-		'not registered'() {
+		'string id was not registered'() {
 			const registry = new IdentityRegistry<Value>();
-			assert.isNull(registry.byId('id'));
+			assert.throws(
+				() => registry.byId('id'),
+				Error,
+				'Could not find a value for identity \'id\''
+			);
+		},
+
+		'symbol id was not registered'() {
+			const registry = new IdentityRegistry<Value>();
+			assert.throws(
+				() => registry.byId(Symbol('id')),
+				Error,
+				'Could not find a value for identity \'Symbol(id)\''
+			);
 		},
 
 		registered() {
@@ -77,7 +90,11 @@ registerSuite({
 	'#identify': {
 		'not registered'() {
 			const registry = new IdentityRegistry<Value>();
-			assert.isNull(registry.identify(new Value()));
+			assert.throws(
+				() => registry.identify(new Value()),
+				Error,
+				'Could not identify non-registered value'
+			);
 		},
 
 		registered() {
