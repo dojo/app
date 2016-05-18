@@ -13,7 +13,6 @@
 	"filesGlob": [
 		"./node_modules/dojo-core/typings/dojo-core/dojo-core.d.ts",
 		"./node_modules/dojo-core/typings/symbol-shim/symbol-shim.d.ts",
-		"./node_modules/dojo-loader/typings/dojo-loader/dojo-loader.d.ts",
 		"./typings/index.d.ts",
 		"./src/**/*.ts",
 		"./tests/**/*.ts"
@@ -21,7 +20,6 @@
 	"files": [
 		"./node_modules/dojo-core/typings/dojo-core/dojo-core.d.ts",
 		"./node_modules/dojo-core/typings/symbol-shim/symbol-shim.d.ts",
-		"./node_modules/dojo-loader/typings/dojo-loader/dojo-loader.d.ts",
 		"./typings/index.d.ts",
 		"./src/IdentityRegistry.ts",
 		"./src/main.ts",
