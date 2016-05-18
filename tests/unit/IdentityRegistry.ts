@@ -146,6 +146,15 @@ registerSuite({
 			assert.isTrue(registry.hasId('id'));
 			handle.destroy();
 			assert.isFalse(registry.hasId('id'));
+		},
+
+		'destroying handle more than once is a noop'() {
+			const registry = new IdentityRegistry<Value>();
+			const handle = registry.register('id', new Value());
+			assert.isTrue(registry.hasId('id'));
+			handle.destroy();
+			handle.destroy();
+			assert.isFalse(registry.hasId('id'));
 		}
 	}
 });
