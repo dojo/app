@@ -4,6 +4,7 @@
 *.js.map
 !/*.js
 !/tasks/*.js
+!/tests/fixtures/amd-factory.js
 dist
 _build
 node_modules
