@@ -1,19 +1,9 @@
-import { Handle } from 'dojo-core/interfaces';
-import Promise from 'dojo-core/Promise';
 import * as registerSuite from 'intern!object';
 import * as assert from 'intern/chai!assert';
 
 import IdentityRegistry from 'src/IdentityRegistry';
 
-class Value {
-	own(handle: Handle): Handle {
-		return { destroy() {} };
-	}
-
-	destroy(): Promise<boolean> {
-		return Promise.resolve(true);
-	}
-}
+class Value {}
 
 registerSuite({
 	name: 'IdentityRegistry',

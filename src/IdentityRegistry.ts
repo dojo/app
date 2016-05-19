@@ -1,19 +1,12 @@
 import { Handle } from 'dojo-core/interfaces';
 import Map from 'dojo-core/Map';
-import Promise from 'dojo-core/Promise';
 import WeakMap from 'dojo-core/WeakMap';
 
 const noop = () => {};
 
-// Copied from dojo-compose to avoid a dependency.
-export interface Destroyable {
-	own(handle: Handle): Handle;
-	destroy(): Promise<boolean>;
-}
-
-interface Entry<T> {
+interface Entry<V> {
 	handle: Handle;
-	value: T;
+	value: V;
 }
 
 /**
@@ -22,24 +15,26 @@ interface Entry<T> {
 export type Identity = string | symbol;
 
 /**
- * A registry of values, mapped by identities. Values must be destroyable.
+ * A registry of values, mapped by identities.
  */
-export default class IdentityRegistry<T extends Destroyable> {
-	private _entryMap: Map<Identity, Entry<T>>;
-	private _idMap: WeakMap<T, Identity>;
+export default class IdentityRegistry<V extends Object> {
+	private _entryMap: Map<Identity, Entry<V>>;
+	private _idMap: WeakMap<V, Identity>;
 
 	constructor() {
-		this._entryMap = new Map<Identity, Entry<T>>();
-		this._idMap = new WeakMap<T, Identity>();
+		this._entryMap = new Map<Identity, Entry<V>>();
+		this._idMap = new WeakMap<V, Identity>();
 	}
 
 	/**
 	 * Look up a value by its identifier.
+	 *
 	 * Throws if no value has been registered for the given identifier.
+	 *
 	 * @param id The identifier
 	 * @return The value
 	 */
-	byId(id: Identity): T {
+	byId(id: Identity): V {
 		if (!this.hasId(id)) {
 			throw new Error(`Could not find a value for identity '${id.toString()}'`);
 		}
@@ -52,7 +47,7 @@ export default class IdentityRegistry<T extends Destroyable> {
 	 * @param value The value
 	 * @return `true` if the value has been registered, `false` otherwise
 	 */
-	contains(value: T): boolean {
+	contains(value: V): boolean {
 		return this._idMap.has(value);
 	}
 
@@ -83,11 +78,13 @@ export default class IdentityRegistry<T extends Destroyable> {
 
 	/**
 	 * Look up the identifier for which the given value has been registered.
+	 *
 	 * Throws if the value hasn't been registered.
+	 *
 	 * @param value The value
 	 * @return The identifier otherwise
 	 */
-	identify(value: T): Identity {
+	identify(value: V): Identity {
 		if (!this.contains(value)) {
 			throw new Error('Could not identify non-registered value');
 		}
@@ -97,14 +94,16 @@ export default class IdentityRegistry<T extends Destroyable> {
 
 	/**
 	 * Register a new value with a new identity.
+	 *
 	 * Throws if a different value has already been registered for the given identity,
 	 * or if the value has already been registered with a different identity.
+	 *
 	 * @param id The identifier
 	 * @param value The value
 	 * @return A handle for deregistering the value. Note that when called repeatedly with
 	 *   the same identifier and value combination, the same handle is returned
 	 */
-	register(id: Identity, value: T): Handle {
+	register(id: Identity, value: V): Handle {
 		const existingValue = this.hasId(id) ? this.byId(id) : null;
 		if (existingValue && existingValue !== value) {
 			const str = id.toString();
