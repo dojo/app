@@ -25,6 +25,7 @@
 		"./node_modules/dojo-core/typings/symbol-shim/symbol-shim.d.ts",
 		"./dojo-widgets.d.ts",
 		"./typings/index.d.ts",
+		"./src/App.ts",
 		"./src/IdentityRegistry.ts",
 		"./src/main.ts",
 		"./tests/functional/all.ts",
