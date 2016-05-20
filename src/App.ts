@@ -24,6 +24,33 @@ export interface Factory<T> {
 
 export { Identity };
 
+export interface Definition {
+	widgets?: WidgetDefinition[];
+}
+
+export interface WidgetDefinition {
+	factory(options?: Object): any;
+	id: string;
+	stateFrom?: string;
+	options?: Object;
+}
+
+function makeWidgetFactory (app: App, { factory, id, stateFrom, options }: WidgetDefinition): Factory<any> {
+	if (options && ('id' in options || 'stateFrom' in options)) {
+		throw new Error('id and stateFrom options should be in the widget definition itself, not its options value');
+	}
+	options = Object.assign({ id }, options);
+
+	return () => {
+		return (stateFrom ? app.getStore(stateFrom) : Promise.resolve()).then(stateFrom => {
+			if (stateFrom) {
+				(<any> options).stateFrom = stateFrom;
+			}
+			return factory(options);
+		});
+	};
+}
+
 export default class App {
 	private _actions = new IdentityRegistry<Factory<any>>();
 	private _stores = new IdentityRegistry<Factory<any>>();
@@ -157,5 +184,13 @@ export default class App {
 				storeHandle.destroy();
 			}
 		};
+	}
+
+	loadDefinition({ widgets }: Definition): void {
+		if (widgets) {
+			for (const definition of widgets) {
+				this.registerWidgetFactory(definition.id, makeWidgetFactory(this, definition));
+			}
+		}
 	}
 }
