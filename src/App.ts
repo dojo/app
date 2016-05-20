@@ -28,11 +28,26 @@ export interface Definition {
 	widgets?: WidgetDefinition[];
 }
 
+export type WidgetFactoryFn = (options?: Object) => any;
+
 export interface WidgetDefinition {
-	factory(options?: Object): any;
+	factory: WidgetFactoryFn | string;
 	id: string;
 	stateFrom?: string;
 	options?: Object;
+}
+
+function resolveMid (mid: string): Promise<any> {
+	return new Promise(resolve => {
+		require([mid], (module) => {
+			if (module.__esModule) {
+				resolve(module.default);
+			}
+			else {
+				resolve(module);
+			}
+		});
+	});
 }
 
 function makeWidgetFactory (app: App, { factory, id, stateFrom, options }: WidgetDefinition): Factory<any> {
@@ -42,11 +57,18 @@ function makeWidgetFactory (app: App, { factory, id, stateFrom, options }: Widge
 	options = Object.assign({ id }, options);
 
 	return () => {
-		return (stateFrom ? app.getStore(stateFrom) : Promise.resolve()).then(stateFrom => {
-			if (stateFrom) {
-				(<any> options).stateFrom = stateFrom;
+		return Promise.all([
+			stateFrom && app.getStore(stateFrom),
+			typeof factory === 'function' ? factory : resolveMid(factory)
+		]).then(([store, _factory]) => {
+			if (store) {
+				(<any> options).stateFrom = store;
 			}
-			return factory(options);
+
+			if (typeof _factory !== 'function') {
+				throw new Error(`Could not resolve '${factory}' to a widget factory function`);
+			}
+			return _factory(options);
 		});
 	};
 }
