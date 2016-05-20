@@ -25,13 +25,22 @@ export interface Factory<T> {
 export { Identity };
 
 export interface Definition {
+	stores?: StoreDefinition[];
 	widgets?: WidgetDefinition[];
 }
 
-export type WidgetFactoryFn = (options?: Object) => any;
+export type GenericFactoryFn = (options?: Object) => any;
 
-export interface WidgetDefinition {
-	factory: WidgetFactoryFn | string;
+export interface ItemDefinition {
+	factory: GenericFactoryFn | string;
+}
+
+export interface StoreDefinition extends ItemDefinition {
+	id: Identity;
+	options?: Object;
+}
+
+export interface WidgetDefinition extends ItemDefinition {
 	id: string;
 	stateFrom?: string;
 	options?: Object;
@@ -50,7 +59,39 @@ function resolveMid (mid: string): Promise<any> {
 	});
 }
 
-function makeWidgetFactory (app: App, { factory, id, stateFrom, options }: WidgetDefinition): Factory<any> {
+enum FactoryTypes { Action, Store, Widget };
+const errorStrings: { [type: number]: string } = {
+	[FactoryTypes.Store]: 'a store',
+	[FactoryTypes.Widget]: 'a widget'
+};
+
+function resolveFactory ({ factory }: ItemDefinition, type: FactoryTypes): Promise<Function> {
+	if (typeof factory === 'function') {
+		return Promise.resolve(factory);
+	}
+
+	const mid = <string> factory;
+	return resolveMid(mid).then((factory) => {
+		if (typeof factory !== 'function') {
+			throw new Error(`Could not resolve ${mid} to ${errorStrings[type]} factory function`);
+		}
+
+		return <Function> factory;
+	});
+}
+
+function makeStoreFactory (definition: StoreDefinition): Factory<any> {
+	return () => {
+		const { options } = definition;
+		return resolveFactory(definition, FactoryTypes.Store).then((factory) => {
+			return factory(options);
+		});
+	};
+}
+
+function makeWidgetFactory (definition: WidgetDefinition, app: App): Factory<any> {
+	const { id, stateFrom } = definition;
+	let { options } = definition;
 	if (options && ('id' in options || 'stateFrom' in options)) {
 		throw new Error('id and stateFrom options should be in the widget definition itself, not its options value');
 	}
@@ -59,16 +100,13 @@ function makeWidgetFactory (app: App, { factory, id, stateFrom, options }: Widge
 	return () => {
 		return Promise.all([
 			stateFrom && app.getStore(stateFrom),
-			typeof factory === 'function' ? factory : resolveMid(factory)
-		]).then(([store, _factory]) => {
+			resolveFactory(definition, FactoryTypes.Widget)
+		]).then(([store, factory]) => {
 			if (store) {
 				(<any> options).stateFrom = store;
 			}
 
-			if (typeof _factory !== 'function') {
-				throw new Error(`Could not resolve '${factory}' to a widget factory function`);
-			}
-			return _factory(options);
+			return factory(options);
 		});
 	};
 }
@@ -208,10 +246,16 @@ export default class App {
 		};
 	}
 
-	loadDefinition({ widgets }: Definition): void {
+	loadDefinition({ stores, widgets }: Definition): void {
+		if (stores) {
+			for (const definition of stores) {
+				this.registerStoreFactory(definition.id, makeStoreFactory(definition));
+			}
+		}
+
 		if (widgets) {
 			for (const definition of widgets) {
-				this.registerWidgetFactory(definition.id, makeWidgetFactory(this, definition));
+				this.registerWidgetFactory(definition.id, makeWidgetFactory(definition, this));
 			}
 		}
 	}
