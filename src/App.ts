@@ -18,12 +18,16 @@ export interface CombinedRegistry {
 	hasWidget(id: Identity): boolean;
 }
 
+export interface Factory<T> {
+	(): Promise<T>;
+}
+
 export { Identity };
 
 export default class App {
-	private _actions = new IdentityRegistry<any>();
-	private _stores = new IdentityRegistry<any>();
-	private _widgets = new IdentityRegistry<any>();
+	private _actions = new IdentityRegistry<Factory<any>>();
+	private _stores = new IdentityRegistry<Factory<any>>();
+	private _widgets = new IdentityRegistry<Factory<any>>();
 	private _registry: CombinedRegistry;
 
 	constructor() {
@@ -40,7 +44,7 @@ export default class App {
 
 	getAction(id: Identity): Promise<any> {
 		return new Promise((resolve) => {
-			resolve(this._actions.get(id));
+			resolve(this._actions.get(id)());
 		});
 	}
 
@@ -49,7 +53,8 @@ export default class App {
 	}
 
 	registerAction(id: Identity, action: Registerable): Handle {
-		const storeHandle = this._actions.register(id, action);
+		const promise: Promise<any> = Promise.resolve(action);
+		const storeHandle = this._actions.register(id, () => promise);
 		const actionHandle = action.register(this._registry);
 		return {
 			destroy() {
@@ -62,9 +67,39 @@ export default class App {
 		};
 	}
 
+	registerActionFactory(id: Identity, factory: Factory<Registerable>): Handle {
+		let destroyed = false;
+
+		let actionHandle: Handle | void;
+		let storeHandle = this._actions.register(id, () => {
+			const promise = factory();
+			storeHandle.destroy();
+			storeHandle = this._actions.register(id, () => promise);
+
+			return promise.then<any>(action => {
+				if (!destroyed) {
+					actionHandle = action.register(this._registry);
+				}
+
+				return action;
+			});
+		});
+
+		return {
+			destroy() {
+				this.destroy = noop;
+				destroyed = true;
+				storeHandle.destroy();
+				if (actionHandle) {
+					(<Handle> actionHandle).destroy();
+				}
+			}
+		};
+	}
+
 	getStore(id: Identity): Promise<any> {
 		return new Promise((resolve) => {
-			resolve(this._stores.get(id));
+			resolve(this._stores.get(id)());
 		});
 	}
 
@@ -73,12 +108,29 @@ export default class App {
 	}
 
 	registerStore(id: Identity, store: any): Handle {
-		return this._stores.register(id, store);
+		const promise: Promise<any> = Promise.resolve(store);
+		return this._stores.register(id, () => promise);
+	}
+
+	registerStoreFactory(id: Identity, factory: Factory<any>): Handle {
+		let storeHandle = this._stores.register(id, () => {
+			const promise = factory();
+			storeHandle.destroy();
+			storeHandle = this._stores.register(id, () => promise);
+			return promise;
+		});
+
+		return {
+			destroy() {
+				this.destroy = noop;
+				storeHandle.destroy();
+			}
+		};
 	}
 
 	getWidget(id: Identity): Promise<any> {
 		return new Promise((resolve) => {
-			resolve(this._widgets.get(id));
+			resolve(this._widgets.get(id)());
 		});
 	}
 
@@ -87,6 +139,23 @@ export default class App {
 	}
 
 	registerWidget(id: Identity, widget: any): Handle {
-		return this._widgets.register(id, widget);
+		const promise: Promise<any> = Promise.resolve(widget);
+		return this._widgets.register(id, () => promise);
+	}
+
+	registerWidgetFactory(id: Identity, factory: Factory<any>): Handle {
+		let storeHandle = this._widgets.register(id, () => {
+			const promise = factory();
+			storeHandle.destroy();
+			storeHandle = this._widgets.register(id, () => promise);
+			return promise;
+		});
+
+		return {
+			destroy() {
+				this.destroy = noop;
+				storeHandle.destroy();
+			}
+		};
 	}
 }
