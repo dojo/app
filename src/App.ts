@@ -1,4 +1,5 @@
 import { Handle } from 'dojo-core/interfaces';
+import Promise from 'dojo-core/Promise';
 
 import IdentityRegistry, { Identity } from './IdentityRegistry';
 
@@ -9,11 +10,11 @@ export interface Registerable {
 }
 
 export interface CombinedRegistry {
-	getAction(id: Identity): any;
+	getAction(id: Identity): Promise<any>;
 	hasAction(id: Identity): boolean;
-	getStore(id: Identity): any;
+	getStore(id: Identity): Promise<any>;
 	hasStore(id: Identity): boolean;
-	getWidget(id: Identity): any;
+	getWidget(id: Identity): Promise<any>;
 	hasWidget(id: Identity): boolean;
 }
 
@@ -37,8 +38,10 @@ export default class App {
 		Object.freeze(this._registry);
 	}
 
-	getAction(id: Identity): any {
-		return this._actions.get(id);
+	getAction(id: Identity): Promise<any> {
+		return new Promise((resolve) => {
+			resolve(this._actions.get(id));
+		});
 	}
 
 	hasAction(id: Identity): boolean {
@@ -59,8 +62,10 @@ export default class App {
 		};
 	}
 
-	getStore(id: Identity): any {
-		return this._stores.get(id);
+	getStore(id: Identity): Promise<any> {
+		return new Promise((resolve) => {
+			resolve(this._stores.get(id));
+		});
 	}
 
 	hasStore(id: Identity): boolean {
@@ -71,8 +76,10 @@ export default class App {
 		return this._stores.register(id, store);
 	}
 
-	getWidget(id: Identity): any {
-		return this._widgets.get(id);
+	getWidget(id: Identity): Promise<any> {
+		return new Promise((resolve) => {
+			resolve(this._widgets.get(id));
+		});
 	}
 
 	hasWidget(id: Identity): boolean {
