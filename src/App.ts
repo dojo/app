@@ -17,6 +17,8 @@ export interface CombinedRegistry {
 	hasWidget(id: Identity): boolean;
 }
 
+export { Identity };
+
 export default class App {
 	private _actions = new IdentityRegistry<any>();
 	private _stores = new IdentityRegistry<any>();
