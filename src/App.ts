@@ -1,3 +1,4 @@
+import { Stateful, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
 import Promise from 'dojo-core/Promise';
 
@@ -8,6 +9,8 @@ const noop = () => {};
 export interface Registerable {
 	register(registry: Object): Handle | void;
 }
+
+export type ActionLike = Registerable & Stateful<State>;
 
 export interface CombinedRegistry {
 	getAction(id: Identity): Promise<any>;
@@ -22,9 +25,14 @@ export interface Factory<T> {
 	(): Promise<T>;
 }
 
+export interface ActionFactory {
+	(registry: CombinedRegistry): Promise<ActionLike>;
+}
+
 export { Identity };
 
 export interface Definition {
+	actions?: ActionDefinition[];
 	stores?: StoreDefinition[];
 	widgets?: WidgetDefinition[];
 }
@@ -33,6 +41,11 @@ export type GenericFactoryFn = (options?: Object) => any;
 
 export interface ItemDefinition {
 	factory: GenericFactoryFn | string;
+}
+
+export interface ActionDefinition extends ItemDefinition {
+	id: Identity;
+	stateFrom?: string;
 }
 
 export interface StoreDefinition extends ItemDefinition {
@@ -61,6 +74,7 @@ function resolveMid (mid: string): Promise<any> {
 
 enum FactoryTypes { Action, Store, Widget };
 const errorStrings: { [type: number]: string } = {
+	[FactoryTypes.Action]: 'an action',
 	[FactoryTypes.Store]: 'a store',
 	[FactoryTypes.Widget]: 'a widget'
 };
@@ -78,6 +92,24 @@ function resolveFactory ({ factory }: ItemDefinition, type: FactoryTypes): Promi
 
 		return <Function> factory;
 	});
+}
+
+function makeActionFactory (definition: ActionDefinition): ActionFactory {
+	const { id, stateFrom } = definition;
+
+	return (registry: CombinedRegistry) => {
+		return Promise.all([
+			stateFrom && registry.getStore(stateFrom),
+			resolveFactory(definition, FactoryTypes.Action).then((factory) => {
+				return factory(registry);
+			})
+		]).then(([store, action]) => {
+			if (store) {
+				action.own(action.observeState(id, store));
+			}
+			return action;
+		});
+	};
 }
 
 function makeStoreFactory (definition: StoreDefinition): Factory<any> {
@@ -139,7 +171,7 @@ export default class App {
 		return this._actions.hasId(id);
 	}
 
-	registerAction(id: Identity, action: Registerable): Handle {
+	registerAction(id: Identity, action: ActionLike): Handle {
 		const promise: Promise<any> = Promise.resolve(action);
 		const storeHandle = this._actions.register(id, () => promise);
 		const actionHandle = action.register(this._registry);
@@ -154,12 +186,12 @@ export default class App {
 		};
 	}
 
-	registerActionFactory(id: Identity, factory: Factory<Registerable>): Handle {
+	registerActionFactory(id: Identity, factory: ActionFactory): Handle {
 		let destroyed = false;
 
 		let actionHandle: Handle | void;
 		let storeHandle = this._actions.register(id, () => {
-			const promise = factory();
+			const promise = factory(this._registry);
 			storeHandle.destroy();
 			storeHandle = this._actions.register(id, () => promise);
 
@@ -246,7 +278,13 @@ export default class App {
 		};
 	}
 
-	loadDefinition({ stores, widgets }: Definition): void {
+	loadDefinition({ actions, stores, widgets }: Definition): void {
+		if (actions) {
+			for (const definition of actions) {
+				this.registerActionFactory(definition.id, makeActionFactory(definition));
+			}
+		}
+
 		if (stores) {
 			for (const definition of stores) {
 				this.registerStoreFactory(definition.id, makeStoreFactory(definition));
