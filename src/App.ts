@@ -2,7 +2,7 @@ import { Stateful, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
 import Promise from 'dojo-core/Promise';
 
-import IdentityRegistry, { Identity } from './IdentityRegistry';
+import IdentityRegistry from './IdentityRegistry';
 
 const noop = () => {};
 
@@ -33,7 +33,7 @@ export interface ActionFactory {
 	(registry: CombinedRegistry): Promise<ActionLike>;
 }
 
-export { Identity };
+export type Identity = string;
 
 export interface Definition {
 	actions?: ActionDefinition[];
@@ -49,7 +49,7 @@ export interface ItemDefinition {
 
 export interface ActionDefinition extends ItemDefinition {
 	id: Identity;
-	stateFrom?: string;
+	stateFrom?: Identity;
 }
 
 export interface StoreDefinition extends ItemDefinition {
@@ -58,8 +58,8 @@ export interface StoreDefinition extends ItemDefinition {
 }
 
 export interface WidgetDefinition extends ItemDefinition {
-	id: string;
-	stateFrom?: string;
+	id: Identity;
+	stateFrom?: Identity;
 	options?: Object;
 }
 
