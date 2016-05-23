@@ -12,7 +12,7 @@ registerSuite({
 		'string id was not registered'() {
 			const registry = new IdentityRegistry<Value>();
 			assert.throws(
-				() => registry.byId('id'),
+				() => registry.get('id'),
 				Error,
 				'Could not find a value for identity \'id\''
 			);
@@ -21,7 +21,7 @@ registerSuite({
 		'symbol id was not registered'() {
 			const registry = new IdentityRegistry<Value>();
 			assert.throws(
-				() => registry.byId(Symbol('id')),
+				() => registry.get(Symbol('id')),
 				Error,
 				'Could not find a value for identity \'Symbol(id)\''
 			);
@@ -31,7 +31,7 @@ registerSuite({
 			const registry = new IdentityRegistry<Value>();
 			const expected = new Value();
 			registry.register('id', expected);
-			assert.strictEqual(registry.byId('id'), expected);
+			assert.strictEqual(registry.get('id'), expected);
 		}
 	},
 
@@ -101,7 +101,7 @@ registerSuite({
 			const registry = new IdentityRegistry<Value>();
 			const expected = new Value();
 			registry.register('id', expected);
-			assert.strictEqual(registry.byId('id'), expected);
+			assert.strictEqual(registry.get('id'), expected);
 		},
 
 		'string id is already used'() {

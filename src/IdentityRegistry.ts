@@ -34,7 +34,7 @@ export default class IdentityRegistry<V extends Object> {
 	 * @param id The identifier
 	 * @return The value
 	 */
-	byId(id: Identity): V {
+	get(id: Identity): V {
 		if (!this.hasId(id)) {
 			throw new Error(`Could not find a value for identity '${id.toString()}'`);
 		}
@@ -104,7 +104,7 @@ export default class IdentityRegistry<V extends Object> {
 	 *   the same identifier and value combination, the same handle is returned
 	 */
 	register(id: Identity, value: V): Handle {
-		const existingValue = this.hasId(id) ? this.byId(id) : null;
+		const existingValue = this.hasId(id) ? this.get(id) : null;
 		if (existingValue && existingValue !== value) {
 			const str = id.toString();
 			throw new Error(`A value has already been registered for the given identity (${str})`);
