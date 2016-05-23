@@ -12,6 +12,10 @@ export interface Registerable {
 
 export type ActionLike = Registerable & Stateful<State>;
 
+export interface ToAbsMid {
+	(moduleId: string): string;
+}
+
 export interface CombinedRegistry {
 	getAction(id: Identity): Promise<any>;
 	hasAction(id: Identity): boolean;
@@ -59,9 +63,9 @@ export interface WidgetDefinition extends ItemDefinition {
 	options?: Object;
 }
 
-function resolveMid (mid: string): Promise<any> {
+function resolveMid (toAbsMid: ToAbsMid, mid: string): Promise<any> {
 	return new Promise(resolve => {
-		require([mid], (module) => {
+		require([toAbsMid(mid)], (module) => {
 			if (module.__esModule) {
 				resolve(module.default);
 			}
@@ -79,13 +83,13 @@ const errorStrings: { [type: number]: string } = {
 	[FactoryTypes.Widget]: 'a widget'
 };
 
-function resolveFactory ({ factory }: ItemDefinition, type: FactoryTypes): Promise<Function> {
+function resolveFactory (toAbsMid: ToAbsMid, { factory }: ItemDefinition, type: FactoryTypes): Promise<Function> {
 	if (typeof factory === 'function') {
 		return Promise.resolve(factory);
 	}
 
 	const mid = <string> factory;
-	return resolveMid(mid).then((factory) => {
+	return resolveMid(toAbsMid, mid).then((factory) => {
 		if (typeof factory !== 'function') {
 			throw new Error(`Could not resolve ${mid} to ${errorStrings[type]} factory function`);
 		}
@@ -94,13 +98,13 @@ function resolveFactory ({ factory }: ItemDefinition, type: FactoryTypes): Promi
 	});
 }
 
-function makeActionFactory (definition: ActionDefinition): ActionFactory {
+function makeActionFactory (toAbsMid: ToAbsMid, definition: ActionDefinition): ActionFactory {
 	const { id, stateFrom } = definition;
 
 	return (registry: CombinedRegistry) => {
 		return Promise.all([
 			stateFrom && registry.getStore(stateFrom),
-			resolveFactory(definition, FactoryTypes.Action).then((factory) => {
+			resolveFactory(toAbsMid, definition, FactoryTypes.Action).then((factory) => {
 				return factory(registry);
 			})
 		]).then(([store, action]) => {
@@ -112,16 +116,16 @@ function makeActionFactory (definition: ActionDefinition): ActionFactory {
 	};
 }
 
-function makeStoreFactory (definition: StoreDefinition): Factory<any> {
+function makeStoreFactory (toAbsMid: ToAbsMid, definition: StoreDefinition): Factory<any> {
 	return () => {
 		const { options } = definition;
-		return resolveFactory(definition, FactoryTypes.Store).then((factory) => {
+		return resolveFactory(toAbsMid, definition, FactoryTypes.Store).then((factory) => {
 			return factory(options);
 		});
 	};
 }
 
-function makeWidgetFactory (definition: WidgetDefinition, app: App): Factory<any> {
+function makeWidgetFactory (toAbsMid: ToAbsMid, definition: WidgetDefinition, app: App): Factory<any> {
 	const { id, stateFrom } = definition;
 	let { options } = definition;
 	if (options && ('id' in options || 'stateFrom' in options)) {
@@ -132,7 +136,7 @@ function makeWidgetFactory (definition: WidgetDefinition, app: App): Factory<any
 	return () => {
 		return Promise.all([
 			stateFrom && app.getStore(stateFrom),
-			resolveFactory(definition, FactoryTypes.Widget)
+			resolveFactory(toAbsMid, definition, FactoryTypes.Widget)
 		]).then(([store, factory]) => {
 			if (store) {
 				(<any> options).stateFrom = store;
@@ -148,8 +152,11 @@ export default class App {
 	private _stores = new IdentityRegistry<Factory<any>>();
 	private _widgets = new IdentityRegistry<Factory<any>>();
 	private _registry: CombinedRegistry;
+	private _toAbsMid: ToAbsMid;
 
-	constructor() {
+	constructor({ toAbsMid = (moduleId: string) => moduleId }: { toAbsMid?: ToAbsMid } = {}) {
+		this._toAbsMid = toAbsMid;
+
 		this._registry = {
 			getAction: this.getAction.bind(this),
 			hasAction: this.hasAction.bind(this),
@@ -281,19 +288,19 @@ export default class App {
 	loadDefinition({ actions, stores, widgets }: Definition): void {
 		if (actions) {
 			for (const definition of actions) {
-				this.registerActionFactory(definition.id, makeActionFactory(definition));
+				this.registerActionFactory(definition.id, makeActionFactory(this._toAbsMid, definition));
 			}
 		}
 
 		if (stores) {
 			for (const definition of stores) {
-				this.registerStoreFactory(definition.id, makeStoreFactory(definition));
+				this.registerStoreFactory(definition.id, makeStoreFactory(this._toAbsMid, definition));
 			}
 		}
 
 		if (widgets) {
 			for (const definition of widgets) {
-				this.registerWidgetFactory(definition.id, makeWidgetFactory(definition, this));
+				this.registerWidgetFactory(definition.id, makeWidgetFactory(this._toAbsMid, definition, this));
 			}
 		}
 	}
