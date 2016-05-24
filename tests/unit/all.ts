@@ -1,1 +1,2 @@
-export const removeThis = 1;
+import './App';
+import './IdentityRegistry';
