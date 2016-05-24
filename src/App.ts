@@ -148,7 +148,7 @@ export interface Definitions {
 /**
  * Base definition for a single action, store or widget.
  */
-export interface ItemDefinition<Factory> {
+export interface ItemDefinition<Factory, Instance> {
 	/**
 	 * Identifier for which the action, store or widget is to be registered.
 	 */
@@ -158,13 +158,19 @@ export interface ItemDefinition<Factory> {
 	 * Factory to create an action, store or widget, or a module identifier that resolves to
 	 * such a factory.
 	 */
-	factory: Factory | string;
+	factory?: Factory | string;
+
+	/**
+	 * An action, store or widget instance, or a module identifier that resolves to such
+	 * an instance.
+	 */
+	instance?: Instance | string;
 }
 
 /**
  * Definition for a single action.
  */
-export interface ActionDefinition extends ItemDefinition<ActionFactory> {
+export interface ActionDefinition extends ItemDefinition<ActionFactory, ActionLike> {
 	/**
 	 * Identifier of a store which the action should observe for its state.
 	 *
@@ -176,7 +182,7 @@ export interface ActionDefinition extends ItemDefinition<ActionFactory> {
 /**
  * Definition for a single store.
  */
-export interface StoreDefinition extends ItemDefinition<StoreFactory> {
+export interface StoreDefinition extends ItemDefinition<StoreFactory, StoreLike> {
 	/**
 	 * Optional options object passed to the store factory.
 	 */
@@ -186,7 +192,7 @@ export interface StoreDefinition extends ItemDefinition<StoreFactory> {
 /**
  * Definition for a single widget.
  */
-export interface WidgetDefinition extends ItemDefinition<WidgetFactory> {
+export interface WidgetDefinition extends ItemDefinition<WidgetFactory, WidgetLike> {
 	/**
 	 * Identifier of a store which the widget should observe for its state.
 	 *
@@ -201,6 +207,7 @@ export interface WidgetDefinition extends ItemDefinition<WidgetFactory> {
 }
 
 type Factory = ActionFactory | StoreFactory | WidgetFactory;
+type Instance = ActionLike | StoreLike | WidgetLike;
 type FactoryTypes = 'action' | 'store' | 'widget';
 const errorStrings: { [type: string]: string } = {
 	action: 'an action',
@@ -476,23 +483,46 @@ export default class App implements CombinedRegistry {
 	private _resolveFactory (type: 'action', definition: ActionDefinition): Promise<ActionFactory>;
 	private _resolveFactory (type: 'store', definition: StoreDefinition): Promise<StoreFactory>;
 	private _resolveFactory (type: 'widget', definition: WidgetDefinition): Promise<WidgetFactory>;
-	private _resolveFactory (type: FactoryTypes, definition: ItemDefinition<Factory>): Promise<Factory>;
-	private _resolveFactory (type: FactoryTypes, { factory }: ItemDefinition<Factory>): Promise<Factory> {
+	private _resolveFactory (type: FactoryTypes, definition: ItemDefinition<Factory, Instance>): Promise<Factory>;
+	private _resolveFactory (type: FactoryTypes, { factory, instance }: ItemDefinition<Factory, Instance>): Promise<Factory> {
 		if (typeof factory === 'function') {
 			return Promise.resolve(factory);
 		}
 
-		const mid = <string> factory;
-		return this._resolveMid(mid).then((factory) => {
-			if (typeof factory !== 'function') {
-				throw new Error(`Could not resolve '${mid}' to ${errorStrings[type]} factory function`);
+		if (typeof instance === 'object') {
+			return Promise.resolve(() => instance);
+		}
+
+		const mid = <string> (factory || instance);
+		return this._resolveMid(mid).then((defaultExport) => {
+			if (factory) {
+				if (typeof defaultExport !== 'function') {
+					throw new Error(`Could not resolve '${mid}' to ${errorStrings[type]} factory function`);
+				}
+
+				return defaultExport;
 			}
 
-			return factory;
+			// istanbul ignore else Action factories are expected to guard against definitions with neither
+			// factory or instance properties.
+			if (instance) {
+				if (!defaultExport || typeof defaultExport !== 'object') {
+					throw new Error(`Could not resolve '${mid}' to ${errorStrings[type]} instance`);
+				}
+
+				return () => defaultExport;
+			}
 		});
 	}
 
 	private _makeActionFactory(definition: ActionDefinition): ActionFactory {
+		if (!('factory' in definition || 'instance' in definition)) {
+			throw new Error('Action definitions must specify either the factory or instance option');
+		}
+		if ('instance' in definition && 'stateFrom' in definition) {
+			throw new Error('Cannot specify stateFrom option when action definition points directly at an instance');
+		}
+
 		const { id, stateFrom } = definition;
 
 		return (registry: CombinedRegistry) => {
@@ -517,6 +547,13 @@ export default class App implements CombinedRegistry {
 	}
 
 	private _makeStoreFactory(definition: StoreDefinition): StoreFactory {
+		if (!('factory' in definition || 'instance' in definition)) {
+			throw new Error('Store definitions must specify either the factory or instance option');
+		}
+		if ('instance' in definition && 'options' in definition) {
+			throw new Error('Cannot specify options when store definition points directly at an instance');
+		}
+
 		const options = Object.assign({}, definition.options);
 
 		return () => {
@@ -527,6 +564,18 @@ export default class App implements CombinedRegistry {
 	}
 
 	private _makeWidgetFactory(definition: WidgetDefinition): WidgetFactory {
+		if (!('factory' in definition || 'instance' in definition)) {
+			throw new Error('Widget definitions must specify either the factory or instance option');
+		}
+		if ('instance' in definition) {
+			if ('stateFrom' in definition) {
+				throw new Error('Cannot specify stateFrom option when widget definition points directly at an instance');
+			}
+			if ('options' in definition) {
+				throw new Error('Cannot specify options when widget definition points directly at an instance');
+			}
+		}
+
 		const { id, stateFrom } = definition;
 		let { options } = definition;
 		if (options && ('id' in options || 'stateFrom' in options)) {
