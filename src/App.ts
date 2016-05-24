@@ -517,7 +517,7 @@ export default class App implements CombinedRegistry {
 	}
 
 	private _makeStoreFactory(definition: StoreDefinition): StoreFactory {
-		const { options } = definition;
+		const options = Object.assign({}, definition.options);
 
 		return () => {
 			return this._resolveFactory('store', definition).then((factory) => {
