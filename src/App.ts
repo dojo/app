@@ -283,7 +283,11 @@ export default class App implements CombinedRegistry {
 
 		let actionHandle: Handle | void;
 		let registryHandle = this._actions.register(id, () => {
-			const promise = Promise.resolve(factory(this._registry));
+			const promise = Promise.resolve().then(() => {
+				// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
+				// factory is registered through this method or loaded from a definition.
+				return factory(this._registry);
+			});
 			registryHandle.destroy();
 			registryHandle = this._actions.register(id, () => promise);
 
@@ -342,7 +346,11 @@ export default class App implements CombinedRegistry {
 	 */
 	registerStoreFactory(id: Identifier, factory: StoreFactory): Handle {
 		let registryHandle = this._stores.register(id, () => {
-			const promise = Promise.resolve(factory());
+			const promise = Promise.resolve().then(() => {
+				// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
+				// factory is registered through this method or loaded from a definition.
+				return factory();
+			});
 			registryHandle.destroy();
 			registryHandle = this._stores.register(id, () => promise);
 			return promise;
@@ -389,7 +397,11 @@ export default class App implements CombinedRegistry {
 	 */
 	registerWidgetFactory(id: Identifier, factory: WidgetFactory): Handle {
 		let registryHandle = this._widgets.register(id, () => {
-			const promise = Promise.resolve(factory());
+			const promise = Promise.resolve().then(() => {
+				// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
+				// factory is registered through this method or loaded from a definition.
+				return factory();
+			});
 			registryHandle.destroy();
 			registryHandle = this._widgets.register(id, () => promise);
 			return promise;
