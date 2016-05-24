@@ -21,7 +21,6 @@
 		"dojo-actions": "dojo/actions#registerable",
 		"dojo-compose": "^2.0.0-beta.2",
 		"dojo-core": "^2.0.0-alpha.5",
-		"dojo-widgets": "dojo/widgets",
 		"immutable": "^3.7.6",
 		"maquette": "^2.3.1"
 	},
