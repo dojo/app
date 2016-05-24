@@ -485,7 +485,7 @@ export default class App implements CombinedRegistry {
 		const mid = <string> factory;
 		return this._resolveMid(mid).then((factory) => {
 			if (typeof factory !== 'function') {
-				throw new Error(`Could not resolve ${mid} to ${errorStrings[type]} factory function`);
+				throw new Error(`Could not resolve '${mid}' to ${errorStrings[type]} factory function`);
 			}
 
 			return factory;

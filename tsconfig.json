@@ -28,6 +28,10 @@
 		"./src/App.ts",
 		"./src/IdentityRegistry.ts",
 		"./src/main.ts",
+		"./tests/fixtures/action-factory.ts",
+		"./tests/fixtures/no-factory-export.ts",
+		"./tests/fixtures/store-factory.ts",
+		"./tests/fixtures/widget-factory.ts",
 		"./tests/functional/all.ts",
 		"./tests/intern-local.ts",
 		"./tests/intern-saucelabs.ts",
@@ -35,6 +39,7 @@
 		"./tests/support/Reporter.ts",
 		"./tests/support/util.ts",
 		"./tests/unit/all.ts",
+		"./tests/unit/App.ts",
 		"./tests/unit/IdentityRegistry.ts"
 	]
 }
