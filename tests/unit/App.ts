@@ -12,8 +12,11 @@ import App, {
 } from 'src/App';
 
 import { stub as stubActionFactory } from '../fixtures/action-factory';
+import actionInstanceFixture from '../fixtures/action-instance';
 import { stub as stubStoreFactory } from '../fixtures/store-factory';
+import storeInstanceFixture from '../fixtures/store-instance';
 import { stub as stubWidgetFactory } from '../fixtures/widget-factory';
+import widgetInstanceFixture from '../fixtures/widget-instance';
 
 const { toAbsMid } = require;
 
@@ -51,17 +54,17 @@ function isCombinedRegistry(registry: CombinedRegistry): void {
 	assert.isFunction(registry.hasWidget);
 }
 
-function createAction() {
+function createAction(): ActionLike {
 	return <ActionLike> {
 		register (registry: Object) {}
 	};
 }
 
-function createStore() {
+function createStore(): StoreLike {
 	return <StoreLike> {};
 }
 
-function createWidget() {
+function createWidget(): WidgetLike {
 	return <WidgetLike> {};
 }
 
@@ -784,6 +787,18 @@ registerSuite({
 				}
 			},
 
+			'requires factory or instance option'() {
+				assert.throws(() => {
+					new App().loadDefinition({
+						actions: [
+							{
+								id: 'foo'
+							}
+						]
+					});
+				}, Error, 'Action definitions must specify either the factory or instance option');
+			},
+
 			'with factory option': {
 				'can be a method'() {
 					const expected = createAction();
@@ -972,6 +987,66 @@ registerSuite({
 						isCombinedRegistry(registries.bar);
 					});
 				}
+			},
+
+			'with instance option': {
+				'can be an instance'() {
+					const expected = createAction();
+
+					const app = new App();
+					app.loadDefinition({
+						actions: [
+							{
+								id: 'foo',
+								instance: expected
+							}
+						]
+					});
+
+					return strictEqual(app.getAction('foo'), expected);
+				},
+
+				'can be a module identifier'() {
+					const app = new App({ toAbsMid });
+					app.loadDefinition({
+						actions: [
+							{
+								id: 'foo',
+								instance: '../fixtures/action-instance'
+							}
+						]
+					});
+
+					return strictEqual(app.getAction('foo'), actionInstanceFixture);
+				},
+
+				'cannot get action if identified module has no default instance export'() {
+					const app = new App({ toAbsMid });
+					app.loadDefinition({
+						actions: [
+							{
+								id: 'foo',
+								instance: '../fixtures/no-instance-export'
+							}
+						]
+					});
+
+					return rejects(app.getAction('foo'), Error, 'Could not resolve \'../fixtures/no-instance-export\' to an action instance');
+				},
+
+				'stateFrom option is not allowed'() {
+					assert.throws(() => {
+						new App().loadDefinition({
+							actions: [
+								{
+									id: 'foo',
+									instance: createAction(),
+									stateFrom: 'store'
+								}
+							]
+						});
+					}, Error, 'Cannot specify stateFrom option when action definition points directly at an instance');
+				}
 			}
 		},
 
@@ -1003,6 +1078,18 @@ registerSuite({
 					strictEqual(app.getStore('foo'), expected.foo),
 					strictEqual(app.getStore('bar'), expected.bar)
 				]);
+			},
+
+			'requires factory or instance option'() {
+				assert.throws(() => {
+					new App().loadDefinition({
+						stores: [
+							{
+								id: 'foo'
+							}
+						]
+					});
+				}, Error, 'Store definitions must specify either the factory or instance option');
 			},
 
 			'with factory option': {
@@ -1201,6 +1288,66 @@ registerSuite({
 						assert.notStrictEqual(actual.bar, expected.bar);
 					});
 				}
+			},
+
+			'with instance option': {
+				'can be an instance'() {
+					const expected = createStore();
+
+					const app = new App();
+					app.loadDefinition({
+						stores: [
+							{
+								id: 'foo',
+								instance: expected
+							}
+						]
+					});
+
+					return strictEqual(app.getStore('foo'), expected);
+				},
+
+				'can be a module identifier'() {
+					const app = new App({ toAbsMid });
+					app.loadDefinition({
+						stores: [
+							{
+								id: 'foo',
+								instance: '../fixtures/store-instance'
+							}
+						]
+					});
+
+					return strictEqual(app.getStore('foo'), storeInstanceFixture);
+				},
+
+				'cannot get store if identified module has no default instance export'() {
+					const app = new App({ toAbsMid });
+					app.loadDefinition({
+						stores: [
+							{
+								id: 'foo',
+								instance: '../fixtures/no-instance-export'
+							}
+						]
+					});
+
+					return rejects(app.getStore('foo'), Error, 'Could not resolve \'../fixtures/no-instance-export\' to a store instance');
+				},
+
+				'options option is not allowed'() {
+					assert.throws(() => {
+						new App().loadDefinition({
+							stores: [
+								{
+									id: 'foo',
+									instance: createStore(),
+									options: {}
+								}
+							]
+						});
+					}, Error, 'Cannot specify options when store definition points directly at an instance');
+				}
 			}
 		},
 
@@ -1281,6 +1428,18 @@ registerSuite({
 
 					return rejects(app.getWidget('foo'), Error);
 				}
+			},
+
+			'requires factory or instance option'() {
+				assert.throws(() => {
+					new App().loadDefinition({
+						widgets: [
+							{
+								id: 'foo'
+							}
+						]
+					});
+				}, Error, 'Widget definitions must specify either the factory or instance option');
 			},
 
 			'with factory option': {
@@ -1502,6 +1661,80 @@ registerSuite({
 							assert.strictEqual(actual, expected);
 						});
 					}
+				}
+			},
+
+			'with instance option': {
+				'can be an instance'() {
+					const expected = createWidget();
+
+					const app = new App();
+					app.loadDefinition({
+						widgets: [
+							{
+								id: 'foo',
+								instance: expected
+							}
+						]
+					});
+
+					return strictEqual(app.getWidget('foo'), expected);
+				},
+
+				'can be a module identifier'() {
+					const app = new App({ toAbsMid });
+					app.loadDefinition({
+						widgets: [
+							{
+								id: 'foo',
+								instance: '../fixtures/widget-instance'
+							}
+						]
+					});
+
+					return strictEqual(app.getWidget('foo'), widgetInstanceFixture);
+				},
+
+				'cannot get widget if identified module has no default instance export'() {
+					const app = new App({ toAbsMid });
+					app.loadDefinition({
+						widgets: [
+							{
+								id: 'foo',
+								instance: '../fixtures/no-instance-export'
+							}
+						]
+					});
+
+					return rejects(app.getWidget('foo'), Error, 'Could not resolve \'../fixtures/no-instance-export\' to a widget instance');
+				},
+
+				'stateFrom option is not allowed'() {
+					assert.throws(() => {
+						new App().loadDefinition({
+							widgets: [
+								{
+									id: 'foo',
+									instance: createWidget(),
+									stateFrom: 'store'
+								}
+							]
+						});
+					}, Error, 'Cannot specify stateFrom option when widget definition points directly at an instance');
+				},
+
+				'options option is not allowed'() {
+					assert.throws(() => {
+						new App().loadDefinition({
+							widgets: [
+								{
+									id: 'foo',
+									instance: createWidget(),
+									options: {}
+								}
+							]
+						});
+					}, Error, 'Cannot specify options when widget definition points directly at an instance');
 				}
 			}
 		},
