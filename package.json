@@ -18,10 +18,10 @@
 	"typings": "./typings/dist/umd/dojo-app.d.ts",
 	"peerDependencies": {
 		"@reactivex/rxjs": "5.0.0-beta.6",
-		"dojo-actions": "^2.0.0-alpha.1",
+		"dojo-actions": "dojo/actions#registerable",
 		"dojo-compose": "^2.0.0-beta.2",
 		"dojo-core": "^2.0.0-alpha.5",
-		"dojo-widgets": ">=2.0.0-alpha",
+		"dojo-widgets": "dojo/widgets",
 		"immutable": "^3.7.6",
 		"maquette": "^2.3.1"
 	},
