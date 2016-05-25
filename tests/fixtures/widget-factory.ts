@@ -1,4 +1,4 @@
-import { WidgetFactory } from 'src/App';
+import { WidgetFactory } from 'src/createApp';
 
 let factory: WidgetFactory = null;
 
