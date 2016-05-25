@@ -179,7 +179,7 @@ export interface ActionDefinition extends ItemDefinition<ActionFactory, ActionLi
 	 *
 	 * When the action is created it'll automatically observe this store.
 	 */
-	stateFrom?: Identifier;
+	stateFrom?: Identifier | StoreLike;
 }
 
 /**
@@ -203,7 +203,7 @@ export interface WidgetDefinition extends ItemDefinition<WidgetFactory, WidgetLi
 	 *
 	 * When the widget is created, the store is passed as the `stateFrom` option.
 	 */
-	stateFrom?: Identifier;
+	stateFrom?: Identifier | StoreLike;
 
 	/**
 	 * Optional options object passed to the widget factory. Must not contain `id` and `stateFrom` properties.
@@ -252,6 +252,19 @@ function resolveListeners(registry: CombinedRegistry, definition: WidgetDefiniti
 			return promise;
 		});
 	}, Promise.resolve(map));
+}
+
+function resolveStore(registry: CombinedRegistry, definition: ActionDefinition | WidgetDefinition): void | StoreLike | Promise<StoreLike> {
+	const { stateFrom } = definition;
+	if (!stateFrom) {
+		return null;
+	}
+
+	if (typeof stateFrom !== 'string') {
+		return stateFrom;
+	}
+
+	return registry.getStore(<string> stateFrom);
 }
 
 export interface AppMixin {
@@ -540,25 +553,24 @@ const createApp = compose({
 			throw new Error('Cannot specify stateFrom option when action definition points directly at an instance');
 		}
 
-		const { id, stateFrom } = definition;
-
 		return (registry: CombinedRegistry) => {
-			const actionPromise = (<App> this)._resolveFactory('action', definition).then((factory) => {
-				return factory(registry);
-			});
-			const storePromise = stateFrom && registry.getStore(stateFrom);
+			return Promise.all<any>([
+				(<App> this)._resolveFactory('action', definition).then((factory) => {
+					return factory(registry);
+				}),
+				resolveStore(registry, definition)
+			]).then((values) => {
+				let action: ActionLike;
+				let store: StoreLike;
+				[action, store] = values;
 
-			return actionPromise.then((action) => {
-				if (!storePromise) {
-					return action;
-				}
-
-				return storePromise.then((store) => {
+				if (store) {
 					// No options are passed to the factory, since the do() implementation cannot be specified in
 					// action definitions. This means the state observation has to be done after the action is created.
-					action.own(action.observeState(id, store));
-					return action;
-				});
+					action.own(action.observeState(definition.id, store));
+				}
+
+				return action;
 			});
 		};
 	},
@@ -596,18 +608,17 @@ const createApp = compose({
 			}
 		}
 
-		const { id, stateFrom } = definition;
 		let { options } = definition;
 		if (options && ('id' in options || 'listeners' in options || 'stateFrom' in options)) {
 			throw new Error('id, listeners and stateFrom options should be in the widget definition itself, not its options value');
 		}
-		options = Object.assign({ id }, options);
+		options = Object.assign({ id: definition.id }, options);
 
 		return () => {
 			return Promise.all<any>([
 				(<App> this)._resolveFactory('widget', definition),
 				resolveListeners(this, definition),
-				stateFrom && (<App> this).getStore(stateFrom)
+				resolveStore(this, definition)
 			]).then((values) => {
 				let factory: WidgetFactory;
 				let listeners: EventedListenersMap;
