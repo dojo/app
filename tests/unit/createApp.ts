@@ -1,3 +1,4 @@
+import { EventedListener } from 'dojo-compose/mixins/createEvented';
 import { Handle } from 'dojo-core/interfaces';
 import Promise from 'dojo-core/Promise';
 import * as registerSuite from 'intern!object';
@@ -1394,7 +1395,25 @@ registerSuite({
 							}
 						]
 					});
-				}, Error, 'id and stateFrom options should be in the widget definition itself, not its options value');
+				}, Error, 'id, listeners and stateFrom options should be in the widget definition itself, not its options value');
+			},
+
+			'options cannot include the listeners property'() {
+				assert.throws(() => {
+					createApp().loadDefinition({
+						widgets: [
+							{
+								id: 'foo',
+								factory: createWidget,
+								options: {
+									listeners: {
+										event: 'action'
+									}
+								}
+							}
+						]
+					});
+				}, Error, 'id, listeners and stateFrom options should be in the widget definition itself, not its options value');
 			},
 
 			'options cannot include the stateFrom property'() {
@@ -1410,7 +1429,26 @@ registerSuite({
 							}
 						]
 					});
-				}, Error, 'id and stateFrom options should be in the widget definition itself, not its options value');
+				}, Error, 'id, listeners and stateFrom options should be in the widget definition itself, not its options value');
+			},
+
+			'with listeners option': {
+				'refers to an action that is not registered'() {
+					const app = createApp();
+					app.loadDefinition({
+						widgets: [
+							{
+								id: 'foo',
+								factory: createWidget,
+								listeners: {
+									event: 'action'
+								}
+							}
+						]
+					});
+
+					return rejects(app.getWidget('foo'), Error);
+				}
 			},
 
 			'with stateFrom option': {
@@ -1637,6 +1675,71 @@ registerSuite({
 					});
 				},
 
+				'with listeners option': {
+					'factory is passed action references in its listeners option'() {
+						const expected = {
+							foo: createAction(),
+							bar: createAction()
+						};
+						let actual: { [type: string]: EventedListener<any> } = null;
+
+						const app = createApp();
+						app.registerAction('foo', expected.foo);
+						app.registerAction('bar', expected.bar);
+						app.loadDefinition({
+							widgets: [
+								{
+									id: 'foo',
+									factory(options: any) {
+										actual = options.listeners;
+										return createWidget();
+									},
+									listeners: {
+										foo: 'foo',
+										bar: 'bar'
+									}
+								}
+							]
+						});
+
+						return app.getWidget('foo').then(() => {
+							assert.strictEqual(actual['foo'], expected.foo);
+							assert.strictEqual(actual['bar'], expected.bar);
+						});
+					},
+
+					'listeners may be functions, rather than action identifiers'() {
+						const expected = {
+							foo: createAction(),
+							bar(evt: any) {}
+						};
+						let actual: { [type: string]: EventedListener<any> } = null;
+
+						const app = createApp();
+						app.registerAction('foo', expected.foo);
+						app.loadDefinition({
+							widgets: [
+								{
+									id: 'foo',
+									factory(options: any) {
+										actual = options.listeners;
+										return createWidget();
+									},
+									listeners: {
+										foo: 'foo',
+										bar: expected.bar
+									}
+								}
+							]
+						});
+
+						return app.getWidget('foo').then(() => {
+							assert.strictEqual(actual['foo'], expected.foo);
+							assert.strictEqual(actual['bar'], expected.bar);
+						});
+					}
+				},
+
 				'with stateFrom option': {
 					'factory is passed a store reference in its stateFrom option'() {
 						const expected = createStore();
@@ -1707,6 +1810,22 @@ registerSuite({
 					});
 
 					return rejects(app.getWidget('foo'), Error, 'Could not resolve \'../fixtures/no-instance-export\' to a widget instance');
+				},
+
+				'listeners option is not allowed'() {
+					assert.throws(() => {
+						createApp().loadDefinition({
+							widgets: [
+								{
+									id: 'foo',
+									instance: createWidget(),
+									listeners: {
+										event: 'action'
+									}
+								}
+							]
+						});
+					}, Error, 'Cannot specify listeners option when widget definition points directly at an instance');
 				},
 
 				'stateFrom option is not allowed'() {
