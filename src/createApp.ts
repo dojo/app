@@ -1,5 +1,6 @@
 import { Action } from 'dojo-actions/createAction';
 import compose, { ComposeFactory } from 'dojo-compose/compose';
+import { EventedListener, EventedListenersMap } from 'dojo-compose/mixins/createEvented';
 import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
 import Promise from 'dojo-core/Promise';
@@ -196,6 +197,11 @@ export interface StoreDefinition extends ItemDefinition<StoreFactory, StoreLike>
  */
 export interface WidgetDefinition extends ItemDefinition<WidgetFactory, WidgetLike> {
 	/**
+	 * Any listeners that should automatically be attached to the widget.
+	 */
+	listeners?: WidgetListenersMap;
+
+	/**
 	 * Identifier of a store which the widget should observe for its state.
 	 *
 	 * When the widget is created, the store is passed as the `stateFrom` option.
@@ -206,6 +212,20 @@ export interface WidgetDefinition extends ItemDefinition<WidgetFactory, WidgetLi
 	 * Optional options object passed to the widget factory. Must not contain `id` and `stateFrom` properties.
 	 */
 	options?: Object;
+}
+
+/**
+ * A listener for widgets, as used in definitions. May be an identifier for an action or an actual event listener.
+ */
+export type WidgetListener = Identifier | EventedListener<any>;
+
+export type WidgetListenerOrArray = WidgetListener | WidgetListener[];
+
+/**
+ * A map of listeners where the key is the event type.
+ */
+export interface WidgetListenersMap {
+	[eventType: string]: WidgetListenerOrArray;
 }
 
 export type Factory = ActionFactory | StoreFactory | WidgetFactory;
@@ -224,6 +244,55 @@ interface RegisteredFactory<T> {
 const actions = new WeakMap<App, IdentityRegistry<RegisteredFactory<ActionLike>>>();
 const stores = new WeakMap<App, IdentityRegistry<RegisteredFactory<StoreLike>>>();
 const widgets = new WeakMap<App, IdentityRegistry<RegisteredFactory<WidgetLike>>>();
+
+function resolveListeners(registry: CombinedRegistry, ref: WidgetListenerOrArray): { value?: any; promise?: Promise<any>; } {
+	if (Array.isArray(ref)) {
+		const resolved = ref.map((item) => {
+			return resolveListeners(registry, item);
+		});
+
+		let isSync = true;
+		const values: any[] = [];
+		for (const result of resolved) {
+			if (result.value) {
+				values.push(result.value);
+			} else {
+				isSync = false;
+				values.push(result.promise);
+			}
+		}
+
+		return isSync ? { value: values } : { promise: Promise.all(values) };
+	}
+
+	if (typeof ref !== 'string') {
+		return { value: ref };
+	}
+
+	return { promise: registry.getAction(<string> ref) };
+}
+
+function resolveListenersMap(registry: CombinedRegistry, definition: WidgetDefinition) {
+	const { listeners: defined } = definition;
+	if (!defined) {
+		return null;
+	}
+
+	const map: EventedListenersMap = {};
+	const eventTypes = Object.keys(defined);
+	return eventTypes.reduce((promise, eventType) => {
+		const resolved = resolveListeners(registry, defined[eventType]);
+		if (resolved.value) {
+			map[eventType] = resolved.value;
+			return promise;
+		}
+
+		return resolved.promise.then((value) => {
+			map[eventType] = value;
+			return promise;
+		});
+	}, Promise.resolve(map));
+}
 
 export interface AppMixin {
 	/**
@@ -556,6 +625,9 @@ const createApp = compose({
 			throw new Error('Widget definitions must specify either the factory or instance option');
 		}
 		if ('instance' in definition) {
+			if ('listeners' in definition) {
+				throw new Error('Cannot specify listeners option when widget definition points directly at an instance');
+			}
 			if ('stateFrom' in definition) {
 				throw new Error('Cannot specify stateFrom option when widget definition points directly at an instance');
 			}
@@ -566,24 +638,31 @@ const createApp = compose({
 
 		const { id, stateFrom } = definition;
 		let { options } = definition;
-		if (options && ('id' in options || 'stateFrom' in options)) {
-			throw new Error('id and stateFrom options should be in the widget definition itself, not its options value');
+		if (options && ('id' in options || 'listeners' in options || 'stateFrom' in options)) {
+			throw new Error('id, listeners and stateFrom options should be in the widget definition itself, not its options value');
 		}
 		options = Object.assign({ id }, options);
 
 		return () => {
-			const factoryPromise = (<App> this)._resolveFactory('widget', definition);
-			const storePromise = stateFrom && (<App> this).getStore(stateFrom);
+			return Promise.all<any>([
+				(<App> this)._resolveFactory('widget', definition),
+				resolveListenersMap(this, definition),
+				stateFrom && (<App> this).getStore(stateFrom)
+			]).then((values) => {
+				let factory: WidgetFactory;
+				let listeners: EventedListenersMap;
+				let store: StoreLike;
+				[factory, listeners, store] = values;
 
-			return factoryPromise.then((factory) => {
-				if (!storePromise) {
-					return factory(options);
+				if (listeners) {
+					(<any> options).listeners = listeners;
 				}
 
-				return storePromise.then((store) => {
+				if (store) {
 					(<any> options).stateFrom = store;
-					return factory(options);
-				});
+				}
+
+				return factory(options);
 			});
 		};
 	}
