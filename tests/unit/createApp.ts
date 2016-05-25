@@ -57,7 +57,7 @@ function isCombinedRegistry(registry: CombinedRegistry): void {
 
 function createAction(): ActionLike {
 	return <ActionLike> {
-		register (registry: Object) {}
+		configure (configuration: Object) {}
 	};
 }
 
@@ -101,26 +101,94 @@ registerSuite({
 	},
 
 	'#registerAction': {
-		'calls register() on the action'() {
+		'calls configure() on the action when the action is needed'() {
 			let called = false;
 			const action = createAction();
-			action.register = () => { called = true; };
+			action.configure = () => { called = true; };
 
 			const app = createApp();
 			app.registerAction('foo', action);
 
-			assert.isTrue(called);
+			assert.isFalse(called);
+			return app.getAction('foo').then(() => {
+				assert.isTrue(called);
+			});
 		},
 
-		'action.register() is passed a combined registry'() {
-			let registry: CombinedRegistry = null;
+		'action is only configured once'() {
+			let count = 0;
 			const action = createAction();
-			action.register = (actual: CombinedRegistry) => { registry = actual; };
+			action.configure = () => { count++; };
 
 			const app = createApp();
 			app.registerAction('foo', action);
 
-			isCombinedRegistry(registry);
+			return Promise.all([
+				app.getAction('foo'),
+				app.getAction('foo')
+			]).then(() => {
+				assert.equal(count, 1);
+			});
+		},
+
+		'action.configure() is passed a combined registry'() {
+			let registry: CombinedRegistry = null;
+			const action = createAction();
+			action.configure = (actual: CombinedRegistry) => { registry = actual; };
+
+			const app = createApp();
+			app.registerAction('foo', action);
+
+			return app.getAction('foo').then(() => {
+				isCombinedRegistry(registry);
+			});
+		},
+
+		'getAction() rejects if action.configure() throws'() {
+			const expected = new Error();
+			const action = createAction();
+			action.configure = () => { throw expected; };
+
+			const app = createApp();
+			app.registerAction('foo', action);
+
+			return strictEqual(invert(app.getAction('foo')), expected);
+		},
+
+		'getAction() rejects if action.configure() returns a rejected promise'() {
+			const expected = new Error();
+			const action = createAction();
+			action.configure = () => Promise.reject(expected);
+
+			const app = createApp();
+			app.registerAction('foo', action);
+
+			return strictEqual(invert(app.getAction('foo')), expected);
+		},
+
+		'getAction() remains pending until action.configure() returns a fulfilled promise'() {
+			let fulfil: Function;
+			const promise = new Promise<void>((resolve) => {
+				fulfil = resolve;
+			});
+
+			const action = createAction();
+			action.configure = () => promise;
+
+			const app = createApp();
+			app.registerAction('foo', action);
+
+			let gotAction = false;
+			const actionPromise = app.getAction('foo').then((action) => {
+				gotAction = true;
+			});
+			return Promise.race([actionPromise, new Promise<void>((resolve) => setTimeout(resolve, 10))]).then(() => {
+				assert.isFalse(gotAction);
+				fulfil();
+				return actionPromise;
+			}).then(() => {
+				assert.isTrue(gotAction);
+			});
 		},
 
 		'destroying the returned handle': {
@@ -132,33 +200,16 @@ registerSuite({
 				assert.isFalse(app.hasAction('foo'));
 			},
 
-			'destroys the action.register() handle, if any'() {
-				let destroyed = false;
-				const nested = { destroy() { destroyed = true; } };
-				const action = createAction();
-				action.register = () => nested;
-
-				const handle = createApp().registerAction('foo', action);
-				handle.destroy();
-
-				assert.isTrue(destroyed);
-			},
-
 			'a second time has no effect'() {
-				let destroyed = false;
-				const nested = { destroy() { destroyed = true; } };
 				const action = createAction();
-				action.register = () => nested;
 
 				const app = createApp();
 				const handle = app.registerAction('foo', action);
 
 				handle.destroy();
-				destroyed = false;
 				handle.destroy();
 
 				assert.isFalse(app.hasAction('foo'));
-				assert.isFalse(destroyed);
 			}
 		}
 	},
@@ -245,10 +296,10 @@ registerSuite({
 			});
 		},
 
-		'calls register() on the action'() {
+		'calls configure() on the action'() {
 			let called = false;
 			const action = createAction();
-			action.register = () => { called = true; };
+			action.configure = () => { called = true; };
 
 			const app = createApp();
 			app.registerActionFactory('foo', () => action);
@@ -258,16 +309,63 @@ registerSuite({
 			});
 		},
 
-		'action.register() is passed a combined registry'() {
+		'action.configure() is passed a combined registry'() {
 			let registry: CombinedRegistry = null;
 			const action = createAction();
-			action.register = (actual: CombinedRegistry) => { registry = actual; };
+			action.configure = (actual: CombinedRegistry) => { registry = actual; };
 
 			const app = createApp();
 			app.registerActionFactory('foo', () => action);
 
 			return app.getAction('foo').then(() => {
 				isCombinedRegistry(registry);
+			});
+		},
+
+		'getAction() rejects if action.configure() throws'() {
+			const expected = new Error();
+			const action = createAction();
+			action.configure = () => { throw expected; };
+
+			const app = createApp();
+			app.registerActionFactory('foo', () => action);
+
+			return strictEqual(invert(app.getAction('foo')), expected);
+		},
+
+		'getAction() rejects if action.configure() returns a rejected promise'() {
+			const expected = new Error();
+			const action = createAction();
+			action.configure = () => Promise.reject(expected);
+
+			const app = createApp();
+			app.registerActionFactory('foo', () => action);
+
+			return strictEqual(invert(app.getAction('foo')), expected);
+		},
+
+		'getAction() remains pending until action.configure() returns a fulfilled promise'() {
+			let fulfil: Function;
+			const promise = new Promise<void>((resolve) => {
+				fulfil = resolve;
+			});
+
+			const action = createAction();
+			action.configure = () => promise;
+
+			const app = createApp();
+			app.registerActionFactory('foo', () => action);
+
+			let gotAction = false;
+			const actionPromise = app.getAction('foo').then((action) => {
+				gotAction = true;
+			});
+			return Promise.race([actionPromise, new Promise<void>((resolve) => setTimeout(resolve, 10))]).then(() => {
+				assert.isFalse(gotAction);
+				fulfil();
+				return actionPromise;
+			}).then(() => {
+				assert.isTrue(gotAction);
 			});
 		},
 
@@ -291,60 +389,17 @@ registerSuite({
 				});
 			},
 
-			'prevents action.register() being called if destroyed during action creation'() {
-				let called = false;
-				const action = createAction();
-				action.register = () => { called = true; };
-
-				let finishCreate: Function = null;
-				const creation = new Promise<ActionLike>((resolve) => {
-					finishCreate = () => resolve(action);
-				});
-
-				const app = createApp();
-				const handle = app.registerActionFactory('foo', () => creation);
-				const promise = app.getAction('foo');
-
-				handle.destroy();
-				finishCreate();
-
-				return promise.then(() => {
-					assert.isFalse(called);
-				});
-			},
-
-			'destroys the action.register() handle, if any'() {
-				let destroyed = false;
-				const nested = { destroy() { destroyed = true; } };
-				const action = createAction();
-				action.register = () => nested;
-
-				const app = createApp();
-				const handle = app.registerActionFactory('foo', () => action);
-
-				return app.getAction('foo').then(() => {
-					handle.destroy();
-
-					assert.isTrue(destroyed);
-				});
-			},
-
 			'a second time has no effect'() {
-				let destroyed = false;
-				const nested = { destroy() { destroyed = true; } };
 				const action = createAction();
-				action.register = () => nested;
 
 				const app = createApp();
 				const handle = app.registerActionFactory('foo', () => action);
 
 				return app.getAction('foo').then(() => {
 					handle.destroy();
-					destroyed = false;
 					handle.destroy();
 
 					assert.isFalse(app.hasAction('foo'));
-					assert.isFalse(destroyed);
 				});
 			}
 		}
@@ -692,10 +747,10 @@ registerSuite({
 				]);
 			},
 
-			'calls register() on the action'() {
+			'calls configure() on the action'() {
 				let called = false;
 				const action = createAction();
-				action.register = () => { called = true; };
+				action.configure = () => { called = true; };
 
 				const app = createApp();
 				app.loadDefinition({
@@ -712,10 +767,10 @@ registerSuite({
 				});
 			},
 
-			'action.register() is passed a combined registry'() {
+			'action.configure() is passed a combined registry'() {
 				let registry: CombinedRegistry = null;
 				const action = createAction();
-				action.register = (actual: CombinedRegistry) => { registry = actual; };
+				action.configure = (actual: CombinedRegistry) => { registry = actual; };
 
 				const app = createApp();
 				app.loadDefinition({
@@ -729,6 +784,74 @@ registerSuite({
 
 				return app.getAction('foo').then(() => {
 					isCombinedRegistry(registry);
+				});
+			},
+
+			'getAction() rejects if action.configure() throws'() {
+				const expected = new Error();
+				const action = createAction();
+				action.configure = () => { throw expected; };
+
+				const app = createApp();
+				app.loadDefinition({
+					actions: [
+						{
+							id: 'foo',
+							factory: () => action
+						}
+					]
+				});
+
+				return strictEqual(invert(app.getAction('foo')), expected);
+			},
+
+			'getAction() rejects if action.configure() returns a rejected promise'() {
+				const expected = new Error();
+				const action = createAction();
+				action.configure = () => Promise.reject(expected);
+
+				const app = createApp();
+				app.loadDefinition({
+					actions: [
+						{
+							id: 'foo',
+							factory: () => action
+						}
+					]
+				});
+
+				return strictEqual(invert(app.getAction('foo')), expected);
+			},
+
+			'getAction() remains pending until action.configure() returns a fulfilled promise'() {
+				let fulfil: Function;
+				const promise = new Promise<void>((resolve) => {
+					fulfil = resolve;
+				});
+
+				const action = createAction();
+				action.configure = () => promise;
+
+				const app = createApp();
+				app.loadDefinition({
+					actions: [
+						{
+							id: 'foo',
+							factory: () => action
+						}
+					]
+				});
+
+				let gotAction = false;
+				const actionPromise = app.getAction('foo').then((action) => {
+					gotAction = true;
+				});
+				return Promise.race([actionPromise, new Promise<void>((resolve) => setTimeout(resolve, 10))]).then(() => {
+					assert.isFalse(gotAction);
+					fulfil();
+					return actionPromise;
+				}).then(() => {
+					assert.isTrue(gotAction);
 				});
 			},
 

@@ -365,24 +365,25 @@ export interface AppFactory extends ComposeFactory<App, AppOptions> {}
 
 const createApp = compose({
 	registerAction(id: Identifier, action: ActionLike): Handle {
-		const promise: Promise<ActionLike> = Promise.resolve(action);
-		const registryHandle = actions.get(this).register(id, () => promise);
-		const actionHandle = action.register(this._registry);
+		let registryHandle = actions.get(this).register(id, () => {
+			const promise = new Promise<void>((resolve) => {
+				resolve(action.configure(this._registry));
+			}).then(() => action);
+			registryHandle.destroy();
+			registryHandle = actions.get(this).register(id, () => promise);
+
+			return promise;
+		});
+
 		return {
 			destroy() {
 				this.destroy = noop;
 				registryHandle.destroy();
-				if (actionHandle) {
-					(<Handle> actionHandle).destroy();
-				}
 			}
 		};
 	},
 
 	registerActionFactory(id: Identifier, factory: ActionFactory): Handle {
-		let destroyed = false;
-
-		let actionHandle: Handle | void;
 		let registryHandle = actions.get(this).register(id, () => {
 			const promise = Promise.resolve().then(() => {
 				// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
@@ -393,23 +394,14 @@ const createApp = compose({
 			registryHandle = actions.get(this).register(id, () => promise);
 
 			return promise.then((action) => {
-				if (!destroyed) {
-					actionHandle = action.register(this._registry);
-				}
-
-				return action;
+				return Promise.resolve(action.configure(this._registry)).then(() => action);
 			});
 		});
 
 		return {
 			destroy() {
 				this.destroy = noop;
-				destroyed = true;
-
 				registryHandle.destroy();
-				if (actionHandle) {
-					(<Handle> actionHandle).destroy();
-				}
 			}
 		};
 	},
