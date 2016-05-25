@@ -2,6 +2,7 @@ import { Action } from 'dojo-actions/createAction';
 import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
 import Promise from 'dojo-core/Promise';
+import WeakMap from 'dojo-core/WeakMap';
 
 import IdentityRegistry from './IdentityRegistry';
 
@@ -219,10 +220,11 @@ interface RegisteredFactory<T> {
 	(): Promise<T>;
 }
 
+const actions = new WeakMap<App, IdentityRegistry<RegisteredFactory<ActionLike>>>();
+const stores = new WeakMap<App, IdentityRegistry<RegisteredFactory<StoreLike>>>();
+const widgets = new WeakMap<App, IdentityRegistry<RegisteredFactory<WidgetLike>>>();
+
 export default class App implements CombinedRegistry {
-	private _actions = new IdentityRegistry<RegisteredFactory<ActionLike>>();
-	private _stores = new IdentityRegistry<RegisteredFactory<StoreLike>>();
-	private _widgets = new IdentityRegistry<RegisteredFactory<WidgetLike>>();
 	private _registry: CombinedRegistry;
 	private _toAbsMid: ToAbsMid;
 
@@ -238,16 +240,20 @@ export default class App implements CombinedRegistry {
 			hasWidget: this.hasWidget.bind(this)
 		};
 		Object.freeze(this._registry);
+
+		actions.set(this, new IdentityRegistry<RegisteredFactory<ActionLike>>());
+		stores.set(this, new IdentityRegistry<RegisteredFactory<StoreLike>>());
+		widgets.set(this, new IdentityRegistry<RegisteredFactory<WidgetLike>>());
 	}
 
 	getAction(id: Identifier): Promise<ActionLike> {
 		return new Promise((resolve) => {
-			resolve(this._actions.get(id)());
+			resolve(actions.get(this).get(id)());
 		});
 	}
 
 	hasAction(id: Identifier): boolean {
-		return this._actions.hasId(id);
+		return actions.get(this).hasId(id);
 	}
 
 	/**
@@ -259,7 +265,7 @@ export default class App implements CombinedRegistry {
 	 */
 	registerAction(id: Identifier, action: ActionLike): Handle {
 		const promise: Promise<ActionLike> = Promise.resolve(action);
-		const registryHandle = this._actions.register(id, () => promise);
+		const registryHandle = actions.get(this).register(id, () => promise);
 		const actionHandle = action.register(this._registry);
 		return {
 			destroy() {
@@ -289,14 +295,14 @@ export default class App implements CombinedRegistry {
 		let destroyed = false;
 
 		let actionHandle: Handle | void;
-		let registryHandle = this._actions.register(id, () => {
+		let registryHandle = actions.get(this).register(id, () => {
 			const promise = Promise.resolve().then(() => {
 				// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
 				// factory is registered through this method or loaded from a definition.
 				return factory(this._registry);
 			});
 			registryHandle.destroy();
-			registryHandle = this._actions.register(id, () => promise);
+			registryHandle = actions.get(this).register(id, () => promise);
 
 			return promise.then((action) => {
 				if (!destroyed) {
@@ -322,12 +328,12 @@ export default class App implements CombinedRegistry {
 
 	getStore(id: Identifier): Promise<StoreLike> {
 		return new Promise((resolve) => {
-			resolve(this._stores.get(id)());
+			resolve(stores.get(this).get(id)());
 		});
 	}
 
 	hasStore(id: Identifier): boolean {
-		return this._stores.hasId(id);
+		return stores.get(this).hasId(id);
 	}
 
 	/**
@@ -339,7 +345,7 @@ export default class App implements CombinedRegistry {
 	 */
 	registerStore(id: Identifier, store: StoreLike): Handle {
 		const promise = Promise.resolve(store);
-		return this._stores.register(id, () => promise);
+		return stores.get(this).register(id, () => promise);
 	}
 
 	/**
@@ -352,14 +358,14 @@ export default class App implements CombinedRegistry {
 	 * @return A handle to deregister the store factory, or the store itself once it's been created
 	 */
 	registerStoreFactory(id: Identifier, factory: StoreFactory): Handle {
-		let registryHandle = this._stores.register(id, () => {
+		let registryHandle = stores.get(this).register(id, () => {
 			const promise = Promise.resolve().then(() => {
 				// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
 				// factory is registered through this method or loaded from a definition.
 				return factory();
 			});
 			registryHandle.destroy();
-			registryHandle = this._stores.register(id, () => promise);
+			registryHandle = stores.get(this).register(id, () => promise);
 			return promise;
 		});
 
@@ -373,12 +379,12 @@ export default class App implements CombinedRegistry {
 
 	getWidget(id: Identifier): Promise<WidgetLike> {
 		return new Promise((resolve) => {
-			resolve(this._widgets.get(id)());
+			resolve(widgets.get(this).get(id)());
 		});
 	}
 
 	hasWidget(id: Identifier): boolean {
-		return this._widgets.hasId(id);
+		return widgets.get(this).hasId(id);
 	}
 
 	/**
@@ -390,7 +396,7 @@ export default class App implements CombinedRegistry {
 	 */
 	registerWidget(id: Identifier, widget: WidgetLike): Handle {
 		const promise = Promise.resolve(widget);
-		return this._widgets.register(id, () => promise);
+		return widgets.get(this).register(id, () => promise);
 	}
 
 	/**
@@ -403,14 +409,14 @@ export default class App implements CombinedRegistry {
 	 * @return A handle to deregister the widget factory, or the widget itself once it's been created
 	 */
 	registerWidgetFactory(id: Identifier, factory: WidgetFactory): Handle {
-		let registryHandle = this._widgets.register(id, () => {
+		let registryHandle = widgets.get(this).register(id, () => {
 			const promise = Promise.resolve().then(() => {
 				// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
 				// factory is registered through this method or loaded from a definition.
 				return factory();
 			});
 			registryHandle.destroy();
-			registryHandle = this._widgets.register(id, () => promise);
+			registryHandle = widgets.get(this).register(id, () => promise);
 			return promise;
 		});
 
