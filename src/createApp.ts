@@ -208,9 +208,9 @@ export interface WidgetDefinition extends ItemDefinition<WidgetFactory, WidgetLi
 	options?: Object;
 }
 
-type Factory = ActionFactory | StoreFactory | WidgetFactory;
-type Instance = ActionLike | StoreLike | WidgetLike;
-type FactoryTypes = 'action' | 'store' | 'widget';
+export type Factory = ActionFactory | StoreFactory | WidgetFactory;
+export type Instance = ActionLike | StoreLike | WidgetLike;
+export type FactoryTypes = 'action' | 'store' | 'widget';
 const errorStrings: { [type: string]: string } = {
 	action: 'an action',
 	store: 'a store',
