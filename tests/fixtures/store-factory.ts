@@ -1,4 +1,4 @@
-import { StoreFactory } from 'src/App';
+import { StoreFactory } from 'src/createApp';
 
 let factory: StoreFactory = null;
 

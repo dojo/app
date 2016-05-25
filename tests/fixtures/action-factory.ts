@@ -1,4 +1,4 @@
-import { ActionFactory, CombinedRegistry } from 'src/App';
+import { ActionFactory, CombinedRegistry } from 'src/createApp';
 
 let factory: ActionFactory = null;
 

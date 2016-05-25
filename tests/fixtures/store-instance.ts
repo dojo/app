@@ -1,3 +1,3 @@
-import { StoreLike } from 'src/App';
+import { StoreLike } from 'src/createApp';
 
 export default <StoreLike> {};

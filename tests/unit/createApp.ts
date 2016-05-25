@@ -3,13 +3,13 @@ import Promise from 'dojo-core/Promise';
 import * as registerSuite from 'intern!object';
 import * as assert from 'intern/chai!assert';
 
-import App, {
+import createApp, {
 	ActionLike,
 	CombinedRegistry,
 	Identifier,
 	StoreLike,
 	WidgetLike
-} from 'src/App';
+} from 'src/createApp';
 
 import { stub as stubActionFactory } from '../fixtures/action-factory';
 import actionInstanceFixture from '../fixtures/action-instance';
@@ -69,17 +69,17 @@ function createWidget(): WidgetLike {
 }
 
 registerSuite({
-	name: 'App',
+	name: 'createApp',
 
 	'#getAction': {
 		'no registered action'() {
-			return rejects(new App().getAction('foo'), Error);
+			return rejects(createApp().getAction('foo'), Error);
 		},
 
 		'provides registered action'() {
 			const expected = createAction();
 
-			const app = new App();
+			const app = createApp();
 			app.registerAction('foo', expected);
 
 			return strictEqual(app.getAction('foo'), expected);
@@ -88,11 +88,11 @@ registerSuite({
 
 	'#hasAction': {
 		'no registered action'() {
-			assert.isFalse(new App().hasAction('foo'));
+			assert.isFalse(createApp().hasAction('foo'));
 		},
 
 		'registered action'() {
-			const app = new App();
+			const app = createApp();
 			app.registerAction('foo', createAction());
 
 			assert.isTrue(app.hasAction('foo'));
@@ -105,7 +105,7 @@ registerSuite({
 			const action = createAction();
 			action.register = () => { called = true; };
 
-			const app = new App();
+			const app = createApp();
 			app.registerAction('foo', action);
 
 			assert.isTrue(called);
@@ -116,7 +116,7 @@ registerSuite({
 			const action = createAction();
 			action.register = (actual: CombinedRegistry) => { registry = actual; };
 
-			const app = new App();
+			const app = createApp();
 			app.registerAction('foo', action);
 
 			isCombinedRegistry(registry);
@@ -124,7 +124,7 @@ registerSuite({
 
 		'destroying the returned handle': {
 			'deregisters the action'() {
-				const app = new App();
+				const app = createApp();
 				const handle = app.registerAction('foo', createAction());
 
 				handle.destroy();
@@ -137,7 +137,7 @@ registerSuite({
 				const action = createAction();
 				action.register = () => nested;
 
-				const handle = new App().registerAction('foo', action);
+				const handle = createApp().registerAction('foo', action);
 				handle.destroy();
 
 				assert.isTrue(destroyed);
@@ -149,7 +149,7 @@ registerSuite({
 				const action = createAction();
 				action.register = () => nested;
 
-				const app = new App();
+				const app = createApp();
 				const handle = app.registerAction('foo', action);
 
 				handle.destroy();
@@ -164,7 +164,7 @@ registerSuite({
 
 	'#registerActionFactory': {
 		'hasAction returns true after'() {
-			const app = new App();
+			const app = createApp();
 			app.registerActionFactory('foo', createAction);
 
 			assert.isTrue(app.hasAction('foo'));
@@ -173,7 +173,7 @@ registerSuite({
 		'factory is not called until the action is needed'() {
 			let called = false;
 
-			const app = new App();
+			const app = createApp();
 			app.registerActionFactory('foo', () => {
 				called = true;
 				return createAction();
@@ -196,7 +196,7 @@ registerSuite({
 			let count = 0;
 			const expected = createAction();
 
-			const app = new App();
+			const app = createApp();
 			app.registerActionFactory('foo', () => {
 				count++;
 				return expected;
@@ -214,7 +214,7 @@ registerSuite({
 			'should resolve with the action'() {
 				const expected = createAction();
 
-				const app = new App();
+				const app = createApp();
 				app.registerActionFactory('foo', () => Promise.resolve(expected));
 
 				return strictEqual(app.getAction('foo'), expected);
@@ -223,7 +223,7 @@ registerSuite({
 			'rejections are propagated'() {
 				const expected = new Error();
 
-				const app = new App();
+				const app = createApp();
 				app.registerActionFactory('foo', () => Promise.reject(expected));
 
 				return strictEqual(invert(app.getAction('foo')), expected);
@@ -233,7 +233,7 @@ registerSuite({
 		'factory is passed a combined registry'() {
 			let registry: CombinedRegistry = null;
 
-			const app = new App();
+			const app = createApp();
 			app.registerActionFactory('foo', (actual) => {
 				registry = actual;
 				return createAction();
@@ -249,7 +249,7 @@ registerSuite({
 			const action = createAction();
 			action.register = () => { called = true; };
 
-			const app = new App();
+			const app = createApp();
 			app.registerActionFactory('foo', () => action);
 
 			return app.getAction('foo').then(() => {
@@ -262,7 +262,7 @@ registerSuite({
 			const action = createAction();
 			action.register = (actual: CombinedRegistry) => { registry = actual; };
 
-			const app = new App();
+			const app = createApp();
 			app.registerActionFactory('foo', () => action);
 
 			return app.getAction('foo').then(() => {
@@ -272,7 +272,7 @@ registerSuite({
 
 		'destroying the returned handle': {
 			'deregisters the factory'() {
-				const app = new App();
+				const app = createApp();
 				const handle = app.registerActionFactory('foo', createAction);
 				handle.destroy();
 
@@ -280,7 +280,7 @@ registerSuite({
 			},
 
 			'deregisters the action if it has already been created'() {
-				const app = new App();
+				const app = createApp();
 				const handle = app.registerActionFactory('foo', createAction);
 
 				return app.getAction('foo').then(() => {
@@ -300,7 +300,7 @@ registerSuite({
 					finishCreate = () => resolve(action);
 				});
 
-				const app = new App();
+				const app = createApp();
 				const handle = app.registerActionFactory('foo', () => creation);
 				const promise = app.getAction('foo');
 
@@ -318,7 +318,7 @@ registerSuite({
 				const action = createAction();
 				action.register = () => nested;
 
-				const app = new App();
+				const app = createApp();
 				const handle = app.registerActionFactory('foo', () => action);
 
 				return app.getAction('foo').then(() => {
@@ -334,7 +334,7 @@ registerSuite({
 				const action = createAction();
 				action.register = () => nested;
 
-				const app = new App();
+				const app = createApp();
 				const handle = app.registerActionFactory('foo', () => action);
 
 				return app.getAction('foo').then(() => {
@@ -351,13 +351,13 @@ registerSuite({
 
 	'#getStore': {
 		'no registered store'() {
-			return rejects(new App().getStore('foo'), Error);
+			return rejects(createApp().getStore('foo'), Error);
 		},
 
 		'provides registered store'() {
 			const expected = createStore();
 
-			const app = new App();
+			const app = createApp();
 			app.registerStore('foo', expected);
 
 			return strictEqual(app.getStore('foo'), expected);
@@ -366,11 +366,11 @@ registerSuite({
 
 	'#hasStore': {
 		'no registered store'() {
-			assert.isFalse(new App().hasStore('foo'));
+			assert.isFalse(createApp().hasStore('foo'));
 		},
 
 		'registered store'() {
-			const app = new App();
+			const app = createApp();
 			app.registerStore('foo', createStore());
 
 			assert.isTrue(app.hasStore('foo'));
@@ -382,7 +382,7 @@ registerSuite({
 			'deregisters the action'() {
 				const store = createStore();
 
-				const app = new App();
+				const app = createApp();
 				const handle = app.registerStore('foo', store);
 				handle.destroy();
 
@@ -392,7 +392,7 @@ registerSuite({
 			'a second time has no effect'() {
 				const store = createStore();
 
-				const app = new App();
+				const app = createApp();
 				const handle = app.registerStore('foo', store);
 				handle.destroy();
 				handle.destroy();
@@ -404,7 +404,7 @@ registerSuite({
 
 	'#registerStoreFactory': {
 		'hasStore returns true after'() {
-			const app = new App();
+			const app = createApp();
 			app.registerStoreFactory('foo', createStore);
 
 			assert.isTrue(app.hasStore('foo'));
@@ -413,7 +413,7 @@ registerSuite({
 		'factory is not called until the store is needed'() {
 			let called = false;
 
-			const app = new App();
+			const app = createApp();
 			app.registerStoreFactory('foo', function(): StoreLike {
 				called = true;
 				return createStore();
@@ -436,7 +436,7 @@ registerSuite({
 			let count = 0;
 			const expected = createStore();
 
-			const app = new App();
+			const app = createApp();
 			app.registerStoreFactory('foo', function(): StoreLike {
 				count++;
 				return expected;
@@ -454,7 +454,7 @@ registerSuite({
 			'should resolve with the store'() {
 				const expected = createStore();
 
-				const app = new App();
+				const app = createApp();
 				app.registerStoreFactory('foo', () => Promise.resolve(expected));
 
 				return strictEqual(app.getStore('foo'), expected);
@@ -463,7 +463,7 @@ registerSuite({
 			'rejections are propagated'() {
 				const expected = new Error();
 
-				const app = new App();
+				const app = createApp();
 				app.registerStoreFactory('foo', () => Promise.reject(expected));
 
 				return strictEqual(invert(app.getStore('foo')), expected);
@@ -472,7 +472,7 @@ registerSuite({
 
 		'destroying the returned handle': {
 			'deregisters the factory'() {
-				const app = new App();
+				const app = createApp();
 				const handle = app.registerStoreFactory('foo', createStore);
 				handle.destroy();
 
@@ -480,7 +480,7 @@ registerSuite({
 			},
 
 			'deregisters the store if it has already been created'() {
-				const app = new App();
+				const app = createApp();
 				const handle = app.registerStoreFactory('foo', createStore);
 
 				return app.getStore('foo').then(() => {
@@ -491,7 +491,7 @@ registerSuite({
 			},
 
 			'a second time has no effect'() {
-				const app = new App();
+				const app = createApp();
 				const handle = app.registerStoreFactory('foo', createStore);
 
 				return app.getStore('foo').then(() => {
@@ -506,13 +506,13 @@ registerSuite({
 
 	'#getWidget': {
 		'no registered widget'() {
-			return rejects(new App().getWidget('foo'), Error);
+			return rejects(createApp().getWidget('foo'), Error);
 		},
 
 		'provides registered widget'() {
 			const expected = createWidget();
 
-			const app = new App();
+			const app = createApp();
 			app.registerWidget('foo', expected);
 
 			return strictEqual(app.getWidget('foo'), expected);
@@ -521,11 +521,11 @@ registerSuite({
 
 	'#hasWidget': {
 		'no registered widget'() {
-			assert.isFalse(new App().hasWidget('foo'));
+			assert.isFalse(createApp().hasWidget('foo'));
 		},
 
 		'registered widget'() {
-			const app = new App();
+			const app = createApp();
 			app.registerWidget('foo', createWidget());
 
 			assert.isTrue(app.hasWidget('foo'));
@@ -537,7 +537,7 @@ registerSuite({
 			'deregisters the action'() {
 				const widget = createWidget();
 
-				const app = new App();
+				const app = createApp();
 				const handle = app.registerWidget('foo', widget);
 				handle.destroy();
 
@@ -547,7 +547,7 @@ registerSuite({
 			'a second time has no effect'() {
 				const widget = createWidget();
 
-				const app = new App();
+				const app = createApp();
 				const handle = app.registerWidget('foo', widget);
 
 				handle.destroy();
@@ -560,7 +560,7 @@ registerSuite({
 
 	'#registerWidgetFactory': {
 		'hasWidget returns true after'() {
-			const app = new App();
+			const app = createApp();
 			app.registerWidgetFactory('foo', createWidget);
 
 			assert.isTrue(app.hasWidget('foo'));
@@ -569,7 +569,7 @@ registerSuite({
 		'factory is not called until the widget is needed'() {
 			let called = false;
 
-			const app = new App();
+			const app = createApp();
 			app.registerWidgetFactory('foo', function(): WidgetLike {
 				called = true;
 				return createWidget();
@@ -592,7 +592,7 @@ registerSuite({
 			let count = 0;
 			const expected = createWidget();
 
-			const app = new App();
+			const app = createApp();
 			app.registerWidgetFactory('foo', function(): WidgetLike {
 				count++;
 				return expected;
@@ -610,7 +610,7 @@ registerSuite({
 			'should resolve with the widget'() {
 				const expected = createWidget();
 
-				const app = new App();
+				const app = createApp();
 				app.registerWidgetFactory('foo', () => Promise.resolve(expected));
 
 				return strictEqual(app.getWidget('foo'), expected);
@@ -619,7 +619,7 @@ registerSuite({
 			'rejections are propagated'() {
 				const expected = new Error();
 
-				const app = new App();
+				const app = createApp();
 				app.registerWidgetFactory('foo', () => Promise.reject(expected));
 
 				return strictEqual(invert(app.getWidget('foo')), expected);
@@ -628,7 +628,7 @@ registerSuite({
 
 		'destroying the returned handle': {
 			'deregisters the factory'() {
-				const app = new App();
+				const app = createApp();
 				const handle = app.registerWidgetFactory('foo', createWidget);
 				handle.destroy();
 
@@ -636,7 +636,7 @@ registerSuite({
 			},
 
 			'deregisters the widget if it has already been created'() {
-				const app = new App();
+				const app = createApp();
 				const handle = app.registerWidgetFactory('foo', createWidget);
 
 				return app.getWidget('foo').then(() => {
@@ -647,7 +647,7 @@ registerSuite({
 			},
 
 			'a second time has no effect'() {
-				const app = new App();
+				const app = createApp();
 				const handle = app.registerWidgetFactory('foo', createWidget);
 
 				return app.getWidget('foo').then(() => {
@@ -668,7 +668,7 @@ registerSuite({
 					bar: createAction()
 				};
 
-				const app = new App();
+				const app = createApp();
 				app.loadDefinition({
 					actions: [
 						{
@@ -696,7 +696,7 @@ registerSuite({
 				const action = createAction();
 				action.register = () => { called = true; };
 
-				const app = new App();
+				const app = createApp();
 				app.loadDefinition({
 					actions: [
 						{
@@ -716,7 +716,7 @@ registerSuite({
 				const action = createAction();
 				action.register = (actual: CombinedRegistry) => { registry = actual; };
 
-				const app = new App();
+				const app = createApp();
 				app.loadDefinition({
 					actions: [
 						{
@@ -733,7 +733,7 @@ registerSuite({
 
 			'with stateFrom option': {
 				'refers to a store that is not registered'() {
-					const app = new App();
+					const app = createApp();
 					app.loadDefinition({
 						actions: [
 							{
@@ -767,7 +767,7 @@ registerSuite({
 
 					const store = createStore();
 
-					const app = new App();
+					const app = createApp();
 					app.registerStore('store', store);
 					app.loadDefinition({
 						actions: [
@@ -789,7 +789,7 @@ registerSuite({
 
 			'requires factory or instance option'() {
 				assert.throws(() => {
-					new App().loadDefinition({
+					createApp().loadDefinition({
 						actions: [
 							{
 								id: 'foo'
@@ -803,7 +803,7 @@ registerSuite({
 				'can be a method'() {
 					const expected = createAction();
 
-					const app = new App();
+					const app = createApp();
 					app.loadDefinition({
 						actions: [
 							{
@@ -820,7 +820,7 @@ registerSuite({
 					const expected = createAction();
 					stubActionFactory(() => expected);
 
-					const app = new App({ toAbsMid });
+					const app = createApp({ toAbsMid });
 					app.loadDefinition({
 						actions: [
 							{
@@ -834,7 +834,7 @@ registerSuite({
 				},
 
 				'cannot get action if identified module has no default factory export'() {
-					const app = new App({ toAbsMid });
+					const app = createApp({ toAbsMid });
 					app.loadDefinition({
 						actions: [
 							{
@@ -857,7 +857,7 @@ registerSuite({
 						return createAction();
 					});
 
-					const app = new App({ toAbsMid });
+					const app = createApp({ toAbsMid });
 					app.loadDefinition({
 						actions: [
 							{
@@ -902,7 +902,7 @@ registerSuite({
 							return Promise.resolve(expected.bar);
 						});
 
-						const app = new App({ toAbsMid });
+						const app = createApp({ toAbsMid });
 						app.loadDefinition({
 							actions: [
 								{
@@ -931,7 +931,7 @@ registerSuite({
 							return Promise.reject(expected.bar);
 						});
 
-						const app = new App({ toAbsMid });
+						const app = createApp({ toAbsMid });
 						app.loadDefinition({
 							actions: [
 								{
@@ -962,7 +962,7 @@ registerSuite({
 						return createAction();
 					});
 
-					const app = new App({ toAbsMid });
+					const app = createApp({ toAbsMid });
 					app.loadDefinition({
 						actions: [
 							{
@@ -993,7 +993,7 @@ registerSuite({
 				'can be an instance'() {
 					const expected = createAction();
 
-					const app = new App();
+					const app = createApp();
 					app.loadDefinition({
 						actions: [
 							{
@@ -1007,7 +1007,7 @@ registerSuite({
 				},
 
 				'can be a module identifier'() {
-					const app = new App({ toAbsMid });
+					const app = createApp({ toAbsMid });
 					app.loadDefinition({
 						actions: [
 							{
@@ -1021,7 +1021,7 @@ registerSuite({
 				},
 
 				'cannot get action if identified module has no default instance export'() {
-					const app = new App({ toAbsMid });
+					const app = createApp({ toAbsMid });
 					app.loadDefinition({
 						actions: [
 							{
@@ -1036,7 +1036,7 @@ registerSuite({
 
 				'stateFrom option is not allowed'() {
 					assert.throws(() => {
-						new App().loadDefinition({
+						createApp().loadDefinition({
 							actions: [
 								{
 									id: 'foo',
@@ -1057,7 +1057,7 @@ registerSuite({
 					bar: createStore()
 				};
 
-				const app = new App();
+				const app = createApp();
 				app.loadDefinition({
 					stores: [
 						{
@@ -1082,7 +1082,7 @@ registerSuite({
 
 			'requires factory or instance option'() {
 				assert.throws(() => {
-					new App().loadDefinition({
+					createApp().loadDefinition({
 						stores: [
 							{
 								id: 'foo'
@@ -1096,7 +1096,7 @@ registerSuite({
 				'can be a method'() {
 					const expected = createStore();
 
-					const app = new App();
+					const app = createApp();
 					app.loadDefinition({
 						stores: [
 							{
@@ -1113,7 +1113,7 @@ registerSuite({
 					const expected = createStore();
 					stubStoreFactory(() => expected);
 
-					const app = new App({ toAbsMid });
+					const app = createApp({ toAbsMid });
 					app.loadDefinition({
 						stores: [
 							{
@@ -1127,7 +1127,7 @@ registerSuite({
 				},
 
 				'cannot get store if identified module has no default factory export'() {
-					const app = new App({ toAbsMid });
+					const app = createApp({ toAbsMid });
 					app.loadDefinition({
 						stores: [
 							{
@@ -1150,7 +1150,7 @@ registerSuite({
 						return createStore();
 					});
 
-					const app = new App({ toAbsMid });
+					const app = createApp({ toAbsMid });
 					app.loadDefinition({
 						stores: [
 							{
@@ -1195,7 +1195,7 @@ registerSuite({
 							return Promise.resolve(expected.bar);
 						});
 
-						const app = new App({ toAbsMid });
+						const app = createApp({ toAbsMid });
 						app.loadDefinition({
 							stores: [
 								{
@@ -1224,7 +1224,7 @@ registerSuite({
 							return Promise.reject(expected.bar);
 						});
 
-						const app = new App({ toAbsMid });
+						const app = createApp({ toAbsMid });
 						app.loadDefinition({
 							stores: [
 								{
@@ -1259,7 +1259,7 @@ registerSuite({
 						return createStore();
 					});
 
-					const app = new App({ toAbsMid });
+					const app = createApp({ toAbsMid });
 					app.loadDefinition({
 						stores: [
 							{
@@ -1294,7 +1294,7 @@ registerSuite({
 				'can be an instance'() {
 					const expected = createStore();
 
-					const app = new App();
+					const app = createApp();
 					app.loadDefinition({
 						stores: [
 							{
@@ -1308,7 +1308,7 @@ registerSuite({
 				},
 
 				'can be a module identifier'() {
-					const app = new App({ toAbsMid });
+					const app = createApp({ toAbsMid });
 					app.loadDefinition({
 						stores: [
 							{
@@ -1322,7 +1322,7 @@ registerSuite({
 				},
 
 				'cannot get store if identified module has no default instance export'() {
-					const app = new App({ toAbsMid });
+					const app = createApp({ toAbsMid });
 					app.loadDefinition({
 						stores: [
 							{
@@ -1337,7 +1337,7 @@ registerSuite({
 
 				'options option is not allowed'() {
 					assert.throws(() => {
-						new App().loadDefinition({
+						createApp().loadDefinition({
 							stores: [
 								{
 									id: 'foo',
@@ -1358,7 +1358,7 @@ registerSuite({
 					bar: createWidget()
 				};
 
-				const app = new App();
+				const app = createApp();
 				app.loadDefinition({
 					widgets: [
 						{
@@ -1383,7 +1383,7 @@ registerSuite({
 
 			'options cannot include the id property'() {
 				assert.throws(() => {
-					new App().loadDefinition({
+					createApp().loadDefinition({
 						widgets: [
 							{
 								id: 'foo',
@@ -1399,7 +1399,7 @@ registerSuite({
 
 			'options cannot include the stateFrom property'() {
 				assert.throws(() => {
-					new App().loadDefinition({
+					createApp().loadDefinition({
 						widgets: [
 							{
 								id: 'foo',
@@ -1415,7 +1415,7 @@ registerSuite({
 
 			'with stateFrom option': {
 				'refers to a store that is not registered'() {
-					const app = new App();
+					const app = createApp();
 					app.loadDefinition({
 						widgets: [
 							{
@@ -1432,7 +1432,7 @@ registerSuite({
 
 			'requires factory or instance option'() {
 				assert.throws(() => {
-					new App().loadDefinition({
+					createApp().loadDefinition({
 						widgets: [
 							{
 								id: 'foo'
@@ -1446,7 +1446,7 @@ registerSuite({
 				'can be a method'() {
 					const expected = createWidget();
 
-					const app = new App();
+					const app = createApp();
 					app.loadDefinition({
 						widgets: [
 							{
@@ -1463,7 +1463,7 @@ registerSuite({
 					const expected = createWidget();
 					stubWidgetFactory(() => expected);
 
-					const app = new App({ toAbsMid });
+					const app = createApp({ toAbsMid });
 					app.loadDefinition({
 						widgets: [
 							{
@@ -1477,7 +1477,7 @@ registerSuite({
 				},
 
 				'cannot get widget if identified module has no default factory export'() {
-					const app = new App({ toAbsMid });
+					const app = createApp({ toAbsMid });
 					app.loadDefinition({
 						widgets: [
 							{
@@ -1500,7 +1500,7 @@ registerSuite({
 						return createWidget();
 					});
 
-					const app = new App({ toAbsMid });
+					const app = createApp({ toAbsMid });
 					app.loadDefinition({
 						widgets: [
 							{
@@ -1545,7 +1545,7 @@ registerSuite({
 							return Promise.resolve(expected.bar);
 						});
 
-						const app = new App({ toAbsMid });
+						const app = createApp({ toAbsMid });
 						app.loadDefinition({
 							widgets: [
 								{
@@ -1574,7 +1574,7 @@ registerSuite({
 							return Promise.reject(expected.bar);
 						});
 
-						const app = new App({ toAbsMid });
+						const app = createApp({ toAbsMid });
 						app.loadDefinition({
 							widgets: [
 								{
@@ -1609,7 +1609,7 @@ registerSuite({
 						return createWidget();
 					});
 
-					const app = new App({ toAbsMid });
+					const app = createApp({ toAbsMid });
 					app.loadDefinition({
 						widgets: [
 							{
@@ -1642,7 +1642,7 @@ registerSuite({
 						const expected = createStore();
 						let actual: StoreLike = null;
 
-						const app = new App();
+						const app = createApp();
 						app.registerStore('store', expected);
 						app.loadDefinition({
 							widgets: [
@@ -1668,7 +1668,7 @@ registerSuite({
 				'can be an instance'() {
 					const expected = createWidget();
 
-					const app = new App();
+					const app = createApp();
 					app.loadDefinition({
 						widgets: [
 							{
@@ -1682,7 +1682,7 @@ registerSuite({
 				},
 
 				'can be a module identifier'() {
-					const app = new App({ toAbsMid });
+					const app = createApp({ toAbsMid });
 					app.loadDefinition({
 						widgets: [
 							{
@@ -1696,7 +1696,7 @@ registerSuite({
 				},
 
 				'cannot get widget if identified module has no default instance export'() {
-					const app = new App({ toAbsMid });
+					const app = createApp({ toAbsMid });
 					app.loadDefinition({
 						widgets: [
 							{
@@ -1711,7 +1711,7 @@ registerSuite({
 
 				'stateFrom option is not allowed'() {
 					assert.throws(() => {
-						new App().loadDefinition({
+						createApp().loadDefinition({
 							widgets: [
 								{
 									id: 'foo',
@@ -1725,7 +1725,7 @@ registerSuite({
 
 				'options option is not allowed'() {
 					assert.throws(() => {
-						new App().loadDefinition({
+						createApp().loadDefinition({
 							widgets: [
 								{
 									id: 'foo',
@@ -1741,7 +1741,7 @@ registerSuite({
 
 		'destroying the returned handle': {
 			'deregisters all definitions from that call'() {
-				const app = new App();
+				const app = createApp();
 				app.registerAction('remains', createAction());
 				const handle = app.loadDefinition({
 					actions: [
@@ -1776,7 +1776,7 @@ registerSuite({
 			const expected = createAction();
 			stubActionFactory(() => expected);
 
-			const app = new App();
+			const app = createApp();
 			app.loadDefinition({
 				actions: [
 					{
@@ -1800,7 +1800,7 @@ registerSuite({
 					resolve();
 				});
 			}).then(() => {
-				const app = new App();
+				const app = createApp();
 				app.loadDefinition({
 					actions: [
 						{

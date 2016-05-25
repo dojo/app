@@ -1,4 +1,5 @@
 import { Action } from 'dojo-actions/createAction';
+import compose, { ComposeFactory } from 'dojo-compose/compose';
 import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
 import Promise from 'dojo-core/Promise';
@@ -224,38 +225,7 @@ const actions = new WeakMap<App, IdentityRegistry<RegisteredFactory<ActionLike>>
 const stores = new WeakMap<App, IdentityRegistry<RegisteredFactory<StoreLike>>>();
 const widgets = new WeakMap<App, IdentityRegistry<RegisteredFactory<WidgetLike>>>();
 
-export default class App implements CombinedRegistry {
-	private _registry: CombinedRegistry;
-	private _toAbsMid: ToAbsMid;
-
-	constructor({ toAbsMid = (moduleId: string) => moduleId }: { toAbsMid?: ToAbsMid } = {}) {
-		this._toAbsMid = toAbsMid;
-
-		this._registry = {
-			getAction: this.getAction.bind(this),
-			hasAction: this.hasAction.bind(this),
-			getStore: this.getStore.bind(this),
-			hasStore: this.hasStore.bind(this),
-			getWidget: this.getWidget.bind(this),
-			hasWidget: this.hasWidget.bind(this)
-		};
-		Object.freeze(this._registry);
-
-		actions.set(this, new IdentityRegistry<RegisteredFactory<ActionLike>>());
-		stores.set(this, new IdentityRegistry<RegisteredFactory<StoreLike>>());
-		widgets.set(this, new IdentityRegistry<RegisteredFactory<WidgetLike>>());
-	}
-
-	getAction(id: Identifier): Promise<ActionLike> {
-		return new Promise((resolve) => {
-			resolve(actions.get(this).get(id)());
-		});
-	}
-
-	hasAction(id: Identifier): boolean {
-		return actions.get(this).hasId(id);
-	}
-
+export interface AppMixin {
 	/**
 	 * Register an action with the app.
 	 *
@@ -263,20 +233,7 @@ export default class App implements CombinedRegistry {
 	 * @param action The action to be registered
 	 * @return A handle to deregister the action
 	 */
-	registerAction(id: Identifier, action: ActionLike): Handle {
-		const promise: Promise<ActionLike> = Promise.resolve(action);
-		const registryHandle = actions.get(this).register(id, () => promise);
-		const actionHandle = action.register(this._registry);
-		return {
-			destroy() {
-				this.destroy = noop;
-				registryHandle.destroy();
-				if (actionHandle) {
-					(<Handle> actionHandle).destroy();
-				}
-			}
-		};
-	}
+	registerAction(id: Identifier, action: ActionLike): Handle;
 
 	/**
 	 * Register an action factory with the app.
@@ -291,6 +248,95 @@ export default class App implements CombinedRegistry {
 	 * @param factory A factory function that (asynchronously) creates an action.
 	 * @return A handle to deregister the action factory, or the action itself once it's been created
 	 */
+	registerActionFactory(id: Identifier, factory: ActionFactory): Handle;
+
+	/**
+	 * Register a store with the app.
+	 *
+	 * @param id How the store is identified
+	 * @param store The store to be registered
+	 * @return A handle to deregister the store
+	 */
+	registerStore(id: Identifier, store: StoreLike): Handle;
+
+	/**
+	 * Register a store factory with the app.
+	 *
+	 * The factory will be called the first time the store is needed. It'll be called *without* any arguments.
+	 *
+	 * @param id How the store is identified
+	 * @param factory A factory function that (asynchronously) creates a store.
+	 * @return A handle to deregister the store factory, or the store itself once it's been created
+	 */
+	registerStoreFactory(id: Identifier, factory: StoreFactory): Handle;
+
+	/**
+	 * Register a widget with the app.
+	 *
+	 * @param id How the widget is identified
+	 * @param widget The widget to be registered
+	 * @return A handle to deregister the widget
+	 */
+	registerWidget(id: Identifier, widget: WidgetLike): Handle;
+
+	/**
+	 * Register a widget factory with the app.
+	 *
+	 * The factory will be called the first time the widget is needed. It'll be called *without* any arguments.
+	 *
+	 * @param id How the widget is identified
+	 * @param factory A factory function that (asynchronously) creates a widget.
+	 * @return A handle to deregister the widget factory, or the widget itself once it's been created
+	 */
+	registerWidgetFactory(id: Identifier, factory: WidgetFactory): Handle;
+
+	/**
+	 * Load a POJO definition containing actions, stores and widgets that need to be registered.
+	 *
+	 * Action factories will be called with one argument: the combined registries of the app.
+	 * Store and widget factories will also be called with one argument: an options object.
+	 *
+	 * @return A handle to deregister *all* actions, stores and widgets that were registered.
+	 */
+	loadDefinition(definitions: Definitions): Handle;
+
+	_resolveMid(mid: string): Promise<any>;
+	_resolveFactory(type: 'action', definition: ActionDefinition): Promise<ActionFactory>;
+	_resolveFactory(type: 'store', definition: StoreDefinition): Promise<StoreFactory>;
+	_resolveFactory(type: 'widget', definition: WidgetDefinition): Promise<WidgetFactory>;
+	_resolveFactory(type: FactoryTypes, definition: ItemDefinition<Factory, Instance>): Promise<Factory>;
+	_makeActionFactory(definition: ActionDefinition): ActionFactory;
+	_makeStoreFactory(definition: StoreDefinition): StoreFactory;
+	_makeWidgetFactory(definition: WidgetDefinition): WidgetFactory;
+
+	_toAbsMid: ToAbsMid;
+	_registry: CombinedRegistry;
+}
+
+export type App = AppMixin & CombinedRegistry;
+
+export interface AppOptions {
+	toAbsMid?: ToAbsMid;
+}
+
+export interface AppFactory extends ComposeFactory<App, AppOptions> {}
+
+const createApp = compose({
+	registerAction(id: Identifier, action: ActionLike): Handle {
+		const promise: Promise<ActionLike> = Promise.resolve(action);
+		const registryHandle = actions.get(this).register(id, () => promise);
+		const actionHandle = action.register(this._registry);
+		return {
+			destroy() {
+				this.destroy = noop;
+				registryHandle.destroy();
+				if (actionHandle) {
+					(<Handle> actionHandle).destroy();
+				}
+			}
+		};
+	},
+
 	registerActionFactory(id: Identifier, factory: ActionFactory): Handle {
 		let destroyed = false;
 
@@ -324,39 +370,13 @@ export default class App implements CombinedRegistry {
 				}
 			}
 		};
-	}
+	},
 
-	getStore(id: Identifier): Promise<StoreLike> {
-		return new Promise((resolve) => {
-			resolve(stores.get(this).get(id)());
-		});
-	}
-
-	hasStore(id: Identifier): boolean {
-		return stores.get(this).hasId(id);
-	}
-
-	/**
-	 * Register a store with the app.
-	 *
-	 * @param id How the store is identified
-	 * @param store The store to be registered
-	 * @return A handle to deregister the store
-	 */
 	registerStore(id: Identifier, store: StoreLike): Handle {
 		const promise = Promise.resolve(store);
 		return stores.get(this).register(id, () => promise);
-	}
+	},
 
-	/**
-	 * Register a store factory with the app.
-	 *
-	 * The factory will be called the first time the store is needed. It'll be called *without* any arguments.
-	 *
-	 * @param id How the store is identified
-	 * @param factory A factory function that (asynchronously) creates a store.
-	 * @return A handle to deregister the store factory, or the store itself once it's been created
-	 */
 	registerStoreFactory(id: Identifier, factory: StoreFactory): Handle {
 		let registryHandle = stores.get(this).register(id, () => {
 			const promise = Promise.resolve().then(() => {
@@ -375,39 +395,13 @@ export default class App implements CombinedRegistry {
 				registryHandle.destroy();
 			}
 		};
-	}
+	},
 
-	getWidget(id: Identifier): Promise<WidgetLike> {
-		return new Promise((resolve) => {
-			resolve(widgets.get(this).get(id)());
-		});
-	}
-
-	hasWidget(id: Identifier): boolean {
-		return widgets.get(this).hasId(id);
-	}
-
-	/**
-	 * Register a widget with the app.
-	 *
-	 * @param id How the widget is identified
-	 * @param widget The widget to be registered
-	 * @return A handle to deregister the widget
-	 */
 	registerWidget(id: Identifier, widget: WidgetLike): Handle {
 		const promise = Promise.resolve(widget);
 		return widgets.get(this).register(id, () => promise);
-	}
+	},
 
-	/**
-	 * Register a widget factory with the app.
-	 *
-	 * The factory will be called the first time the widget is needed. It'll be called *without* any arguments.
-	 *
-	 * @param id How the widget is identified
-	 * @param factory A factory function that (asynchronously) creates a widget.
-	 * @return A handle to deregister the widget factory, or the widget itself once it's been created
-	 */
 	registerWidgetFactory(id: Identifier, factory: WidgetFactory): Handle {
 		let registryHandle = widgets.get(this).register(id, () => {
 			const promise = Promise.resolve().then(() => {
@@ -426,16 +420,8 @@ export default class App implements CombinedRegistry {
 				registryHandle.destroy();
 			}
 		};
-	}
+	},
 
-	/**
-	 * Load a POJO definition containing actions, stores and widgets that need to be registered.
-	 *
-	 * Action factories will be called with one argument: the combined registries of the app.
-	 * Store and widget factories will also be called with one argument: an options object.
-	 *
-	 * @return A handle to deregister *all* actions, stores and widgets that were registered.
-	 */
 	loadDefinition({ actions, stores, widgets }: Definitions): Handle {
 		const handles: Handle[] = [];
 
@@ -470,9 +456,9 @@ export default class App implements CombinedRegistry {
 				}
 			}
 		};
-	}
+	},
 
-	private _resolveMid (mid: string): Promise<any> {
+	_resolveMid (mid: string): Promise<any> {
 		return new Promise((resolve) => {
 			// Assumes require() is an AMD loader!
 			require([this._toAbsMid(mid)], (module) => {
@@ -484,13 +470,9 @@ export default class App implements CombinedRegistry {
 				}
 			});
 		});
-	}
+	},
 
-	private _resolveFactory (type: 'action', definition: ActionDefinition): Promise<ActionFactory>;
-	private _resolveFactory (type: 'store', definition: StoreDefinition): Promise<StoreFactory>;
-	private _resolveFactory (type: 'widget', definition: WidgetDefinition): Promise<WidgetFactory>;
-	private _resolveFactory (type: FactoryTypes, definition: ItemDefinition<Factory, Instance>): Promise<Factory>;
-	private _resolveFactory (type: FactoryTypes, { factory, instance }: ItemDefinition<Factory, Instance>): Promise<Factory> {
+	_resolveFactory (type: FactoryTypes, { factory, instance }: ItemDefinition<Factory, Instance>): Promise<Factory> {
 		if (typeof factory === 'function') {
 			return Promise.resolve(factory);
 		}
@@ -500,7 +482,7 @@ export default class App implements CombinedRegistry {
 		}
 
 		const mid = <string> (factory || instance);
-		return this._resolveMid(mid).then((defaultExport) => {
+		return (<App> this)._resolveMid(mid).then((defaultExport) => {
 			if (factory) {
 				if (typeof defaultExport !== 'function') {
 					throw new Error(`Could not resolve '${mid}' to ${errorStrings[type]} factory function`);
@@ -519,9 +501,9 @@ export default class App implements CombinedRegistry {
 				return () => defaultExport;
 			}
 		});
-	}
+	},
 
-	private _makeActionFactory(definition: ActionDefinition): ActionFactory {
+	_makeActionFactory(definition: ActionDefinition): ActionFactory {
 		if (!('factory' in definition || 'instance' in definition)) {
 			throw new Error('Action definitions must specify either the factory or instance option');
 		}
@@ -532,7 +514,7 @@ export default class App implements CombinedRegistry {
 		const { id, stateFrom } = definition;
 
 		return (registry: CombinedRegistry) => {
-			const actionPromise = this._resolveFactory('action', definition).then((factory) => {
+			const actionPromise = (<App> this)._resolveFactory('action', definition).then((factory) => {
 				return factory(registry);
 			});
 			const storePromise = stateFrom && registry.getStore(stateFrom);
@@ -550,9 +532,9 @@ export default class App implements CombinedRegistry {
 				});
 			});
 		};
-	}
+	},
 
-	private _makeStoreFactory(definition: StoreDefinition): StoreFactory {
+	_makeStoreFactory(definition: StoreDefinition): StoreFactory {
 		if (!('factory' in definition || 'instance' in definition)) {
 			throw new Error('Store definitions must specify either the factory or instance option');
 		}
@@ -563,13 +545,13 @@ export default class App implements CombinedRegistry {
 		const options = Object.assign({}, definition.options);
 
 		return () => {
-			return this._resolveFactory('store', definition).then((factory) => {
+			return (<App> this)._resolveFactory('store', definition).then((factory) => {
 				return factory(options);
 			});
 		};
-	}
+	},
 
-	private _makeWidgetFactory(definition: WidgetDefinition): WidgetFactory {
+	_makeWidgetFactory(definition: WidgetDefinition): WidgetFactory {
 		if (!('factory' in definition || 'instance' in definition)) {
 			throw new Error('Widget definitions must specify either the factory or instance option');
 		}
@@ -590,8 +572,8 @@ export default class App implements CombinedRegistry {
 		options = Object.assign({ id }, options);
 
 		return () => {
-			const factoryPromise = this._resolveFactory('widget', definition);
-			const storePromise = stateFrom && this.getStore(stateFrom);
+			const factoryPromise = (<App> this)._resolveFactory('widget', definition);
+			const storePromise = stateFrom && (<App> this).getStore(stateFrom);
 
 			return factoryPromise.then((factory) => {
 				if (!storePromise) {
@@ -605,4 +587,57 @@ export default class App implements CombinedRegistry {
 			});
 		};
 	}
-}
+})
+.mixin({
+	mixin: {
+		getAction(id: Identifier): Promise<ActionLike> {
+			return new Promise((resolve) => {
+				resolve(actions.get(this).get(id)());
+			});
+		},
+
+		hasAction(id: Identifier): boolean {
+			return actions.get(this).hasId(id);
+		},
+
+		getStore(id: Identifier): Promise<StoreLike> {
+			return new Promise((resolve) => {
+				resolve(stores.get(this).get(id)());
+			});
+		},
+
+		hasStore(id: Identifier): boolean {
+			return stores.get(this).hasId(id);
+		},
+
+		getWidget(id: Identifier): Promise<WidgetLike> {
+			return new Promise((resolve) => {
+				resolve(widgets.get(this).get(id)());
+			});
+		},
+
+		hasWidget(id: Identifier): boolean {
+			return widgets.get(this).hasId(id);
+		}
+	},
+
+	initialize (instance: App, { toAbsMid = (moduleId: string) => moduleId }: AppOptions = {}) {
+		instance._toAbsMid = toAbsMid;
+
+		instance._registry = {
+			getAction: instance.getAction.bind(instance),
+			hasAction: instance.hasAction.bind(instance),
+			getStore: instance.getStore.bind(instance),
+			hasStore: instance.hasStore.bind(instance),
+			getWidget: instance.getWidget.bind(instance),
+			hasWidget: instance.hasWidget.bind(instance)
+		};
+		Object.freeze(instance._registry);
+
+		actions.set(instance, new IdentityRegistry<RegisteredFactory<ActionLike>>());
+		stores.set(instance, new IdentityRegistry<RegisteredFactory<StoreLike>>());
+		widgets.set(instance, new IdentityRegistry<RegisteredFactory<WidgetLike>>());
+	}
+}) as AppFactory;
+
+export default createApp;

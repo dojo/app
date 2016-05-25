@@ -1,2 +1,2 @@
-import './App';
+import './createApp';
 import './IdentityRegistry';

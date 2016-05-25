@@ -17,7 +17,7 @@
 	],
 	"files": [
 		"./typings/index.d.ts",
-		"./src/App.ts",
+		"./src/createApp.ts",
 		"./src/IdentityRegistry.ts",
 		"./src/main.ts",
 		"./tests/fixtures/action-factory.ts",
@@ -35,7 +35,7 @@
 		"./tests/support/Reporter.ts",
 		"./tests/support/util.ts",
 		"./tests/unit/all.ts",
-		"./tests/unit/App.ts",
+		"./tests/unit/createApp.ts",
 		"./tests/unit/IdentityRegistry.ts"
 	]
 }

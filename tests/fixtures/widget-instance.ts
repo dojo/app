@@ -1,3 +1,3 @@
-import { WidgetLike } from 'src/App';
+import { WidgetLike } from 'src/createApp';
 
 export default <WidgetLike> {};
