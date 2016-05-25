@@ -36,6 +36,7 @@
 		"./tests/support/util.ts",
 		"./tests/unit/all.ts",
 		"./tests/unit/createApp.ts",
-		"./tests/unit/IdentityRegistry.ts"
+		"./tests/unit/IdentityRegistry.ts",
+		"./tests/unit/main.ts"
 	]
 }
