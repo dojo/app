@@ -785,6 +785,44 @@ registerSuite({
 						assert.strictEqual(received.id, 'foo');
 						assert.strictEqual(received.store, store);
 					});
+				},
+
+				'stateFrom may be an actual store, rather than a store identifier'() {
+					const action = createAction();
+					const handle: Handle = { destroy() {} };
+					const received: { handle: Object, id: Identifier, store: StoreLike } = {
+						handle: null,
+						id: null,
+						store: null
+					};
+					action.observeState = (id, store) => {
+						received.id = id;
+						received.store = store;
+						return handle;
+					};
+					action.own = (handle: Handle) => {
+						received.handle = handle;
+						return handle;
+					};
+
+					const store = createStore();
+
+					const app = createApp();
+					app.loadDefinition({
+						actions: [
+							{
+								id: 'foo',
+								factory: () => action,
+								stateFrom: store
+							}
+						]
+					});
+
+					return app.getAction('foo').then(() => {
+						assert.strictEqual(received.handle, handle);
+						assert.strictEqual(received.id, 'foo');
+						assert.strictEqual(received.store, store);
+					});
 				}
 			},
 
@@ -1788,6 +1826,29 @@ registerSuite({
 										return createWidget();
 									},
 									stateFrom: 'store'
+								}
+							]
+						});
+
+						return app.getWidget('foo').then(() => {
+							assert.strictEqual(actual, expected);
+						});
+					},
+
+					'stateFrom may be an actual store, rather than a store identifier'() {
+						const expected = createStore();
+						let actual: StoreLike = null;
+
+						const app = createApp();
+						app.loadDefinition({
+							widgets: [
+								{
+									id: 'foo',
+									factory(options: any) {
+										actual = options.stateFrom;
+										return createWidget();
+									},
+									stateFrom: expected
 								}
 							]
 						});
