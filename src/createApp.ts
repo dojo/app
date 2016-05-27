@@ -1,10 +1,13 @@
 import { Action } from 'dojo-actions/createAction';
 import compose, { ComposeFactory } from 'dojo-compose/compose';
+import { Destroyable } from 'dojo-compose/mixins/createDestroyable';
 import { EventedListener, EventedListenersMap } from 'dojo-compose/mixins/createEvented';
 import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
 import Promise from 'dojo-core/Promise';
 import WeakMap from 'dojo-core/WeakMap';
+import { createProjector } from 'dojo-widgets/projector';
+import { RenderableMixin } from 'dojo-widgets/mixins/createRenderable';
 
 import IdentityRegistry from './IdentityRegistry';
 
@@ -24,7 +27,7 @@ export type StoreLike = ObservableState<State>;
  * Any kind of widget.
  * FIXME: There isn't an official Widget interface. Is this even useful?
  */
-export type WidgetLike = Object;
+export type WidgetLike = Destroyable & RenderableMixin;
 
 /**
  * Actions, stores and widgets should have string identifiers.
@@ -342,6 +345,14 @@ export interface AppMixin {
 	 */
 	loadDefinition(definitions: Definitions): Handle;
 
+	/**
+	 * Take a root element and replace <attach-widget> elements with widget instances.
+	 *
+	 * @param root The root element that is searched for <attach-widget> elements
+	 * @return A handle to detach rendered widgets from the DOM
+	 */
+	realize(root: HTMLElement): Promise<Handle>;
+
 	_resolveMid(mid: string): Promise<any>;
 	_resolveFactory(type: 'action', definition: ActionDefinition): Promise<ActionFactory>;
 	_resolveFactory(type: 'store', definition: StoreDefinition): Promise<StoreFactory>;
@@ -492,6 +503,64 @@ const createApp = compose({
 		};
 	},
 
+	realize (root: HTMLElement): Promise<Handle> {
+		interface Descriptor {
+			id: Identifier;
+			instance: WidgetLike;
+			node: HTMLElement;
+		}
+
+		return new Promise<Descriptor[]>((resolve) => {
+			const elements: HTMLElement[] = Array.prototype.slice.call(root.getElementsByTagName('*'));
+			const attachWidgetElements = elements.filter((node) => {
+				if (node.tagName.toLowerCase() === 'attach-widget') {
+					return true;
+				}
+				const attrIs = node.getAttribute('is');
+				if (attrIs && attrIs.toLowerCase() === 'attach-widget') {
+					return true;
+				}
+			});
+
+			const instancePromises = attachWidgetElements.map((node) => {
+				const attrWidgetId = node.getAttribute('data-widget-id');
+				const attrId = node.getAttribute('id');
+				const id = attrWidgetId || attrId;
+
+				if (!id) {
+					throw new Error('Cannot realize widget without ID');
+				}
+
+				return (<App> this).getWidget(id).then((instance) => {
+					return { id, instance, node };
+				});
+			});
+
+			resolve(Promise.all(instancePromises));
+		}).then((descriptors) => {
+			const destroyables: Destroyable[] = [];
+			descriptors.forEach(({ instance, node }) => {
+				const projector = createProjector({
+					root: node
+				});
+
+				projector.append([instance]);
+				projector.attach({ replace: true });
+
+				destroyables.push(projector, instance);
+			});
+
+			return {
+				destroy() {
+					this.destroy = noop;
+					for (const d of destroyables) {
+						d.destroy();
+					}
+				}
+			};
+		});
+	},
+
 	_resolveMid (mid: string): Promise<any> {
 		return new Promise((resolve) => {
 			// Assumes require() is an AMD loader!
@@ -512,7 +581,7 @@ const createApp = compose({
 		}
 
 		if (typeof instance === 'object') {
-			return Promise.resolve(() => instance);
+			return Promise.resolve(() => <any> instance);
 		}
 
 		const mid = <string> (factory || instance);
