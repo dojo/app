@@ -18,9 +18,13 @@
 	},
 	"typings": "./dist/umd/dojo-app.d.ts",
 	"peerDependencies": {
+		"@reactivex/rxjs": "5.0.0-beta.6",
 		"dojo-actions": "^2.0.0-alpha.4",
 		"dojo-compose": "^2.0.0-beta.5",
-		"dojo-core": "^2.0.0-alpha.7"
+		"dojo-core": "^2.0.0-alpha.7",
+		"dojo-widgets": "^2.0.0-alpha.3",
+		"immutable": "^3.8.1",
+		"maquette": "^2.3.2"
 	},
 	"devDependencies": {
 		"codecov.io": "0.1.6",

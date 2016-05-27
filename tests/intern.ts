@@ -55,7 +55,10 @@ export const loaderOptions = {
 		{ name: 'tests', location: '_build/tests' },
 		{ name: 'dojo', location: 'node_modules/intern/node_modules/dojo' },
 		{ name: 'dojo-compose', location: 'node_modules/dojo-compose/dist/umd' },
-		{ name: 'dojo-core', location: 'node_modules/dojo-core/dist/umd' }
+		{ name: 'dojo-core', location: 'node_modules/dojo-core/dist/umd' },
+		{ name: 'dojo-widgets', location: 'node_modules/dojo-widgets/dist/umd' },
+		{ name: 'maquette', location: 'node_modules/maquette/dist' },
+		{ name: 'immutable', location: 'node_modules/immutable/dist' }
 	]
 };
 
