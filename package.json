@@ -20,7 +20,9 @@
 		"@reactivex/rxjs": "5.0.0-beta.6",
 		"dojo-actions": "dojo/actions#registerable",
 		"dojo-compose": "^2.0.0-beta.3",
-		"dojo-core": "^2.0.0-alpha.7"
+		"dojo-core": "^2.0.0-alpha.7",
+		"immutable": "^3.8.1",
+		"maquette": "^2.3.2"
 	},
 	"devDependencies": {
 		"codecov.io": "0.1.6",
