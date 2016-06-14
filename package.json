@@ -22,6 +22,7 @@
 		"dojo-actions": "^2.0.0-alpha.4",
 		"dojo-compose": "^2.0.0-beta.5",
 		"dojo-core": "^2.0.0-alpha.7",
+		"dojo-dom": "^2.0.0-alpha.1",
 		"dojo-widgets": "^2.0.0-alpha.3",
 		"immutable": "^3.8.1",
 		"maquette": "^2.3.2"
