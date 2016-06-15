@@ -15,6 +15,7 @@ import {
 	makeWidgetFactory
 } from './_factories';
 import makeMidResolver, { ToAbsMid, ResolveMid } from './_moduleResolver';
+import realizeCustomElements from './_realizeCustomElements';
 
 export { ToAbsMid };
 
@@ -303,6 +304,14 @@ export interface AppMixin {
 	 */
 	loadDefinition(definitions: Definitions): Handle;
 
+	/**
+	 * Take a root element and replace <widget-instance> elements with widget instances.
+	 *
+	 * @param root The root element that is searched for <widget-instance> elements
+	 * @return A handle to detach rendered widgets from the DOM
+	 */
+	realize(root: Element): Promise<Handle>;
+
 	_registry: CombinedRegistry;
 	_resolveMid: ResolveMid;
 }
@@ -453,6 +462,10 @@ const createApp = compose({
 				}
 			}
 		};
+	},
+
+	realize(root: Element) {
+		return realizeCustomElements(this, root);
 	}
 })
 .mixin({

@@ -1,11 +1,16 @@
 import { EventedListener, EventedListenersMap } from 'dojo-compose/mixins/createEvented';
+import global from 'dojo-core/global';
+import has from 'dojo-core/has';
 import { Handle } from 'dojo-core/interfaces';
 import { assign } from 'dojo-core/lang';
 import Promise from 'dojo-core/Promise';
+import createActualWidget from 'dojo-widgets/createWidget';
+import createContainer from 'dojo-widgets/createContainer';
 import * as registerSuite from 'intern!object';
 import * as assert from 'intern/chai!assert';
 
 import createApp, {
+	App,
 	ActionLike,
 	CombinedRegistry,
 	Identifier,
@@ -2219,5 +2224,273 @@ registerSuite({
 			app.registerAction('widget', createAction());
 			app.registerStore('widget', createStore());
 		});
-	}
+	},
+
+	'#realize': (() => {
+		let app: App = null;
+		let root: HTMLElement = null;
+		let projector: HTMLElement = null;
+		let stubbedGlobals = false;
+
+		return {
+			before() {
+				if (has('host-node')) {
+					global.document = (<any> require('jsdom')).jsdom('<html><body></body></html>');
+					global.Node = global.document.defaultView.Node;
+					stubbedGlobals = true;
+				}
+			},
+
+			after() {
+				if (stubbedGlobals) {
+					delete global.document;
+					delete global.Node;
+				}
+			},
+
+			beforeEach() {
+				root = document.createElement('div');
+				projector = document.createElement('widget-projector');
+				root.appendChild(projector);
+				app = createApp();
+			},
+
+			'recognizes custom elements by tag name'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+				return app.realize(root).then(() => {
+					assert.equal(projector.firstChild.nodeName, 'MARK');
+				});
+			},
+
+			'tag name comparisons are case-insensitive'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+				return app.realize(root).then(() => {
+					assert.equal(root.firstChild.firstChild.nodeName, 'MARK');
+				});
+			},
+
+			'tag name takes precedence over `is` attribute'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = '<widget-instance is="widget-projector" id="foo"></widget-instance>';
+				return app.realize(root).then(() => {
+					assert.equal(root.firstChild.firstChild.nodeName, 'MARK');
+				});
+			},
+
+			'`is` attribute comparison is case-insensitive'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = '<div is="widget-instance" id="foo"></div>';
+				return app.realize(root).then(() => {
+					assert.equal(projector.firstChild.nodeName, 'MARK');
+				});
+			},
+
+			'skips unknown custom elements'() {
+				root.innerHTML = '<custom-element></custom-element><div is="another-element"></div>';
+				return app.realize(root).then(() => {
+					assert.equal(root.firstChild.nodeName, 'CUSTOM-ELEMENT');
+					assert.equal(root.lastChild.nodeName, 'DIV');
+				});
+			},
+
+			'custom elements must be rooted in a widget-projector'() {
+				root.innerHTML = '<widget-instance id="foo"/>';
+				return rejects(app.realize(root), Error, 'Custom tags must be rooted in a widget-projector');
+			},
+
+			'the widget-projector element is left in the DOM'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+				return app.realize(root).then(() => {
+					assert.strictEqual(root.firstChild, projector);
+				});
+			},
+
+			'the widget-projector element may be the root'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+				return app.realize(projector).then(() => {
+					assert.equal(projector.firstChild.nodeName, 'MARK');
+				});
+			},
+
+			'widget-projector elements cannot contain other widget-projector elements'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = '<widget-projector></widget-projector>';
+				return rejects(app.realize(root), Error, 'widget-projector cannot contain another widget-projector');
+			},
+
+			'realized elements are replaced'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				app.registerWidget('bar', createActualWidget({ tagName: 'strong' }));
+				projector.innerHTML = `
+					before1
+					<widget-instance id="foo"></widget-instance>
+					<div>
+						before2
+						<widget-instance id="bar"></widget-instance>
+						after2
+					</div>
+					after1
+				`.trim();
+				return app.realize(root).then(() => {
+					const before1 = projector.firstChild;
+					assert.equal(before1.nodeValue.trim(), 'before1');
+					const foo = <Element> before1.nextSibling;
+					assert.equal(foo.nodeName, 'MARK');
+					const div = foo.nextElementSibling;
+					assert.equal(div.nodeName, 'DIV');
+					const before2 = div.firstChild;
+					assert.equal(before2.nodeValue.trim(), 'before2');
+					const bar = before2.nextSibling;
+					assert.equal(bar.nodeName, 'STRONG');
+					const after2 = bar.nextSibling;
+					assert.equal(after2.nodeValue.trim(), 'after2');
+					const after1 = div.nextSibling;
+					assert.equal(after1.nodeValue.trim(), 'after1');
+				});
+			},
+
+			'supports multiple projection projectors'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				app.registerWidget('bar', createActualWidget({ tagName: 'strong' }));
+				root.innerHTML = `
+					<widget-projector><widget-instance id="foo"></widget-instance></widget-projector>
+					<widget-projector><widget-instance id="bar"></widget-instance></widget-projector>
+				`.trim();
+				return app.realize(root).then(() => {
+					assert.equal(root.firstChild.firstChild.nodeName, 'MARK');
+					assert.equal(root.lastChild.firstChild.nodeName, 'STRONG');
+				});
+			},
+
+			'widget-instance': {
+				'data-widget-id takes precedence over id'() {
+					app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+					projector.innerHTML = '<widget-instance id="bar" data-widget-id="foo"></widget-instance>';
+					return app.realize(root).then(() => {
+						assert.equal(projector.firstChild.nodeName, 'MARK');
+					});
+				},
+
+				'an ID is required'() {
+					projector.innerHTML = '<widget-instance></widget-instance>';
+					return rejects(app.realize(root), Error, 'Cannot resolve widget for a custom element without \'data-widget-id\' or \'id\' attributes');
+				},
+
+				'the ID must resolve to a widget instance'() {
+					projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+					return rejects(app.realize(root), Error, 'Could not find a value for identity \'foo\'');
+				},
+
+				'child nodes that are not custom elements are discarded'() {
+					app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+					projector.innerHTML = '<widget-instance id="foo">oh noes</widget-instance>';
+					return app.realize(root).then(() => {
+						assert.equal(projector.firstChild.nodeName, 'MARK');
+						assert.isFalse(projector.firstChild.hasChildNodes());
+					});
+				},
+
+				'a widget cannot be attached multiple times in the same projector'() {
+					app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+					projector.innerHTML = `
+						<widget-instance id="foo"></widget-instance>
+						<widget-instance id="foo"></widget-instance>
+					`;
+					return rejects(app.realize(root), Error, 'Cannot attach a widget multiple times');
+				},
+
+				'a widget cannot be attached in multiple projectors'() {
+					app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+					root.innerHTML = `
+						<widget-projector><widget-instance id="foo"></widget-instance></widget-projector>
+						<widget-projector><widget-instance id="foo"></widget-instance></widget-projector>
+					`;
+					return rejects(app.realize(root), Error, 'Cannot attach a widget multiple times');
+				},
+
+				'a widget cannot be attached if it already has a parent'() {
+					const widget = createActualWidget({ tagName: 'mark' });
+					createContainer().append(widget);
+					app.registerWidget('foo', widget);
+					projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+					return rejects(app.realize(root), Error, 'Cannot attach a widget that already has a parent');
+				},
+
+				'widgets can contain children'() {
+					app.registerWidget('foo', createContainer());
+					app.registerWidget('bar', createActualWidget({ tagName: 'mark' }));
+					app.registerWidget('baz', createContainer());
+					app.registerWidget('qux', createActualWidget({ tagName: 'strong' }));
+					root.innerHTML = `
+						<widget-projector>
+							<widget-instance id="foo">
+								<widget-instance id="bar"></widget-instance>
+							</widget-instance>
+						</widget-projector>
+						<widget-projector>
+							<widget-instance id="baz">
+								<widget-instance id="qux"></widget-instance>
+							</widget-instance>
+						</widget-projector>
+					`.trim();
+					return app.realize(root).then(() => {
+						const foo = root.firstElementChild.firstElementChild;
+						assert.equal(foo.nodeName, 'DOJO-CONTAINER');
+						assert.equal(foo.firstChild.nodeName, 'MARK');
+
+						const baz = root.lastElementChild.firstElementChild;
+						assert.equal(baz.nodeName, 'DOJO-CONTAINER');
+						assert.equal(baz.firstChild.nodeName, 'STRONG');
+					});
+				},
+
+				'the resulting widget hierarchy ignores non-custom elements'() {
+					app.registerWidget('foo', createContainer());
+					app.registerWidget('bar', createActualWidget({ tagName: 'mark' }));
+					projector.innerHTML = `
+						<widget-instance id="foo">
+							<div>
+								<widget-instance id="bar"></widget-instance>
+							</div>
+						</widget-instance>
+					`.trim();
+					return app.realize(root).then(() => {
+						const foo = projector.firstElementChild;
+						assert.equal(foo.nodeName, 'DOJO-CONTAINER');
+						assert.equal(foo.firstChild.nodeName, 'MARK');
+					});
+				}
+			},
+
+			// FIXME: Are there any other side-effects that could be tested? The code does destroy the projectors, which
+			// does not impact the DOM. This is really just a regression test. Would be good to test an actual projector
+			// destruction side-effect so we can be sure projectors were destroyed.
+			'destroying the returned handle leaves the rendered elements in the DOM'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+				return app.realize(root).then((handle) => {
+					handle.destroy();
+					return new Promise((resolve) => { setTimeout(resolve, 50); });
+				}).then(() => {
+					assert.equal(root.firstChild.firstChild.nodeName, 'MARK');
+				});
+			},
+
+			'destroying the returned handle a second time is a noop'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+				return app.realize(root).then((handle) => {
+					handle.destroy();
+					handle.destroy();
+					return new Promise((resolve) => { setTimeout(resolve, 50); });
+				}).then(() => {
+					assert.equal(root.firstChild.firstChild.nodeName, 'MARK');
+				});
+			}
+		};
+	})()
 });
