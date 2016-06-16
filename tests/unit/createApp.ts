@@ -1,5 +1,6 @@
 import { EventedListener, EventedListenersMap } from 'dojo-compose/mixins/createEvented';
 import { Handle } from 'dojo-core/interfaces';
+import { assign } from 'dojo-core/lang';
 import Promise from 'dojo-core/Promise';
 import * as registerSuite from 'intern!object';
 import * as assert from 'intern/chai!assert';
@@ -1831,8 +1832,8 @@ registerSuite({
 						app.getWidget('foo'),
 						app.getWidget('bar')
 					]).then(() => {
-						assert.deepEqual(actual.foo, Object.assign({ id: 'foo' }, expected.foo));
-						assert.deepEqual(actual.bar, Object.assign({ id: 'bar' }, expected.bar));
+						assert.deepEqual(actual.foo, assign({ id: 'foo' }, expected.foo));
+						assert.deepEqual(actual.bar, assign({ id: 'bar' }, expected.bar));
 					});
 				},
 

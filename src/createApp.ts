@@ -3,6 +3,7 @@ import compose, { ComposeFactory } from 'dojo-compose/compose';
 import { EventedListener, EventedListenersMap } from 'dojo-compose/mixins/createEvented';
 import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
+import { assign } from 'dojo-core/lang';
 import Promise from 'dojo-core/Promise';
 import WeakMap from 'dojo-core/WeakMap';
 
@@ -395,7 +396,7 @@ function makeStoreFactory(definition: StoreDefinition, resolveMid: ResolveMid): 
 		throw new Error('Cannot specify options when store definition points directly at an instance');
 	}
 
-	const options = Object.assign({}, definition.options);
+	const options = assign({}, definition.options);
 
 	return () => {
 		return resolveFactory('store', definition, resolveMid).then((factory) => {
@@ -424,7 +425,7 @@ function makeWidgetFactory(definition: WidgetDefinition, resolveMid: ResolveMid,
 	if (options && ('id' in options || 'listeners' in options || 'stateFrom' in options)) {
 		throw new Error('id, listeners and stateFrom options should be in the widget definition itself, not its options value');
 	}
-	options = Object.assign({ id: definition.id }, options);
+	options = assign({ id: definition.id }, options);
 
 	return () => {
 		return Promise.all<any>([
