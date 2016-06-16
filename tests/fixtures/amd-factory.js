@@ -1,16 +1,10 @@
-'use strict';
-// Explicit strict mode so this file can be loaded in Node.js v5.
-
-define(() => {
-	let factory = null;
-
-	const wrapper = (registry) => {
+define(function() {
+	var factory = null;
+	var wrapper = function(registry) {
 		return factory(registry);
 	};
-
-	wrapper.stub = (stub) => {
+	wrapper.stub = function(stub) {
 		factory = stub;
 	};
-
 	return wrapper;
 });
