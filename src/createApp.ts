@@ -101,6 +101,29 @@ export interface ToAbsMid {
 }
 
 /**
+ * Internal interface to asynchronously resolve a module by its identifier.
+ */
+export interface ResolveMid {
+	(mid: string): Promise<any>;
+}
+
+function makeMidResolver(toAbsMid: ToAbsMid): ResolveMid {
+	return function resolveMid(mid: string): Promise<any> {
+		return new Promise((resolve) => {
+			// Assumes require() is an AMD loader!
+			require([toAbsMid(mid)], (module) => {
+				if (module.__esModule) {
+					resolve(module.default);
+				}
+				else {
+					resolve(module);
+				}
+			});
+		});
+	};
+}
+
+/**
  * Factory method to (asynchronously) create an action.
  *
  * @param registry The combined registries of the app
@@ -228,23 +251,6 @@ export interface WidgetListenersMap {
 	[eventType: string]: WidgetListenerOrArray;
 }
 
-export type Factory = ActionFactory | StoreFactory | WidgetFactory;
-export type Instance = ActionLike | StoreLike | WidgetLike;
-export type FactoryTypes = 'action' | 'store' | 'widget';
-const errorStrings: { [type: string]: string } = {
-	action: 'an action',
-	store: 'a store',
-	widget: 'a widget'
-};
-
-interface RegisteredFactory<T> {
-	(): Promise<T>;
-}
-
-const actions = new WeakMap<App, IdentityRegistry<RegisteredFactory<ActionLike>>>();
-const stores = new WeakMap<App, IdentityRegistry<RegisteredFactory<StoreLike>>>();
-const widgets = new WeakMap<App, IdentityRegistry<RegisteredFactory<WidgetLike>>>();
-
 function resolveListeners(registry: CombinedRegistry, ref: WidgetListenerOrArray): { value?: any; promise?: Promise<any>; } {
 	if (Array.isArray(ref)) {
 		const resolved = ref.map((item) => {
@@ -306,6 +312,148 @@ function resolveStore(registry: CombinedRegistry, definition: ActionDefinition |
 
 	return registry.getStore(<string> stateFrom);
 }
+
+type Factory = ActionFactory | StoreFactory | WidgetFactory;
+type Instance = ActionLike | StoreLike | WidgetLike;
+type FactoryTypes = 'action' | 'store' | 'widget';
+const errorStrings: { [type: string]: string } = {
+	action: 'an action',
+	store: 'a store',
+	widget: 'a widget'
+};
+
+function resolveFactory(type: 'action', definition: ActionDefinition, resolveMid: ResolveMid): Promise<ActionFactory>;
+function resolveFactory(type: 'store', definition: StoreDefinition, resolveMid: ResolveMid): Promise<StoreFactory>;
+function resolveFactory(type: 'widget', definition: WidgetDefinition, resolveMid: ResolveMid): Promise<WidgetFactory>;
+function resolveFactory(type: FactoryTypes, definition: ItemDefinition<Factory, Instance>, resolveMid: ResolveMid): Promise<Factory>;
+function resolveFactory(type: FactoryTypes, { factory, instance }: ItemDefinition<Factory, Instance>, resolveMid: ResolveMid): Promise<Factory> {
+	if (typeof factory === 'function') {
+		return Promise.resolve(factory);
+	}
+
+	if (typeof instance === 'object') {
+		return Promise.resolve(() => instance);
+	}
+
+	const mid = <string> (factory || instance);
+	return resolveMid(mid).then((defaultExport) => {
+		if (factory) {
+			if (typeof defaultExport !== 'function') {
+				throw new Error(`Could not resolve '${mid}' to ${errorStrings[type]} factory function`);
+			}
+
+			return defaultExport;
+		}
+
+		// istanbul ignore else Action factories are expected to guard against definitions with neither
+		// factory or instance properties.
+		if (instance) {
+			if (!defaultExport || typeof defaultExport !== 'object') {
+				throw new Error(`Could not resolve '${mid}' to ${errorStrings[type]} instance`);
+			}
+
+			return () => defaultExport;
+		}
+	});
+}
+
+function makeActionFactory(definition: ActionDefinition, resolveMid: ResolveMid): ActionFactory {
+	if (!('factory' in definition || 'instance' in definition)) {
+		throw new Error('Action definitions must specify either the factory or instance option');
+	}
+	if ('instance' in definition && 'stateFrom' in definition) {
+		throw new Error('Cannot specify stateFrom option when action definition points directly at an instance');
+	}
+
+	return (registry: CombinedRegistry) => {
+		return Promise.all<any>([
+			resolveFactory('action', definition, resolveMid).then((factory) => {
+				return factory(registry);
+			}),
+			resolveStore(registry, definition)
+		]).then((values) => {
+			let action: ActionLike;
+			let store: StoreLike;
+			[action, store] = values;
+
+			if (store) {
+				// No options are passed to the factory, since the do() implementation cannot be specified in
+				// action definitions. This means the state observation has to be done after the action is created.
+				action.own(action.observeState(definition.id, store));
+			}
+
+			return action;
+		});
+	};
+}
+
+function makeStoreFactory(definition: StoreDefinition, resolveMid: ResolveMid): StoreFactory {
+	if (!('factory' in definition || 'instance' in definition)) {
+		throw new Error('Store definitions must specify either the factory or instance option');
+	}
+	if ('instance' in definition && 'options' in definition) {
+		throw new Error('Cannot specify options when store definition points directly at an instance');
+	}
+
+	const options = Object.assign({}, definition.options);
+
+	return () => {
+		return resolveFactory('store', definition, resolveMid).then((factory) => {
+			return factory(options);
+		});
+	};
+}
+
+function makeWidgetFactory(definition: WidgetDefinition, resolveMid: ResolveMid, registry: CombinedRegistry): WidgetFactory {
+	if (!('factory' in definition || 'instance' in definition)) {
+		throw new Error('Widget definitions must specify either the factory or instance option');
+	}
+	if ('instance' in definition) {
+		if ('listeners' in definition) {
+			throw new Error('Cannot specify listeners option when widget definition points directly at an instance');
+		}
+		if ('stateFrom' in definition) {
+			throw new Error('Cannot specify stateFrom option when widget definition points directly at an instance');
+		}
+		if ('options' in definition) {
+			throw new Error('Cannot specify options when widget definition points directly at an instance');
+		}
+	}
+
+	let { options } = definition;
+	if (options && ('id' in options || 'listeners' in options || 'stateFrom' in options)) {
+		throw new Error('id, listeners and stateFrom options should be in the widget definition itself, not its options value');
+	}
+	options = Object.assign({ id: definition.id }, options);
+
+	return () => {
+		return Promise.all<any>([
+			resolveFactory('widget', definition, resolveMid),
+			resolveListenersMap(registry, definition),
+			resolveStore(registry, definition)
+		]).then((values) => {
+			let factory: WidgetFactory;
+			let listeners: EventedListenersMap;
+			let store: StoreLike;
+			[factory, listeners, store] = values;
+
+			if (listeners) {
+				(<any> options).listeners = listeners;
+			}
+
+			if (store) {
+				(<any> options).stateFrom = store;
+			}
+
+			return factory(options);
+		});
+	};
+}
+
+type RegisteredFactory<T> = () => Promise<T>;
+const actions = new WeakMap<App, IdentityRegistry<RegisteredFactory<ActionLike>>>();
+const stores = new WeakMap<App, IdentityRegistry<RegisteredFactory<StoreLike>>>();
+const widgets = new WeakMap<App, IdentityRegistry<RegisteredFactory<WidgetLike>>>();
 
 export interface AppMixin {
 	/**
@@ -382,17 +530,8 @@ export interface AppMixin {
 	 */
 	loadDefinition(definitions: Definitions): Handle;
 
-	_resolveMid(mid: string): Promise<any>;
-	_resolveFactory(type: 'action', definition: ActionDefinition): Promise<ActionFactory>;
-	_resolveFactory(type: 'store', definition: StoreDefinition): Promise<StoreFactory>;
-	_resolveFactory(type: 'widget', definition: WidgetDefinition): Promise<WidgetFactory>;
-	_resolveFactory(type: FactoryTypes, definition: ItemDefinition<Factory, Instance>): Promise<Factory>;
-	_makeActionFactory(definition: ActionDefinition): ActionFactory;
-	_makeStoreFactory(definition: StoreDefinition): StoreFactory;
-	_makeWidgetFactory(definition: WidgetDefinition): WidgetFactory;
-
-	_toAbsMid: ToAbsMid;
 	_registry: CombinedRegistry;
+	_resolveMid: ResolveMid;
 }
 
 export type App = AppMixin & CombinedRegistry;
@@ -497,11 +636,12 @@ const createApp = compose({
 	},
 
 	loadDefinition({ actions, stores, widgets }: Definitions): Handle {
+		const app: App = this;
 		const handles: Handle[] = [];
 
 		if (actions) {
 			for (const definition of actions) {
-				const factory = this._makeActionFactory(definition);
+				const factory = makeActionFactory(definition, app._resolveMid);
 				const handle = this.registerActionFactory(definition.id, factory);
 				handles.push(handle);
 			}
@@ -509,7 +649,7 @@ const createApp = compose({
 
 		if (stores) {
 			for (const definition of stores) {
-				const factory = this._makeStoreFactory(definition);
+				const factory = makeStoreFactory(definition, app._resolveMid);
 				const handle = this.registerStoreFactory(definition.id, factory);
 				handles.push(handle);
 			}
@@ -517,7 +657,7 @@ const createApp = compose({
 
 		if (widgets) {
 			for (const definition of widgets) {
-				const factory = this._makeWidgetFactory(definition);
+				const factory = makeWidgetFactory(definition, app._resolveMid, app);
 				const handle = this.registerWidgetFactory(definition.id, factory);
 				handles.push(handle);
 			}
@@ -529,144 +669,6 @@ const createApp = compose({
 					handle.destroy();
 				}
 			}
-		};
-	},
-
-	_resolveMid (mid: string): Promise<any> {
-		return new Promise((resolve) => {
-			// Assumes require() is an AMD loader!
-			require([this._toAbsMid(mid)], (module) => {
-				if (module.__esModule) {
-					resolve(module.default);
-				}
-				else {
-					resolve(module);
-				}
-			});
-		});
-	},
-
-	_resolveFactory (type: FactoryTypes, { factory, instance }: ItemDefinition<Factory, Instance>): Promise<Factory> {
-		if (typeof factory === 'function') {
-			return Promise.resolve(factory);
-		}
-
-		if (typeof instance === 'object') {
-			return Promise.resolve(() => instance);
-		}
-
-		const mid = <string> (factory || instance);
-		return (<App> this)._resolveMid(mid).then((defaultExport) => {
-			if (factory) {
-				if (typeof defaultExport !== 'function') {
-					throw new Error(`Could not resolve '${mid}' to ${errorStrings[type]} factory function`);
-				}
-
-				return defaultExport;
-			}
-
-			// istanbul ignore else Action factories are expected to guard against definitions with neither
-			// factory or instance properties.
-			if (instance) {
-				if (!defaultExport || typeof defaultExport !== 'object') {
-					throw new Error(`Could not resolve '${mid}' to ${errorStrings[type]} instance`);
-				}
-
-				return () => defaultExport;
-			}
-		});
-	},
-
-	_makeActionFactory(definition: ActionDefinition): ActionFactory {
-		if (!('factory' in definition || 'instance' in definition)) {
-			throw new Error('Action definitions must specify either the factory or instance option');
-		}
-		if ('instance' in definition && 'stateFrom' in definition) {
-			throw new Error('Cannot specify stateFrom option when action definition points directly at an instance');
-		}
-
-		return (registry: CombinedRegistry) => {
-			return Promise.all<any>([
-				(<App> this)._resolveFactory('action', definition).then((factory) => {
-					return factory(registry);
-				}),
-				resolveStore(registry, definition)
-			]).then((values) => {
-				let action: ActionLike;
-				let store: StoreLike;
-				[action, store] = values;
-
-				if (store) {
-					// No options are passed to the factory, since the do() implementation cannot be specified in
-					// action definitions. This means the state observation has to be done after the action is created.
-					action.own(action.observeState(definition.id, store));
-				}
-
-				return action;
-			});
-		};
-	},
-
-	_makeStoreFactory(definition: StoreDefinition): StoreFactory {
-		if (!('factory' in definition || 'instance' in definition)) {
-			throw new Error('Store definitions must specify either the factory or instance option');
-		}
-		if ('instance' in definition && 'options' in definition) {
-			throw new Error('Cannot specify options when store definition points directly at an instance');
-		}
-
-		const options = Object.assign({}, definition.options);
-
-		return () => {
-			return (<App> this)._resolveFactory('store', definition).then((factory) => {
-				return factory(options);
-			});
-		};
-	},
-
-	_makeWidgetFactory(definition: WidgetDefinition): WidgetFactory {
-		if (!('factory' in definition || 'instance' in definition)) {
-			throw new Error('Widget definitions must specify either the factory or instance option');
-		}
-		if ('instance' in definition) {
-			if ('listeners' in definition) {
-				throw new Error('Cannot specify listeners option when widget definition points directly at an instance');
-			}
-			if ('stateFrom' in definition) {
-				throw new Error('Cannot specify stateFrom option when widget definition points directly at an instance');
-			}
-			if ('options' in definition) {
-				throw new Error('Cannot specify options when widget definition points directly at an instance');
-			}
-		}
-
-		let { options } = definition;
-		if (options && ('id' in options || 'listeners' in options || 'stateFrom' in options)) {
-			throw new Error('id, listeners and stateFrom options should be in the widget definition itself, not its options value');
-		}
-		options = Object.assign({ id: definition.id }, options);
-
-		return () => {
-			return Promise.all<any>([
-				(<App> this)._resolveFactory('widget', definition),
-				resolveListenersMap(this, definition),
-				resolveStore(this, definition)
-			]).then((values) => {
-				let factory: WidgetFactory;
-				let listeners: EventedListenersMap;
-				let store: StoreLike;
-				[factory, listeners, store] = values;
-
-				if (listeners) {
-					(<any> options).listeners = listeners;
-				}
-
-				if (store) {
-					(<any> options).stateFrom = store;
-				}
-
-				return factory(options);
-			});
 		};
 	}
 })
@@ -704,8 +706,6 @@ const createApp = compose({
 	},
 
 	initialize (instance: App, { toAbsMid = (moduleId: string) => moduleId }: AppOptions = {}) {
-		instance._toAbsMid = toAbsMid;
-
 		instance._registry = {
 			getAction: instance.getAction.bind(instance),
 			hasAction: instance.hasAction.bind(instance),
@@ -715,6 +715,8 @@ const createApp = compose({
 			hasWidget: instance.hasWidget.bind(instance)
 		};
 		Object.freeze(instance._registry);
+
+		instance._resolveMid = makeMidResolver(toAbsMid);
 
 		actions.set(instance, new IdentityRegistry<RegisteredFactory<ActionLike>>());
 		stores.set(instance, new IdentityRegistry<RegisteredFactory<StoreLike>>());
