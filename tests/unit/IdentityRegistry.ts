@@ -6,6 +6,10 @@ import IdentityRegistry from 'src/IdentityRegistry';
 
 class Value {}
 
+const idSymbol = Symbol('id');
+// Store the expected string due to <https://github.com/dojo/core/issues/170>.
+const idSymbolString = idSymbol.toString();
+
 registerSuite({
 	name: 'IdentityRegistry',
 
@@ -22,9 +26,9 @@ registerSuite({
 		'symbol id was not registered'() {
 			const registry = new IdentityRegistry<Value>();
 			assert.throws(
-				() => registry.get(Symbol('id')),
+				() => registry.get(idSymbol),
 				Error,
-				'Could not find a value for identity \'Symbol(id)\''
+				'Could not find a value for identity \'' + idSymbolString + '\''
 			);
 		},
 
@@ -115,11 +119,11 @@ registerSuite({
 
 		'symbol id is already used'() {
 			const registry = new IdentityRegistry<Value>();
-			const id = Symbol('id');
+			const id = idSymbol;
 			registry.register(id, new Value());
 			assert.throws(() => {
 				registry.register(id, new Value());
-			}, Error, 'A value has already been registered for the given identity (Symbol(id))');
+			}, Error, 'A value has already been registered for the given identity (' + idSymbolString + ')');
 		},
 
 		'value has already been registered with a different (string) id'() {
@@ -134,10 +138,11 @@ registerSuite({
 		'value has already been registered with a different (symbol) id'() {
 			const registry = new IdentityRegistry<Value>();
 			const value = new Value();
-			registry.register(Symbol('id1'), value);
+			const id1Symbol = Symbol('id1');
+			registry.register(id1Symbol, value);
 			assert.throws(() => {
 				registry.register('id2', value);
-			}, Error, 'The value has already been registered with a different identity (Symbol(id1))');
+			}, Error, 'The value has already been registered with a different identity (' + id1Symbol.toString() + ')');
 		},
 
 		'value has already been registered with the same id'() {
