@@ -1,10 +1,12 @@
 import { Action } from 'dojo-actions/createAction';
 import compose, { ComposeFactory } from 'dojo-compose/compose';
+import { Destroyable } from 'dojo-compose/mixins/createDestroyable';
 import { EventedListener } from 'dojo-compose/mixins/createEvented';
 import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
 import Promise from 'dojo-core/Promise';
 import WeakMap from 'dojo-core/WeakMap';
+import { RenderableMixin } from 'dojo-widgets/mixins/createRenderable';
 
 import IdentityRegistry from './IdentityRegistry';
 import {
@@ -28,9 +30,8 @@ export type StoreLike = ObservableState<State>;
 
 /**
  * Any kind of widget.
- * FIXME: There isn't an official Widget interface. Is this even useful?
  */
-export type WidgetLike = Object;
+export type WidgetLike = Destroyable & RenderableMixin;
 
 /**
  * Factory method to (asynchronously) create an action.
