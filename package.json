@@ -7,6 +7,7 @@
 		"url": "https://github.com/dojo/app/issues"
 	},
 	"license": "BSD-3-Clause",
+	"main": "index.js",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/dojo/app.git"
@@ -15,7 +16,12 @@
 		"prepublish": "grunt dist",
 		"test": "grunt test"
 	},
-	"typings": "./typings/dist/umd/dojo-app.d.ts",
+	"typings": "./dist/umd/dojo-app.d.ts",
+	"peerDependencies": {
+		"dojo-actions": "^2.0.0-alpha.4",
+		"dojo-compose": "^2.0.0-beta.5",
+		"dojo-core": "^2.0.0-alpha.7"
+	},
 	"devDependencies": {
 		"codecov.io": "0.1.6",
 		"dojo-loader": ">=2.0.0-beta",
@@ -25,16 +31,15 @@
 		"grunt-contrib-clean": "^1.0.0",
 		"grunt-contrib-copy": "^1.0.0",
 		"grunt-contrib-watch": "^1.0.0",
-		"grunt-dojo2": ">=2.0.0-beta.1",
-		"grunt-release": "^0.13.1",
+		"grunt-dojo2": ">=2.0.0-beta.7",
 		"grunt-text-replace": "^0.4.0",
 		"grunt-ts": "^5.5.1",
 		"grunt-tslint": "^3.1.0",
-		"grunt-typings": ">=0.1.4",
-		"intern": "^3.2.0",
+		"grunt-typings": ">=0.1.5",
+		"intern": "^3.2.3",
 		"istanbul": "^0.4.3",
 		"remap-istanbul": "^0.6.4",
-		"tslint": "^3.10.2",
+		"tslint": "^3.11.0",
 		"typescript": "^1.8.10"
 	}
 }
