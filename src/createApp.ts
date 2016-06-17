@@ -343,7 +343,9 @@ function resolveFactory(type: FactoryTypes, { factory, instance }: ItemDefinitio
 				throw new Error(`Could not resolve '${mid}' to ${errorStrings[type]} factory function`);
 			}
 
-			return defaultExport;
+			const factory: Factory = defaultExport;
+			return factory;
+
 		}
 
 		// istanbul ignore else Action factories are expected to guard against definitions with neither
@@ -353,7 +355,8 @@ function resolveFactory(type: FactoryTypes, { factory, instance }: ItemDefinitio
 				throw new Error(`Could not resolve '${mid}' to ${errorStrings[type]} instance`);
 			}
 
-			return () => defaultExport;
+			const instance: Instance = defaultExport;
+			return () => instance;
 		}
 	});
 }
