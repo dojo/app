@@ -411,6 +411,123 @@ registerSuite({
 		}
 	},
 
+	'#getCustomElementFactory': {
+		'no registered custom element'() {
+			assert.throws(() => createApp().getCustomElementFactory('foo-bar'), Error);
+		},
+
+		'provides a wrapper for the registered factory'() {
+			let receivedOptions: Object;
+			const expectedReturnValue = createWidget();
+
+			const app = createApp();
+			app.registerCustomElementFactory('foo-bar', (options) => {
+				receivedOptions = options;
+				return expectedReturnValue;
+			});
+
+			const wrapper = app.getCustomElementFactory('foo-bar');
+			const expectedOptions = {};
+			const receivedReturnValue = wrapper(expectedOptions);
+			assert.strictEqual(receivedOptions, expectedOptions);
+			assert.strictEqual(receivedReturnValue, expectedReturnValue);
+		}
+	},
+
+	'#hasCustomElementFactory': {
+		'no registered custom element'() {
+			assert.isFalse(createApp().hasCustomElementFactory('foo-bar'));
+		},
+
+		'registered custom element'() {
+			const app = createApp();
+			app.registerCustomElementFactory('foo-bar', createWidget);
+
+			assert.isTrue(app.hasCustomElementFactory('foo-bar'));
+		}
+	},
+
+	'#registerCustomElementFactory': {
+		'hasCustomElementFactory returns true after'() {
+			const app = createApp();
+			app.registerCustomElementFactory('foo-bar', createWidget);
+
+			assert.isTrue(app.hasCustomElementFactory('foo-bar'));
+		},
+
+		'destroying the returned handle': {
+			'deregister the factory'() {
+				const app = createApp();
+				const handle = app.registerCustomElementFactory('foo-bar', createWidget);
+				handle.destroy();
+
+				assert.isFalse(app.hasCustomElementFactory('foo-bar'));
+			},
+
+			'a second time is a noop'() {
+				const app = createApp();
+				const handle = app.registerCustomElementFactory('foo-bar', createWidget);
+				handle.destroy();
+				handle.destroy();
+
+				assert.isFalse(app.hasCustomElementFactory('foo-bar'));
+			}
+		},
+
+		'validates the name': {
+			'must not be empty'() {
+				assert.throws(() => {
+					createApp().registerCustomElementFactory('', createWidget);
+				}, SyntaxError, '\'\' is not a valid custom element name');
+			},
+
+			'must start with a lowercase ASCII letter'() {
+				assert.throws(() => {
+					createApp().registerCustomElementFactory('💩-', createWidget);
+				}, SyntaxError, '\'💩-\' is not a valid custom element name');
+			},
+
+			'must contain a hyphen'() {
+				assert.throws(() => {
+					createApp().registerCustomElementFactory('a', createWidget);
+				}, SyntaxError, '\'a\' is not a valid custom element name');
+			},
+
+			'must not include uppercase ASCII letters'() {
+				assert.throws(() => {
+					createApp().registerCustomElementFactory('a-A', createWidget);
+				}, SyntaxError, '\'a-A\' is not a valid custom element name');
+			},
+
+			'must not be a reserved name'() {
+				[
+					'annotation-xml',
+					'color-profile',
+					'font-face',
+					'font-face-src',
+					'font-face-uri',
+					'font-face-format',
+					'font-face-name',
+					'missing-glyph',
+					'widget-instance',
+					'widget-projector'
+				].forEach((name) => {
+					assert.throws(() => {
+						createApp().registerCustomElementFactory(name, createWidget);
+					}, Error, `'${name}' is not a valid custom element name`);
+				});
+			}
+		},
+
+		'the name must not case-insensitively match a previously registered element'() {
+			const app = createApp();
+			app.registerCustomElementFactory('a-Ø', () => createWidget());
+			assert.throws(() => {
+				app.registerCustomElementFactory('a-ø', () => createWidget());
+			}, Error);
+		}
+	},
+
 	'#getStore': {
 		'no registered store'() {
 			return rejects(createApp().getStore('foo'), Error);
@@ -1214,6 +1331,109 @@ registerSuite({
 							]
 						});
 					}, TypeError, 'Cannot specify stateFrom option when action definition points directly at an instance');
+				}
+			}
+		},
+
+		'customElements': {
+			'registers multiple'() {
+				const expected = {
+					'foo-bar': createWidget(),
+					'baz-qux': createWidget()
+				};
+
+				const app = createApp();
+				app.loadDefinition({
+					customElements: [
+						{
+							name: 'foo-bar',
+							factory: () => expected['foo-bar']
+						},
+						{
+							name: 'baz-qux',
+							factory: () => expected['baz-qux']
+						}
+					]
+				});
+
+				assert.isTrue(app.hasCustomElementFactory('foo-bar'));
+				assert.isTrue(app.hasCustomElementFactory('baz-qux'));
+
+				return Promise.all([
+					app.getCustomElementFactory('foo-bar')(),
+					app.getCustomElementFactory('baz-qux')()
+				]).then(([fooBar, bazQux]) => {
+					assert.strictEqual(fooBar, expected['foo-bar']);
+					assert.strictEqual(bazQux, expected['baz-qux']);
+				});
+			},
+
+			'factory can be a module identifier'() {
+				const expected = createWidget();
+				stubWidgetFactory(() => expected);
+
+				const app = createApp({ toAbsMid });
+				app.loadDefinition({
+					customElements: [
+						{
+							name: 'foo-bar',
+							factory: '../fixtures/widget-factory'
+						}
+					]
+				});
+
+				return strictEqual(Promise.resolve(app.getCustomElementFactory('foo-bar')()), expected);
+			},
+
+			'cannot create widget if identified module has no default factory export'() {
+				const app = createApp({ toAbsMid });
+				app.loadDefinition({
+					customElements: [
+						{
+							name: 'foo-bar',
+							factory: '../fixtures/no-factory-export'
+						}
+					]
+				});
+
+				return rejects(Promise.resolve(app.getCustomElementFactory('foo-bar')()), Error, 'Could not resolve \'../fixtures/no-factory-export\' to a widget factory function');
+			},
+
+			'registered factory': {
+				'returns a promise while the factory is being resolved'() {
+					const app = createApp();
+					app.loadDefinition({
+						customElements: [
+							{
+								name: 'foo-bar',
+								factory: createWidget
+							}
+						]
+					});
+
+					const factory = app.getCustomElementFactory('foo-bar');
+					const first = factory();
+					const second = factory();
+					assert.instanceOf(first, Promise);
+					assert.instanceOf(second, Promise);
+				},
+
+				// "may" because this depends on the factory
+				'may return a widget when called again'() {
+					const app = createApp();
+					app.loadDefinition({
+						customElements: [
+							{
+								name: 'foo-bar',
+								factory: createWidget
+							}
+						]
+					});
+
+					const factory = app.getCustomElementFactory('foo-bar');
+					return Promise.resolve(factory()).then(() => {
+						assert.notInstanceOf(factory(), Promise);
+					});
 				}
 			}
 		},
@@ -2267,7 +2487,7 @@ registerSuite({
 				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
 				projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
 				return app.realize(root).then(() => {
-					assert.equal(root.firstChild.firstChild.nodeName, 'MARK');
+					assert.equal(projector.firstChild.nodeName, 'MARK');
 				});
 			},
 
@@ -2366,7 +2586,7 @@ registerSuite({
 				});
 			},
 
-			'widget-instance': {
+			'<widget-instance> custom elements': {
 				'data-widget-id takes precedence over id'() {
 					app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
 					projector.innerHTML = '<widget-instance id="bar" data-widget-id="foo"></widget-instance>';
@@ -2383,113 +2603,140 @@ registerSuite({
 				'the ID must resolve to a widget instance'() {
 					projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
 					return rejects(app.realize(root), Error, 'Could not find a value for identity \'foo\'');
-				},
-
-				'child nodes that are not custom elements are discarded'() {
-					app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
-					projector.innerHTML = '<widget-instance id="foo">oh noes</widget-instance>';
-					return app.realize(root).then(() => {
-						assert.equal(projector.firstChild.nodeName, 'MARK');
-						assert.isFalse(projector.firstChild.hasChildNodes());
-					});
-				},
-
-				'a widget cannot be attached multiple times in the same projector'() {
-					app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
-					projector.innerHTML = `
-						<widget-instance id="foo"></widget-instance>
-						<widget-instance id="foo"></widget-instance>
-					`;
-					return rejects(app.realize(root), Error, 'Cannot attach a widget multiple times');
-				},
-
-				'a widget cannot be attached in multiple projectors'() {
-					app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
-					root.innerHTML = `
-						<widget-projector><widget-instance id="foo"></widget-instance></widget-projector>
-						<widget-projector><widget-instance id="foo"></widget-instance></widget-projector>
-					`;
-					return rejects(app.realize(root), Error, 'Cannot attach a widget multiple times');
-				},
-
-				'a widget cannot be attached if it already has a parent'() {
-					const widget = createActualWidget({ tagName: 'mark' });
-					createContainer().append(widget);
-					app.registerWidget('foo', widget);
-					projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
-					return rejects(app.realize(root), Error, 'Cannot attach a widget that already has a parent');
-				},
-
-				'widgets can contain children'() {
-					app.registerWidget('foo', createContainer());
-					app.registerWidget('bar', createActualWidget({ tagName: 'mark' }));
-					app.registerWidget('baz', createContainer());
-					app.registerWidget('qux', createActualWidget({ tagName: 'strong' }));
-					root.innerHTML = `
-						<widget-projector>
-							<widget-instance id="foo">
-								<widget-instance id="bar"></widget-instance>
-							</widget-instance>
-						</widget-projector>
-						<widget-projector>
-							<widget-instance id="baz">
-								<widget-instance id="qux"></widget-instance>
-							</widget-instance>
-						</widget-projector>
-					`.trim();
-					return app.realize(root).then(() => {
-						const foo = root.firstElementChild.firstElementChild;
-						assert.equal(foo.nodeName, 'DOJO-CONTAINER');
-						assert.equal(foo.firstChild.nodeName, 'MARK');
-
-						const baz = root.lastElementChild.firstElementChild;
-						assert.equal(baz.nodeName, 'DOJO-CONTAINER');
-						assert.equal(baz.firstChild.nodeName, 'STRONG');
-					});
-				},
-
-				'the resulting widget hierarchy ignores non-custom elements'() {
-					app.registerWidget('foo', createContainer());
-					app.registerWidget('bar', createActualWidget({ tagName: 'mark' }));
-					projector.innerHTML = `
-						<widget-instance id="foo">
-							<div>
-								<widget-instance id="bar"></widget-instance>
-							</div>
-						</widget-instance>
-					`.trim();
-					return app.realize(root).then(() => {
-						const foo = projector.firstElementChild;
-						assert.equal(foo.nodeName, 'DOJO-CONTAINER');
-						assert.equal(foo.firstChild.nodeName, 'MARK');
-					});
 				}
 			},
 
-			// FIXME: Are there any other side-effects that could be tested? The code does destroy the projectors, which
-			// does not impact the DOM. This is really just a regression test. Would be good to test an actual projector
-			// destruction side-effect so we can be sure projectors were destroyed.
-			'destroying the returned handle leaves the rendered elements in the DOM'() {
-				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
-				projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
-				return app.realize(root).then((handle) => {
-					handle.destroy();
-					return new Promise((resolve) => { setTimeout(resolve, 50); });
-				}).then(() => {
-					assert.equal(root.firstChild.firstChild.nodeName, 'MARK');
+			'realizes registered custom elements'() {
+				app.registerCustomElementFactory('foo-bar', () => createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = '<foo-bar></foo-bar>';
+				return app.realize(root).then(() => {
+					assert.equal(projector.firstChild.nodeName, 'MARK');
 				});
 			},
 
-			'destroying the returned handle a second time is a noop'() {
-				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
-				projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
-				return app.realize(root).then((handle) => {
-					handle.destroy();
-					handle.destroy();
-					return new Promise((resolve) => { setTimeout(resolve, 50); });
-				}).then(() => {
-					assert.equal(root.firstChild.firstChild.nodeName, 'MARK');
+			'child nodes of custom elements that are not custom elements themselves are discarded'() {
+				app.registerCustomElementFactory('foo-bar', () => createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = '<foo-bar>oh noes</foo-bar>';
+				return app.realize(root).then(() => {
+					assert.equal(projector.firstChild.nodeName, 'MARK');
+					assert.isFalse(projector.firstChild.hasChildNodes());
 				});
+			},
+
+			'the rendered widget hierarchy reflects the nesting of custom elements'() {
+				app.registerCustomElementFactory('container-here', () => createContainer());
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				app.registerWidget('bar', createActualWidget({ tagName: 'strong' }));
+				root.innerHTML = `
+					<widget-projector>
+						<container-here>
+							<widget-instance id="foo"></widget-instance>
+						</container-here>
+					</widget-projector>
+					<widget-projector>
+						<container-here>
+							<widget-instance id="bar"></widget-instance>
+						</container-here>
+					</widget-projector>
+				`.trim();
+				return app.realize(root).then(() => {
+					const first = root.firstElementChild.firstElementChild;
+					assert.equal(first.nodeName, 'DOJO-CONTAINER');
+					assert.equal(first.firstChild.nodeName, 'MARK');
+
+					const second = root.lastElementChild.firstElementChild;
+					assert.equal(second.nodeName, 'DOJO-CONTAINER');
+					assert.equal(second.firstChild.nodeName, 'STRONG');
+				});
+			},
+
+			'the rendered widget hierarchy ignores non-custom elements'() {
+				app.registerCustomElementFactory('container-here', () => createContainer());
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = `
+					<container-here>
+						<div>
+							<widget-instance id="foo"></widget-instance>
+						</div>
+					</container-here>
+				`.trim();
+				return app.realize(root).then(() => {
+					const container = projector.firstElementChild;
+					assert.equal(container.nodeName, 'DOJO-CONTAINER');
+					assert.equal(container.firstChild.nodeName, 'MARK');
+				});
+			},
+
+			'a widget cannot be attached multiple times in the same projector'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = `
+					<widget-instance id="foo"></widget-instance>
+					<widget-instance id="foo"></widget-instance>
+				`;
+				return rejects(app.realize(root), Error, 'Cannot attach a widget multiple times');
+			},
+
+			'a widget cannot be attached in multiple projectors'() {
+				const widget = createActualWidget({ tagName: 'mark' });
+				app.registerCustomElementFactory('foo-bar', () => widget);
+				root.innerHTML = `
+					<widget-projector><foo-bar></foo-bar></widget-projector>
+					<widget-projector><foo-bar></foo-bar></widget-projector>
+				`;
+				return rejects(app.realize(root), Error, 'Cannot attach a widget multiple times');
+			},
+
+			'a widget cannot be attached if it already has a parent'() {
+				const widget = createActualWidget({ tagName: 'mark' });
+				createContainer().append(widget);
+				app.registerWidget('foo', widget);
+				projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+				return rejects(app.realize(root), Error, 'Cannot attach a widget that already has a parent');
+			},
+
+			'destroying the returned handle': {
+				'leaves the rendered elements in the DOM'() {
+					app.registerCustomElementFactory('foo-bar', () => createActualWidget({ tagName: 'mark' }));
+					root.innerHTML = '<widget-projector><foo-bar></foo-bar></widget-projector>';
+					return app.realize(root).then((handle) => {
+						handle.destroy();
+						return new Promise((resolve) => { setTimeout(resolve, 50); });
+					}).then(() => {
+						assert.equal(root.firstChild.firstChild.nodeName, 'MARK');
+					});
+				},
+
+				'destroys managed widgets'() {
+					const managedWidget = createActualWidget({ tagName: 'mark' });
+					const attachedWidget = createActualWidget({ tagName: 'strong' });
+					app.registerCustomElementFactory('managed-widget', () => managedWidget);
+					app.registerWidget('attached', attachedWidget);
+
+					let destroyedManaged = false;
+					managedWidget.own({ destroy() { destroyedManaged = true; }});
+					let destroyedAttached = false;
+					attachedWidget.own({ destroy() { destroyedAttached = true; }});
+
+					projector.innerHTML = '<managed-widget></managed-widget><widget-instance id="attached></widget-instance>';
+					return app.realize(root).then((handle) => {
+						handle.destroy();
+
+						assert.isTrue(destroyedManaged);
+						assert.isFalse(destroyedAttached);
+					});
+				},
+
+				'a second time is a noop'() {
+					app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+					projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+					return app.realize(root).then((handle) => {
+						handle.destroy();
+						handle.destroy();
+						return new Promise((resolve) => { setTimeout(resolve, 50); });
+					}).then(() => {
+						assert.equal(root.firstChild.firstChild.nodeName, 'MARK');
+					});
+				}
 			}
 		};
 	})()

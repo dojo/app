@@ -12,6 +12,45 @@ import {
 	WidgetLike
 } from './createApp';
 
+const reservedNames = new Set([
+	// According to <https://www.w3.org/TR/custom-elements/#valid-custom-element-name>.
+	'annotation-xml',
+	'color-profile',
+	'font-face',
+	'font-face-src',
+	'font-face-uri',
+	'font-face-format',
+	'font-face-name',
+	'missing-glyph',
+	// These are reserved by this module.
+	'widget-instance',
+	'widget-projector'
+]);
+
+// According to <https://www.w3.org/TR/custom-elements/#valid-custom-element-name>.
+export function isValidName(name: string): boolean {
+	if (!/^[a-z]/.test(name)) { // Names must start with a lowercase ASCII letter
+		return false;
+	}
+
+	if (name.indexOf('-') === -1) { // Names must contain at least one hyphen
+		return false;
+	}
+
+	if (/[A-Z]/.test(name)) { // Names must not include uppercase ASCII letters
+		return false;
+	}
+
+	if (reservedNames.has(name)) { // Reserved names must not be used.
+		return false;
+	}
+
+	// Assume name does not contain other invalid characters.
+	// TODO: Are the above rules sufficiently exclusive given the allowed PCENChar characters in the
+	// <https://www.w3.org/TR/custom-elements/#valid-custom-element-name> specification?
+	return true;
+}
+
 // <https://www.w3.org/TR/custom-elements/#look-up-a-custom-element-definition> doesn't define *how* names
 // are to be compared. Additionally browsers and document modes differ in the case used for Element#tagName
 // values. Lowercasing the name is the most compatible solution. This is also the approach taken by the
@@ -28,11 +67,11 @@ interface CustomElement {
 	widget?: WidgetLike;
 }
 
-function isCustomElement(name: string): boolean {
-	return name === 'widget-projector' || name === 'widget-instance';
+function isCustomElement(registry: CombinedRegistry, name: string): boolean {
+	return name === 'widget-projector' || name === 'widget-instance' || registry.hasCustomElementFactory(name);
 }
 
-function getCustomElementsByWidgetProjector(root: Element): CustomElement[] {
+function getCustomElementsByWidgetProjector(registry: CombinedRegistry, root: Element): CustomElement[] {
 	const allElements: Element[] = arrayFrom(root.getElementsByTagName('*'));
 	allElements.unshift(root); // Be inclusive!
 
@@ -41,12 +80,12 @@ function getCustomElementsByWidgetProjector(root: Element): CustomElement[] {
 		let name: string;
 
 		const tagName = normalizeName(element.tagName);
-		if (isCustomElement(tagName)) {
+		if (isCustomElement(registry, tagName)) {
 			name = tagName;
 		}
 		else {
 			const attrIs = normalizeName(element.getAttribute('is') || '');
-			if (attrIs !== '' && isCustomElement(attrIs)) {
+			if (attrIs !== '' && isCustomElement(registry, attrIs)) {
 				name = attrIs;
 			}
 		}
@@ -127,6 +166,8 @@ export default function realizeCustomElements(registry: CombinedRegistry, root: 
 	const immediatePlaceholderLookup = new Map<Projector, CustomElement[]>();
 	// Projector instances for each widget projector.
 	const projectors: Projector[] = [];
+	// Widgets that are created during realization (not registered instances).
+	const managedWidgets: WidgetLike[] = [];
 
 	// Return a new promise here so API errors can be thrown in the executor, while still resulting in a
 	// promise rejection.
@@ -134,7 +175,7 @@ export default function realizeCustomElements(registry: CombinedRegistry, root: 
 		// Flat list of all widgets that are being loaded.
 		const loadedWidgets: Promise<WidgetLike>[] = [];
 
-		const widgetProjectors = getCustomElementsByWidgetProjector(root);
+		const widgetProjectors = getCustomElementsByWidgetProjector(registry, root);
 		for (const { children, element: root } of widgetProjectors) {
 			const projector = createProjector({ root });
 			immediatePlaceholderLookup.set(projector, children);
@@ -144,12 +185,23 @@ export default function realizeCustomElements(registry: CombinedRegistry, root: 
 			let processing = [children];
 			while (processing.length > 0) {
 				for (const custom of processing.shift()) {
-					// TODO: This currently assumes `is === 'widget-instance'`
-					const promise = resolveWidgetInstance(registry, custom.element).then((widget) => {
+					const isWidgetInstance = custom.name === 'widget-instance';
+					const promise = isWidgetInstance ?
+						resolveWidgetInstance(registry, custom.element) :
+						Promise.resolve(registry.getCustomElementFactory(custom.name)());
+
+					loadedWidgets.push(promise.then((widget) => {
 						// Store the widget for easy access.
-						return custom.widget = widget;
-					});
-					loadedWidgets.push(promise);
+						custom.widget = widget;
+
+						// Widget instances come straight from the registry, but the other widgets were created
+						// whilst realizing the custom elements. These should be managed.
+						if (!isWidgetInstance) {
+							managedWidgets.push(widget);
+						}
+
+						return widget;
+					}));
 
 					if (custom.children.length > 0) {
 						// Ensure the children are processed.
@@ -217,8 +269,9 @@ export default function realizeCustomElements(registry: CombinedRegistry, root: 
 				for (const p of projectors) {
 					p.destroy();
 				}
-				// TODO: Instances from the registry should *not* be destroyed when the returned handle is
-				// destroyed, however instances created on the fly from tag registries *should* be.
+				for (const w of managedWidgets) {
+					w.destroy();
+				}
 			}
 		};
 	});
