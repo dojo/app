@@ -89,6 +89,10 @@ const errorStrings: { [type: string]: string } = {
 	widget: 'a widget'
 };
 
+function isInstance(value: any): value is Instance {
+	return value && typeof value === 'object';
+}
+
 function resolveFactory(type: 'action', definition: ActionDefinition, resolveMid: ResolveMid): Promise<ActionFactory>;
 function resolveFactory(type: 'store', definition: StoreDefinition, resolveMid: ResolveMid): Promise<StoreFactory>;
 function resolveFactory(type: 'widget', definition: WidgetDefinition, resolveMid: ResolveMid): Promise<WidgetFactory>;
@@ -98,7 +102,7 @@ function resolveFactory(type: FactoryTypes, { factory, instance }: ItemDefinitio
 		return Promise.resolve(factory);
 	}
 
-	if (typeof instance === 'object') {
+	if (isInstance(instance)) {
 		return Promise.resolve(() => instance);
 	}
 
