@@ -1,15 +1,20 @@
 import { Action } from 'dojo-actions/createAction';
 import compose, { ComposeFactory } from 'dojo-compose/compose';
-import { EventedListener, EventedListenersMap } from 'dojo-compose/mixins/createEvented';
+import { EventedListener } from 'dojo-compose/mixins/createEvented';
 import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
-import { assign } from 'dojo-core/lang';
 import Promise from 'dojo-core/Promise';
 import WeakMap from 'dojo-core/WeakMap';
 
 import IdentityRegistry from './IdentityRegistry';
+import {
+	makeActionFactory,
+	makeStoreFactory,
+	makeWidgetFactory
+} from './_factories';
+import makeMidResolver, { ToAbsMid, ResolveMid } from './_moduleResolver';
 
-const noop = () => {};
+export { ToAbsMid };
 
 /**
  * Any kind of action.
@@ -26,103 +31,6 @@ export type StoreLike = ObservableState<State>;
  * FIXME: There isn't an official Widget interface. Is this even useful?
  */
 export type WidgetLike = Object;
-
-/**
- * Actions, stores and widgets should have string identifiers.
- */
-export type Identifier = string;
-
-/**
- * Read-only interface for the combined registries of the app factory.
- */
-export interface CombinedRegistry {
-	/**
-	 * Get the action with the given identifier.
-	 *
-	 * Note that the action may still need to be loaded when this method is called.
-	 *
-	 * @param id Identifier for the action
-	 * @return A promise for when the action has been loaded. Rejected if loading fails or if no action is registered
-	 *   with the given identifier.
-	 */
-	getAction(id: Identifier): Promise<ActionLike>;
-
-	/**
-	 * Check whether an action has been registered with the given identifier.
-	 *
-	 * @param id Identifier for the action
-	 * @return `true` if an action has been registered, `false` otherwise.
-	 */
-	hasAction(id: Identifier): boolean;
-
-	/**
-	 * Get the store with the given identifier.
-	 *
-	 * Note that the store may still need to be loaded when this method is called.
-	 *
-	 * @param id Identifier for the store
-	 * @return A promise for when the store has been loaded. Rejected if loading fails or if no store is registered
-	 *   with the given identifier.
-	 */
-	getStore(id: Identifier): Promise<StoreLike>;
-
-	/**
-	 * Check whether a store has been registered with the given identifier.
-	 *
-	 * @param id Identifier for the store
-	 * @return `true` if a store has been registered, `false` otherwise.
-	 */
-	hasStore(id: Identifier): boolean;
-
-	/**
-	 * Get the widget with the given identifier.
-	 *
-	 * Note that the widget may still need to be loaded when this method is called.
-	 *
-	 * @param id Identifier for the widget
-	 * @return A promise for when the widget has been loaded. Rejected if loading fails or if no widget is registered
-	 *   with the given identifier.
-	 */
-	getWidget(id: Identifier): Promise<WidgetLike>;
-
-	/**
-	 * Check whether a widget has been registered with the given identifier.
-	 *
-	 * @param id Identifier for the widget
-	 * @return `true` if a widget has been registered, `false` otherwise.
-	 */
-	hasWidget(id: Identifier): boolean;
-}
-
-/**
- * Function that maps a (relative) module identifier to an absolute one.
- */
-export interface ToAbsMid {
-	(moduleId: string): string;
-}
-
-/**
- * Internal interface to asynchronously resolve a module by its identifier.
- */
-export interface ResolveMid {
-	(mid: string): Promise<any>;
-}
-
-function makeMidResolver(toAbsMid: ToAbsMid): ResolveMid {
-	return function resolveMid(mid: string): Promise<any> {
-		return new Promise((resolve) => {
-			// Assumes require() is an AMD loader!
-			require([toAbsMid(mid)], (module) => {
-				if (module.__esModule) {
-					resolve(module.default);
-				}
-				else {
-					resolve(module);
-				}
-			});
-		});
-	};
-}
 
 /**
  * Factory method to (asynchronously) create an action.
@@ -171,6 +79,11 @@ export interface Definitions {
 	 */
 	widgets?: WidgetDefinition[];
 }
+
+/**
+ * Actions, stores and widgets should have string identifiers.
+ */
+export type Identifier = string;
 
 /**
  * Base definition for a single action, store or widget.
@@ -252,209 +165,67 @@ export interface WidgetListenersMap {
 	[eventType: string]: WidgetListenerOrArray;
 }
 
-function resolveListeners(registry: CombinedRegistry, ref: WidgetListenerOrArray): { value?: any; promise?: Promise<any>; } {
-	if (Array.isArray(ref)) {
-		const resolved = ref.map((item) => {
-			return resolveListeners(registry, item);
-		});
+/**
+ * Read-only interface for the combined registries of the app factory.
+ */
+export interface CombinedRegistry {
+	/**
+	 * Get the action with the given identifier.
+	 *
+	 * Note that the action may still need to be loaded when this method is called.
+	 *
+	 * @param id Identifier for the action
+	 * @return A promise for when the action has been loaded. Rejected if loading fails or if no action is registered
+	 *   with the given identifier.
+	 */
+	getAction(id: Identifier): Promise<ActionLike>;
 
-		let isSync = true;
-		const values: any[] = [];
-		for (const result of resolved) {
-			if (result.value) {
-				values.push(result.value);
-			} else {
-				isSync = false;
-				values.push(result.promise);
-			}
-		}
+	/**
+	 * Check whether an action has been registered with the given identifier.
+	 *
+	 * @param id Identifier for the action
+	 * @return `true` if an action has been registered, `false` otherwise.
+	 */
+	hasAction(id: Identifier): boolean;
 
-		return isSync ? { value: values } : { promise: Promise.all(values) };
-	}
+	/**
+	 * Get the store with the given identifier.
+	 *
+	 * Note that the store may still need to be loaded when this method is called.
+	 *
+	 * @param id Identifier for the store
+	 * @return A promise for when the store has been loaded. Rejected if loading fails or if no store is registered
+	 *   with the given identifier.
+	 */
+	getStore(id: Identifier): Promise<StoreLike>;
 
-	if (typeof ref !== 'string') {
-		return { value: ref };
-	}
+	/**
+	 * Check whether a store has been registered with the given identifier.
+	 *
+	 * @param id Identifier for the store
+	 * @return `true` if a store has been registered, `false` otherwise.
+	 */
+	hasStore(id: Identifier): boolean;
 
-	return { promise: registry.getAction(<string> ref) };
+	/**
+	 * Get the widget with the given identifier.
+	 *
+	 * Note that the widget may still need to be loaded when this method is called.
+	 *
+	 * @param id Identifier for the widget
+	 * @return A promise for when the widget has been loaded. Rejected if loading fails or if no widget is registered
+	 *   with the given identifier.
+	 */
+	getWidget(id: Identifier): Promise<WidgetLike>;
+
+	/**
+	 * Check whether a widget has been registered with the given identifier.
+	 *
+	 * @param id Identifier for the widget
+	 * @return `true` if a widget has been registered, `false` otherwise.
+	 */
+	hasWidget(id: Identifier): boolean;
 }
-
-function resolveListenersMap(registry: CombinedRegistry, definition: WidgetDefinition) {
-	const { listeners: defined } = definition;
-	if (!defined) {
-		return null;
-	}
-
-	const map: EventedListenersMap = {};
-	const eventTypes = Object.keys(defined);
-	return eventTypes.reduce((promise, eventType) => {
-		const resolved = resolveListeners(registry, defined[eventType]);
-		if (resolved.value) {
-			map[eventType] = resolved.value;
-			return promise;
-		}
-
-		return resolved.promise.then((value) => {
-			map[eventType] = value;
-			return promise;
-		});
-	}, Promise.resolve(map));
-}
-
-function resolveStore(registry: CombinedRegistry, definition: ActionDefinition | WidgetDefinition): void | StoreLike | Promise<StoreLike> {
-	const { stateFrom } = definition;
-	if (!stateFrom) {
-		return null;
-	}
-
-	if (typeof stateFrom !== 'string') {
-		return stateFrom;
-	}
-
-	return registry.getStore(<string> stateFrom);
-}
-
-type Factory = ActionFactory | StoreFactory | WidgetFactory;
-type Instance = ActionLike | StoreLike | WidgetLike;
-type FactoryTypes = 'action' | 'store' | 'widget';
-const errorStrings: { [type: string]: string } = {
-	action: 'an action',
-	store: 'a store',
-	widget: 'a widget'
-};
-
-function resolveFactory(type: 'action', definition: ActionDefinition, resolveMid: ResolveMid): Promise<ActionFactory>;
-function resolveFactory(type: 'store', definition: StoreDefinition, resolveMid: ResolveMid): Promise<StoreFactory>;
-function resolveFactory(type: 'widget', definition: WidgetDefinition, resolveMid: ResolveMid): Promise<WidgetFactory>;
-function resolveFactory(type: FactoryTypes, definition: ItemDefinition<Factory, Instance>, resolveMid: ResolveMid): Promise<Factory>;
-function resolveFactory(type: FactoryTypes, { factory, instance }: ItemDefinition<Factory, Instance>, resolveMid: ResolveMid): Promise<Factory> {
-	if (typeof factory === 'function') {
-		return Promise.resolve(factory);
-	}
-
-	if (typeof instance === 'object') {
-		return Promise.resolve(() => instance);
-	}
-
-	const mid = <string> (factory || instance);
-	return resolveMid(mid).then((defaultExport) => {
-		if (factory) {
-			if (typeof defaultExport !== 'function') {
-				throw new Error(`Could not resolve '${mid}' to ${errorStrings[type]} factory function`);
-			}
-
-			return defaultExport;
-		}
-
-		// istanbul ignore else Action factories are expected to guard against definitions with neither
-		// factory or instance properties.
-		if (instance) {
-			if (!defaultExport || typeof defaultExport !== 'object') {
-				throw new Error(`Could not resolve '${mid}' to ${errorStrings[type]} instance`);
-			}
-
-			return () => defaultExport;
-		}
-	});
-}
-
-function makeActionFactory(definition: ActionDefinition, resolveMid: ResolveMid): ActionFactory {
-	if (!('factory' in definition || 'instance' in definition)) {
-		throw new Error('Action definitions must specify either the factory or instance option');
-	}
-	if ('instance' in definition && 'stateFrom' in definition) {
-		throw new Error('Cannot specify stateFrom option when action definition points directly at an instance');
-	}
-
-	return (registry: CombinedRegistry) => {
-		return Promise.all<any>([
-			resolveFactory('action', definition, resolveMid).then((factory) => {
-				return factory(registry);
-			}),
-			resolveStore(registry, definition)
-		]).then((values) => {
-			let action: ActionLike;
-			let store: StoreLike;
-			[action, store] = values;
-
-			if (store) {
-				// No options are passed to the factory, since the do() implementation cannot be specified in
-				// action definitions. This means the state observation has to be done after the action is created.
-				action.own(action.observeState(definition.id, store));
-			}
-
-			return action;
-		});
-	};
-}
-
-function makeStoreFactory(definition: StoreDefinition, resolveMid: ResolveMid): StoreFactory {
-	if (!('factory' in definition || 'instance' in definition)) {
-		throw new Error('Store definitions must specify either the factory or instance option');
-	}
-	if ('instance' in definition && 'options' in definition) {
-		throw new Error('Cannot specify options when store definition points directly at an instance');
-	}
-
-	const options = assign({}, definition.options);
-
-	return () => {
-		return resolveFactory('store', definition, resolveMid).then((factory) => {
-			return factory(options);
-		});
-	};
-}
-
-function makeWidgetFactory(definition: WidgetDefinition, resolveMid: ResolveMid, registry: CombinedRegistry): WidgetFactory {
-	if (!('factory' in definition || 'instance' in definition)) {
-		throw new Error('Widget definitions must specify either the factory or instance option');
-	}
-	if ('instance' in definition) {
-		if ('listeners' in definition) {
-			throw new Error('Cannot specify listeners option when widget definition points directly at an instance');
-		}
-		if ('stateFrom' in definition) {
-			throw new Error('Cannot specify stateFrom option when widget definition points directly at an instance');
-		}
-		if ('options' in definition) {
-			throw new Error('Cannot specify options when widget definition points directly at an instance');
-		}
-	}
-
-	let { options } = definition;
-	if (options && ('id' in options || 'listeners' in options || 'stateFrom' in options)) {
-		throw new Error('id, listeners and stateFrom options should be in the widget definition itself, not its options value');
-	}
-	options = assign({ id: definition.id }, options);
-
-	return () => {
-		return Promise.all<any>([
-			resolveFactory('widget', definition, resolveMid),
-			resolveListenersMap(registry, definition),
-			resolveStore(registry, definition)
-		]).then((values) => {
-			let factory: WidgetFactory;
-			let listeners: EventedListenersMap;
-			let store: StoreLike;
-			[factory, listeners, store] = values;
-
-			if (listeners) {
-				(<any> options).listeners = listeners;
-			}
-
-			if (store) {
-				(<any> options).stateFrom = store;
-			}
-
-			return factory(options);
-		});
-	};
-}
-
-type RegisteredFactory<T> = () => Promise<T>;
-const actions = new WeakMap<App, IdentityRegistry<RegisteredFactory<ActionLike>>>();
-const stores = new WeakMap<App, IdentityRegistry<RegisteredFactory<StoreLike>>>();
-const widgets = new WeakMap<App, IdentityRegistry<RegisteredFactory<WidgetLike>>>();
 
 export interface AppMixin {
 	/**
@@ -542,6 +313,13 @@ export interface AppOptions {
 }
 
 export interface AppFactory extends ComposeFactory<App, AppOptions> {}
+
+const noop = () => {};
+
+type RegisteredFactory<T> = () => Promise<T>;
+const actions = new WeakMap<App, IdentityRegistry<RegisteredFactory<ActionLike>>>();
+const stores = new WeakMap<App, IdentityRegistry<RegisteredFactory<StoreLike>>>();
+const widgets = new WeakMap<App, IdentityRegistry<RegisteredFactory<WidgetLike>>>();
 
 const createApp = compose({
 	registerAction(id: Identifier, action: ActionLike): Handle {

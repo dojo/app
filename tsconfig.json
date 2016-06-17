@@ -17,6 +17,8 @@
 	],
 	"files": [
 		"./typings/index.d.ts",
+		"./src/_factories.ts",
+		"./src/_moduleResolver.ts",
 		"./src/createApp.ts",
 		"./src/IdentityRegistry.ts",
 		"./src/main.ts",
