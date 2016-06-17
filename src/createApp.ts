@@ -424,7 +424,7 @@ const createApp = compose({
 		if (actions) {
 			for (const definition of actions) {
 				const factory = makeActionFactory(definition, app._resolveMid);
-				const handle = this.registerActionFactory(definition.id, factory);
+				const handle = app.registerActionFactory(definition.id, factory);
 				handles.push(handle);
 			}
 		}
@@ -432,7 +432,7 @@ const createApp = compose({
 		if (stores) {
 			for (const definition of stores) {
 				const factory = makeStoreFactory(definition, app._resolveMid);
-				const handle = this.registerStoreFactory(definition.id, factory);
+				const handle = app.registerStoreFactory(definition.id, factory);
 				handles.push(handle);
 			}
 		}
@@ -440,7 +440,7 @@ const createApp = compose({
 		if (widgets) {
 			for (const definition of widgets) {
 				const factory = makeWidgetFactory(definition, app._resolveMid, app);
-				const handle = this.registerWidgetFactory(definition.id, factory);
+				const handle = app.registerWidgetFactory(definition.id, factory);
 				handles.push(handle);
 			}
 		}
