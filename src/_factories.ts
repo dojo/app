@@ -103,7 +103,10 @@ function resolveFactory(type: FactoryTypes, { factory, instance }: ItemDefinitio
 	}
 
 	if (isInstance(instance)) {
-		return Promise.resolve(() => instance);
+		// <any> hammer since TypeScript can't resolve match the correct overloaded Instance type with the correct
+		// Factory return value.
+		const factory: Factory = () => <any> instance;
+		return Promise.resolve(factory);
 	}
 
 	const mid = <string> (factory || instance);
