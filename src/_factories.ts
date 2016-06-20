@@ -89,6 +89,10 @@ const errorStrings: { [type: string]: string } = {
 	widget: 'a widget'
 };
 
+function isInstance(value: any): value is Instance {
+	return value && typeof value === 'object';
+}
+
 function resolveFactory(type: 'action', definition: ActionDefinition, resolveMid: ResolveMid): Promise<ActionFactory>;
 function resolveFactory(type: 'store', definition: StoreDefinition, resolveMid: ResolveMid): Promise<StoreFactory>;
 function resolveFactory(type: 'widget', definition: WidgetDefinition, resolveMid: ResolveMid): Promise<WidgetFactory>;
@@ -98,8 +102,11 @@ function resolveFactory(type: FactoryTypes, { factory, instance }: ItemDefinitio
 		return Promise.resolve(factory);
 	}
 
-	if (typeof instance === 'object') {
-		return Promise.resolve(() => instance);
+	if (isInstance(instance)) {
+		// <any> hammer since TypeScript can't resolve match the correct overloaded Instance type with the correct
+		// Factory return value.
+		const factory: Factory = () => <any> instance;
+		return Promise.resolve(factory);
 	}
 
 	const mid = <string> (factory || instance);
@@ -128,10 +135,10 @@ function resolveFactory(type: FactoryTypes, { factory, instance }: ItemDefinitio
 
 export function makeActionFactory(definition: ActionDefinition, resolveMid: ResolveMid): ActionFactory {
 	if (!('factory' in definition || 'instance' in definition)) {
-		throw new Error('Action definitions must specify either the factory or instance option');
+		throw new TypeError('Action definitions must specify either the factory or instance option');
 	}
 	if ('instance' in definition && 'stateFrom' in definition) {
-		throw new Error('Cannot specify stateFrom option when action definition points directly at an instance');
+		throw new TypeError('Cannot specify stateFrom option when action definition points directly at an instance');
 	}
 
 	return (registry: CombinedRegistry) => {
@@ -158,10 +165,10 @@ export function makeActionFactory(definition: ActionDefinition, resolveMid: Reso
 
 export function makeStoreFactory(definition: StoreDefinition, resolveMid: ResolveMid): StoreFactory {
 	if (!('factory' in definition || 'instance' in definition)) {
-		throw new Error('Store definitions must specify either the factory or instance option');
+		throw new TypeError('Store definitions must specify either the factory or instance option');
 	}
 	if ('instance' in definition && 'options' in definition) {
-		throw new Error('Cannot specify options when store definition points directly at an instance');
+		throw new TypeError('Cannot specify options when store definition points directly at an instance');
 	}
 
 	const options = assign({}, definition.options);
@@ -175,23 +182,23 @@ export function makeStoreFactory(definition: StoreDefinition, resolveMid: Resolv
 
 export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: ResolveMid, registry: CombinedRegistry): WidgetFactory {
 	if (!('factory' in definition || 'instance' in definition)) {
-		throw new Error('Widget definitions must specify either the factory or instance option');
+		throw new TypeError('Widget definitions must specify either the factory or instance option');
 	}
 	if ('instance' in definition) {
 		if ('listeners' in definition) {
-			throw new Error('Cannot specify listeners option when widget definition points directly at an instance');
+			throw new TypeError('Cannot specify listeners option when widget definition points directly at an instance');
 		}
 		if ('stateFrom' in definition) {
-			throw new Error('Cannot specify stateFrom option when widget definition points directly at an instance');
+			throw new TypeError('Cannot specify stateFrom option when widget definition points directly at an instance');
 		}
 		if ('options' in definition) {
-			throw new Error('Cannot specify options when widget definition points directly at an instance');
+			throw new TypeError('Cannot specify options when widget definition points directly at an instance');
 		}
 	}
 
 	let { options } = definition;
 	if (options && ('id' in options || 'listeners' in options || 'stateFrom' in options)) {
-		throw new Error('id, listeners and stateFrom options should be in the widget definition itself, not its options value');
+		throw new TypeError('id, listeners and stateFrom options should be in the widget definition itself, not its options value');
 	}
 	options = assign({ id: definition.id }, options);
 
