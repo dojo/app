@@ -295,7 +295,8 @@ export interface AppMixin {
 	/**
 	 * Register a widget factory for a custom element.
 	 *
-	 * The factory will be called each time a widget instance is needed. It'll be called *without* any arguments.
+	 * The factory will be called each time a widget instance is needed. It may be called with an options argument
+	 * derived from a `data-options` attribute on the custom element that is to be be replaced by the created widget.
 	 *
 	 * @param name The name of the custom element. Must be valid according to
 	 *   <https://www.w3.org/TR/custom-elements/#valid-custom-element-name>.

@@ -14,59 +14,10 @@ import {
 	StoreLike,
 	WidgetDefinition,
 	WidgetFactory,
-	WidgetLike,
-	WidgetListenerOrArray
+	WidgetLike
 } from './createApp';
 import { ResolveMid } from './_moduleResolver';
-
-function resolveListeners(registry: CombinedRegistry, ref: WidgetListenerOrArray): { value?: any; promise?: Promise<any>; } {
-	if (Array.isArray(ref)) {
-		const resolved = ref.map((item) => {
-			return resolveListeners(registry, item);
-		});
-
-		let isSync = true;
-		const values: any[] = [];
-		for (const result of resolved) {
-			if (result.value) {
-				values.push(result.value);
-			} else {
-				isSync = false;
-				values.push(result.promise);
-			}
-		}
-
-		return isSync ? { value: values } : { promise: Promise.all(values) };
-	}
-
-	if (typeof ref !== 'string') {
-		return { value: ref };
-	}
-
-	return { promise: registry.getAction(<string> ref) };
-}
-
-function resolveListenersMap(registry: CombinedRegistry, definition: WidgetDefinition) {
-	const { listeners: defined } = definition;
-	if (!defined) {
-		return null;
-	}
-
-	const map: EventedListenersMap = {};
-	const eventTypes = Object.keys(defined);
-	return eventTypes.reduce((promise, eventType) => {
-		const resolved = resolveListeners(registry, defined[eventType]);
-		if (resolved.value) {
-			map[eventType] = resolved.value;
-			return promise;
-		}
-
-		return resolved.promise.then((value) => {
-			map[eventType] = value;
-			return promise;
-		});
-	}, Promise.resolve(map));
-}
+import resolveListenersMap from './_resolveListenersMap';
 
 function resolveStore(registry: CombinedRegistry, definition: ActionDefinition | WidgetDefinition): void | StoreLike | Promise<StoreLike> {
 	const { stateFrom } = definition;
@@ -245,7 +196,7 @@ export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: Reso
 	return () => {
 		return Promise.all<any>([
 			resolveFactory('widget', definition, resolveMid),
-			resolveListenersMap(registry, definition),
+			resolveListenersMap(registry, definition.listeners),
 			resolveStore(registry, definition)
 		]).then((values) => {
 			let factory: WidgetFactory;

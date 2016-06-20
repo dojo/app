@@ -27,7 +27,7 @@ import widgetInstanceFixture from '../fixtures/widget-instance';
 
 const { toAbsMid } = require;
 
-function rejects(promise: Promise<any>, errType: Function, msg?: string): Promise<void> {
+function rejects(promise: Promise<any>, errType: Function, msg?: string): Promise<any> {
 	return promise.then(() => {
 		throw new Error('Promise should have rejected');
 	}, (err: any) => {
@@ -35,6 +35,7 @@ function rejects(promise: Promise<any>, errType: Function, msg?: string): Promis
 		if (msg) {
 			assert.strictEqual(err.message, msg);
 		}
+		return err;
 	});
 }
 
@@ -2693,6 +2694,156 @@ registerSuite({
 				projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
 				return rejects(app.realize(root), Error, 'Cannot attach a widget that already has a parent');
 			},
+
+			'custom elements are created with options': (() => {
+				const opts = (obj: any) => {
+					return JSON.stringify(obj).replace(/"/g, '&quot;');
+				};
+
+				return {
+					'options come from the data-option attribute'() {
+						let actual: { [p: string]: any } = null;
+						app.registerCustomElementFactory('foo-bar', (options) => {
+							actual = options;
+							return createActualWidget({ tagName: 'mark' });
+						});
+						projector.innerHTML = `<foo-bar data-options="${opts({ foo: 'bar', baz: 5 })}"></foo-bar>`;
+						return app.realize(root).then(() => {
+							assert.isNotNull(actual);
+							assert.equal(actual['foo'], 'bar');
+							assert.equal(actual['baz'], 5);
+						});
+					},
+
+					'realization fails if the data-option value is not valid JSON'() {
+						app.registerCustomElementFactory('foo-bar', createWidget);
+						projector.innerHTML = `<foo-bar data-options="${opts({}).slice(1)}"></foo-bar>`;
+						return rejects(app.realize(root), SyntaxError).then((err) => {
+							assert.match(err.message, /^Invalid data-options:/);
+							assert.match(err.message, / \(in "}"\)$/);
+						});
+					},
+
+					'realization fails if the data-option value does not encode an object'() {
+						app.registerCustomElementFactory('foo-bar', createWidget);
+						projector.innerHTML = `<foo-bar data-options="${opts(null)}"></foo-bar>`;
+						return rejects(app.realize(root), TypeError, 'Expected object from data-options (in "null")').then(() => {
+							projector.innerHTML = `<foo-bar data-options="${opts(42)}"></foo-bar>`;
+							return rejects(app.realize(root), TypeError, 'Expected object from data-options (in "42")');
+						});
+					},
+
+					'if present, the "stateFrom" option': {
+						'must be a string'() {
+							app.registerCustomElementFactory('foo-bar', createWidget);
+							projector.innerHTML = `<foo-bar data-options="${opts({ stateFrom: 5 })}"></foo-bar>`;
+							return rejects(app.realize(root), TypeError, 'Expected stateFrom value in data-options to be a non-empty string (in "{\\"stateFrom\\":5}")');
+						},
+
+						'must be a non-empty string'() {
+							app.registerCustomElementFactory('foo-bar', createWidget);
+							projector.innerHTML = `<foo-bar data-options="${opts({ stateFrom: '' })}"></foo-bar>`;
+							return rejects(app.realize(root), TypeError, 'Expected stateFrom value in data-options to be a non-empty string (in "{\\"stateFrom\\":\\"\\"}")');
+						},
+
+						'must identify a registered store'() {
+							app.registerCustomElementFactory('foo-bar', createWidget);
+							projector.innerHTML = `<foo-bar data-options="${opts({ stateFrom: 'store' })}"></foo-bar>`;
+							return rejects(app.realize(root), Error);
+						},
+
+						'causes the custom element factory to be called with a stateFrom option set to the store'() {
+							let actual: { stateFrom: StoreLike } = null;
+							app.registerCustomElementFactory('foo-bar', (options) => {
+								actual = <any> options;
+								return createActualWidget({ tagName: 'mark' });
+							});
+							const expected = createStore();
+							app.registerStore('store', expected);
+							projector.innerHTML = `<foo-bar data-options="${opts({ stateFrom: 'store' })}"></foo-bar>`;
+							return app.realize(root).then(() => {
+								assert.isNotNull(actual);
+								assert.strictEqual(actual.stateFrom, expected);
+							});
+						}
+					},
+
+					'if present, the "listeners" option': {
+						'must be an object (not null)'() {
+							app.registerCustomElementFactory('foo-bar', createWidget);
+							projector.innerHTML = `<foo-bar data-options="${opts({ listeners: null })}"></foo-bar>`;
+							return rejects(
+								app.realize(root),
+								TypeError,
+								'Expected listeners value in data-options to be a widget listeners map with action identifiers (in "{\\"listeners\\":null}")'
+							).then(() => {
+								projector.innerHTML = `<foo-bar data-options="${opts({ listeners: 42 })}"></foo-bar>`;
+								return rejects(
+									app.realize(root),
+									TypeError,
+									'Expected listeners value in data-options to be a widget listeners map with action identifiers (in "{\\"listeners\\":42}")');
+							});
+						},
+
+						'property values must be strings or arrays of strings'() {
+							app.registerCustomElementFactory('foo-bar', createWidget);
+							projector.innerHTML = `<foo-bar data-options="${opts({
+								listeners: {
+									type: 5
+								}
+							})}"></foo-bar>`;
+							return rejects(
+								app.realize(root),
+								TypeError,
+								'Expected listeners value in data-options to be a widget listeners map with action identifiers (in "{\\"listeners\\":{\\"type\\":5}}")'
+							).then(() => {
+								projector.innerHTML = `<foo-bar data-options="${opts({
+									listeners: {
+										type: [true]
+									}
+								})}"></foo-bar>`;
+								return rejects(
+									app.realize(root),
+									TypeError,
+									'Expected listeners value in data-options to be a widget listeners map with action identifiers (in "{\\"listeners\\":{\\"type\\":[true]}}")'
+								);
+							});
+						},
+
+						'the strings must identify registered actions'() {
+							app.registerCustomElementFactory('foo-bar', createWidget);
+							projector.innerHTML = `<foo-bar data-options="${opts({
+								listeners: {
+									type: 'action'
+								}
+							})}"></foo-bar>`;
+							return rejects(app.realize(root), Error);
+						},
+
+						'causes the custom element factory to be called with a listeners map for the actions'() {
+							let actual: { listeners: { [type: string]: ActionLike | ActionLike[] } } = null;
+							app.registerCustomElementFactory('foo-bar', (options) => {
+								actual = <any> options;
+								return createActualWidget({ tagName: 'mark' });
+							});
+							const expected = createAction();
+							app.registerAction('action', expected);
+							projector.innerHTML = `<foo-bar data-options="${opts({
+								listeners: {
+									string: 'action',
+									array: ['action']
+								}
+							})}"></foo-bar>`;
+							return app.realize(root).then(() => {
+								assert.isNotNull(actual);
+								assert.strictEqual(actual.listeners['string'], expected);
+								assert.lengthOf(actual.listeners['array'], 1);
+								assert.strictEqual((<ActionLike[]> actual.listeners['array'])[0], expected);
+							});
+						}
+					}
+				};
+			})(),
 
 			'destroying the returned handle': {
 				'leaves the rendered elements in the DOM'() {

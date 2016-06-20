@@ -9,8 +9,10 @@ import { ParentListMixin } from 'dojo-widgets/mixins/createParentListMixin';
 
 import {
 	CombinedRegistry,
+	WidgetFactory,
 	WidgetLike
 } from './createApp';
+import resolveListenersMap from './_resolveListenersMap';
 
 const reservedNames = new Set([
 	// According to <https://www.w3.org/TR/custom-elements/#valid-custom-element-name>.
@@ -155,6 +157,85 @@ function resolveWidgetInstance(registry: CombinedRegistry, element: Element): Pr
 	return registry.getWidget(id);
 }
 
+interface Options {
+	listeners?: any;
+	stateFrom?: any;
+}
+
+function resolveOptions(registry: CombinedRegistry, element: Element): Options | Promise<Options> {
+	const str = element.getAttribute('data-options') || '';
+	if (!str) {
+		return null;
+	}
+
+	let options: Options;
+	try {
+		options = JSON.parse(str);
+	} catch (err) {
+		throw new SyntaxError(`Invalid data-options: ${err.message} (in ${JSON.stringify(str)})`);
+	}
+	if (!options || typeof options !== 'object') {
+		throw new TypeError(`Expected object from data-options (in ${JSON.stringify(str)})`);
+	}
+
+	const promises: Promise<void>[] = [];
+
+	if ('stateFrom' in options) {
+		const { stateFrom } = options;
+		if (!stateFrom || typeof stateFrom !== 'string') {
+			throw new TypeError(`Expected stateFrom value in data-options to be a non-empty string (in ${JSON.stringify(str)})`);
+		}
+
+		promises.push(registry.getStore(stateFrom).then((store) => {
+			options.stateFrom = store;
+		}));
+	}
+
+	if ('listeners' in options) {
+		const { listeners } = options;
+
+		let valid = true;
+		if (!listeners || typeof listeners !== 'object') {
+			valid = false;
+		}
+		else {
+			// Prefer breaking a labeled loop over nesting Array#some() calls or repeating the throwing of
+			// the TypeError.
+			check: for (const eventType in listeners) {
+				const value = listeners[eventType];
+				if (Array.isArray(value)) {
+					for (const identifier of value) {
+						if (typeof identifier !== 'string') {
+							valid = false;
+							break check;
+						}
+					}
+				}
+				else if (typeof value !== 'string') {
+					valid = false;
+					break check;
+				}
+			}
+		}
+
+		if (!valid) {
+			throw new TypeError(`Expected listeners value in data-options to be a widget listeners map with action identifiers (in ${JSON.stringify(str)})`);
+		}
+
+		promises.push(resolveListenersMap(registry, listeners).then((map) => {
+			options.listeners = map;
+		}));
+	}
+
+	if (promises.length > 0) {
+		return Promise.all(promises).then(() => {
+			return options;
+		});
+	}
+
+	return options;
+}
+
 const noop = () => {};
 
 export default function realizeCustomElements(registry: CombinedRegistry, root: Element): Promise<Handle> {
@@ -186,9 +267,19 @@ export default function realizeCustomElements(registry: CombinedRegistry, root: 
 			while (processing.length > 0) {
 				for (const custom of processing.shift()) {
 					const isWidgetInstance = custom.name === 'widget-instance';
-					const promise = isWidgetInstance ?
-						resolveWidgetInstance(registry, custom.element) :
-						Promise.resolve(registry.getCustomElementFactory(custom.name)());
+					let promise: Promise<WidgetLike> = null;
+					if (isWidgetInstance) {
+						promise = resolveWidgetInstance(registry, custom.element);
+					}
+					else {
+						promise = Promise.all<any>([
+							registry.getCustomElementFactory(custom.name),
+							resolveOptions(registry, custom.element)
+						]).then(([factory, options]) => {
+							const f = <WidgetFactory> factory;
+							return options ? f(options) : f();
+						});
+					}
 
 					loadedWidgets.push(promise.then((widget) => {
 						// Store the widget for easy access.

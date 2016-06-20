@@ -20,6 +20,7 @@
 		"./src/_factories.ts",
 		"./src/_moduleResolver.ts",
 		"./src/_realizeCustomElements.ts",
+		"./src/_resolveListenersMap.ts",
 		"./src/createApp.ts",
 		"./src/IdentityRegistry.ts",
 		"./src/main.ts",
