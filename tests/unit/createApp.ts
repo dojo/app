@@ -2669,10 +2669,12 @@ registerSuite({
 			},
 
 			'a widget cannot be attached multiple times in the same projector'() {
-				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				const widget = createActualWidget({ tagName: 'mark' });
+				app.registerCustomElementFactory('foo-1', () => widget);
+				app.registerCustomElementFactory('foo-2', () => widget);
 				projector.innerHTML = `
-					<widget-instance id="foo"></widget-instance>
-					<widget-instance id="foo"></widget-instance>
+					<foo-1></foo-1>
+					<foo-2></foo-2>
 				`;
 				return rejects(app.realize(root), Error, 'Cannot attach a widget multiple times');
 			},
@@ -2886,6 +2888,89 @@ registerSuite({
 						return new Promise((resolve) => { setTimeout(resolve, 50); });
 					}).then(() => {
 						assert.equal(root.firstChild.firstChild.nodeName, 'MARK');
+					});
+				}
+			},
+
+			'identifying and retrieving widgets': {
+				'via data-options'() {
+					const fooBar = createActualWidget();
+					app.registerCustomElementFactory('foo-bar', () => fooBar);
+					projector.innerHTML = '<foo-bar data-options="{&quot;id&quot;:&quot;fooBar&quot;}"></foo-bar>';
+					return app.realize(root).then((handle) => {
+						assert.strictEqual(handle.getWidget('fooBar'), fooBar);
+					});
+				},
+
+				'via data-widget-id'() {
+					const fooBar = createActualWidget();
+					app.registerCustomElementFactory('foo-bar', () => fooBar);
+					projector.innerHTML = '<foo-bar data-widget-id="fooBar"></foo-bar>';
+					return app.realize(root).then((handle) => {
+						assert.strictEqual(handle.getWidget('fooBar'), fooBar);
+					});
+				},
+
+				'via the id attribute'() {
+					const fooBar = createActualWidget();
+					app.registerCustomElementFactory('foo-bar', () => fooBar);
+					projector.innerHTML = '<foo-bar id="fooBar"></foo-bar>';
+					return app.realize(root).then((handle) => {
+						assert.strictEqual(handle.getWidget('fooBar'), fooBar);
+					});
+				},
+
+				'data-options takes precedence over data-widget-id over id'() {
+					const fooBar = createActualWidget();
+					app.registerCustomElementFactory('foo-bar', () => fooBar);
+					const bazQux = createActualWidget();
+					app.registerCustomElementFactory('baz-qux', () => bazQux);
+					projector.innerHTML = `
+						<foo-bar data-widget-id="bazQux" data-options="{&quot;id&quot;:&quot;fooBar&quot;}"></foo-bar>
+						<baz-qux id="fooBar" data-widget-id="bazQux"></baz-qux>
+					`;
+					return app.realize(root).then((handle) => {
+						assert.strictEqual(handle.getWidget('fooBar'), fooBar);
+						assert.strictEqual(handle.getWidget('bazQux'), bazQux);
+					});
+				},
+
+				'ID from data-widget-id is added to the creation options'() {
+					let actual: string;
+					app.registerCustomElementFactory('foo-bar', (options) => {
+						actual = (<any> options).id;
+						return createActualWidget();
+					});
+					projector.innerHTML = '<foo-bar data-widget-id="the-id"></foo-bar>';
+					return app.realize(root).then(() => {
+						assert.equal(actual, 'the-id');
+					});
+				},
+
+				'ID from id is added to the creation options'() {
+					let actual: string;
+					app.registerCustomElementFactory('foo-bar', (options) => {
+						actual = (<any> options).id;
+						return createActualWidget();
+					});
+					projector.innerHTML = '<foo-bar id="the-id" data-options="{}"></foo-bar>';
+					return app.realize(root).then(() => {
+						assert.equal(actual, 'the-id');
+					});
+				},
+
+				'IDs must be unique within the realization'() {
+					app.registerCustomElementFactory('foo-bar', () => createActualWidget());
+					projector.innerHTML = `
+						<foo-bar id="unique"></foo-bar>
+						<foo-bar id="unique"></foo-bar>
+					`;
+					return rejects(app.realize(root), Error, 'A widget with ID \'unique\' already exists');
+				},
+
+				'getWidget() returns null for unknown widgets'() {
+					return app.realize(root).then((handle) => {
+						assert.isNull(handle.getWidget('unknown'));
 					});
 				}
 			}

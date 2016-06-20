@@ -16,7 +16,11 @@ import {
 	makeWidgetFactory
 } from './_factories';
 import makeMidResolver, { ToAbsMid, ResolveMid } from './_moduleResolver';
-import realizeCustomElements, { isValidName, normalizeName } from './_realizeCustomElements';
+import realizeCustomElements, {
+	isValidName,
+	normalizeName,
+	RealizationHandle
+} from './_realizeCustomElements';
 
 export { ToAbsMid };
 
@@ -361,7 +365,7 @@ export interface AppMixin {
 	 * @param root The root element that is searched for <widget-instance> elements
 	 * @return A handle to detach rendered widgets from the DOM
 	 */
-	realize(root: Element): Promise<Handle>;
+	realize(root: Element): Promise<RealizationHandle>;
 
 	_registry: CombinedRegistry;
 	_resolveMid: ResolveMid;

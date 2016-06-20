@@ -14,6 +14,14 @@ import {
 } from './createApp';
 import resolveListenersMap from './_resolveListenersMap';
 
+export interface RealizationHandle extends Handle {
+	/**
+	 * Get a realized widget with the given ID.
+	 * @return The widget, or `null` if no such widget exists
+	 */
+	getWidget(id: string): WidgetLike;
+}
+
 const reservedNames = new Set([
 	// According to <https://www.w3.org/TR/custom-elements/#valid-custom-element-name>.
 	'annotation-xml',
@@ -145,27 +153,20 @@ function getCustomElementsByWidgetProjector(registry: CombinedRegistry, root: El
 	return widgetProjectors;
 }
 
-function resolveWidgetInstance(registry: CombinedRegistry, element: Element): Promise<WidgetLike> {
-	// Resolve the widget instance ID. The `data-widget-id` attribute takes precedence over `id`.
-	const attrWidgetId = element.getAttribute('data-widget-id');
-	const attrId = element.getAttribute('id');
-	const id = attrWidgetId || attrId;
-	if (!id) {
-		throw new Error('Cannot resolve widget for a custom element without \'data-widget-id\' or \'id\' attributes');
-	}
-
-	return registry.getWidget(id);
+function getIdFromAttributes(element: Element): string {
+	return element.getAttribute('data-widget-id') || element.getAttribute('id') || undefined;
 }
 
 interface Options {
+	id?: string;
 	listeners?: any;
 	stateFrom?: any;
 }
 
-function resolveOptions(registry: CombinedRegistry, element: Element): Options | Promise<Options> {
+function resolveOptions(registry: CombinedRegistry, element: Element, idFromAttributes: string): Options | Promise<Options> {
 	const str = element.getAttribute('data-options') || '';
 	if (!str) {
-		return null;
+		return idFromAttributes ? { id: idFromAttributes } : null;
 	}
 
 	let options: Options;
@@ -176,6 +177,10 @@ function resolveOptions(registry: CombinedRegistry, element: Element): Options |
 	}
 	if (!options || typeof options !== 'object') {
 		throw new TypeError(`Expected object from data-options (in ${JSON.stringify(str)})`);
+	}
+
+	if (!('id' in options) && idFromAttributes) {
+		options.id = idFromAttributes;
 	}
 
 	const promises: Promise<void>[] = [];
@@ -242,6 +247,8 @@ export default function realizeCustomElements(registry: CombinedRegistry, root: 
 	// Bottom up, breadth first queue of custom elements who's children's widgets need to be appended to
 	// their own widget. Combined for all widget projectors.
 	const appendQueue: CustomElement[] = [];
+	// All identified widgets.
+	const identifiedWidgets = new Map<string, WidgetLike>();
 	// For each projector, track the immediate custom element descendants. These placeholder
 	// elements will be replaced with rendered widgets.
 	const immediatePlaceholderLookup = new Map<Projector, CustomElement[]>();
@@ -267,21 +274,40 @@ export default function realizeCustomElements(registry: CombinedRegistry, root: 
 			while (processing.length > 0) {
 				for (const custom of processing.shift()) {
 					const isWidgetInstance = custom.name === 'widget-instance';
+					let id = getIdFromAttributes(custom.element);
+
 					let promise: Promise<WidgetLike> = null;
 					if (isWidgetInstance) {
-						promise = resolveWidgetInstance(registry, custom.element);
+						if (!id) {
+							throw new Error('Cannot resolve widget for a custom element without \'data-widget-id\' or \'id\' attributes');
+						}
+						promise = registry.getWidget(id);
 					}
 					else {
 						promise = Promise.all<any>([
 							registry.getCustomElementFactory(custom.name),
-							resolveOptions(registry, custom.element)
+							resolveOptions(registry, custom.element, id)
 						]).then(([factory, options]) => {
 							const f = <WidgetFactory> factory;
-							return options ? f(options) : f();
+							if (options) {
+								id = options.id;
+								return f(options);
+							}
+							else {
+								return f();
+							}
 						});
 					}
 
 					loadedWidgets.push(promise.then((widget) => {
+						// Ensure identified widgets are unique.
+						if (id !== undefined) {
+							if (identifiedWidgets.has(id)) {
+								throw new Error(`A widget with ID '${id}' already exists`);
+							}
+							identifiedWidgets.set(id, widget);
+						}
+
 						// Store the widget for easy access.
 						custom.widget = widget;
 
@@ -363,6 +389,10 @@ export default function realizeCustomElements(registry: CombinedRegistry, root: 
 				for (const w of managedWidgets) {
 					w.destroy();
 				}
+			},
+
+			getWidget(id: string) {
+				return identifiedWidgets.get(id) || null;
 			}
 		};
 	});
