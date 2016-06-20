@@ -959,7 +959,7 @@ registerSuite({
 							}
 						]
 					});
-				}, Error, 'Action definitions must specify either the factory or instance option');
+				}, TypeError, 'Action definitions must specify either the factory or instance option');
 			},
 
 			'with factory option': {
@@ -1208,7 +1208,7 @@ registerSuite({
 								}
 							]
 						});
-					}, Error, 'Cannot specify stateFrom option when action definition points directly at an instance');
+					}, TypeError, 'Cannot specify stateFrom option when action definition points directly at an instance');
 				}
 			}
 		},
@@ -1252,7 +1252,7 @@ registerSuite({
 							}
 						]
 					});
-				}, Error, 'Store definitions must specify either the factory or instance option');
+				}, TypeError, 'Store definitions must specify either the factory or instance option');
 			},
 
 			'with factory option': {
@@ -1509,7 +1509,7 @@ registerSuite({
 								}
 							]
 						});
-					}, Error, 'Cannot specify options when store definition points directly at an instance');
+					}, TypeError, 'Cannot specify options when store definition points directly at an instance');
 				}
 			}
 		},
@@ -1557,7 +1557,7 @@ registerSuite({
 							}
 						]
 					});
-				}, Error, 'id, listeners and stateFrom options should be in the widget definition itself, not its options value');
+				}, TypeError, 'id, listeners and stateFrom options should be in the widget definition itself, not its options value');
 			},
 
 			'options cannot include the listeners property'() {
@@ -1575,7 +1575,7 @@ registerSuite({
 							}
 						]
 					});
-				}, Error, 'id, listeners and stateFrom options should be in the widget definition itself, not its options value');
+				}, TypeError, 'id, listeners and stateFrom options should be in the widget definition itself, not its options value');
 			},
 
 			'options cannot include the stateFrom property'() {
@@ -1591,7 +1591,7 @@ registerSuite({
 							}
 						]
 					});
-				}, Error, 'id, listeners and stateFrom options should be in the widget definition itself, not its options value');
+				}, TypeError, 'id, listeners and stateFrom options should be in the widget definition itself, not its options value');
 			},
 
 			'with listeners option': {
@@ -1639,7 +1639,7 @@ registerSuite({
 							}
 						]
 					});
-				}, Error, 'Widget definitions must specify either the factory or instance option');
+				}, TypeError, 'Widget definitions must specify either the factory or instance option');
 			},
 
 			'with factory option': {
@@ -2042,7 +2042,7 @@ registerSuite({
 								}
 							]
 						});
-					}, Error, 'Cannot specify listeners option when widget definition points directly at an instance');
+					}, TypeError, 'Cannot specify listeners option when widget definition points directly at an instance');
 				},
 
 				'stateFrom option is not allowed'() {
@@ -2056,7 +2056,7 @@ registerSuite({
 								}
 							]
 						});
-					}, Error, 'Cannot specify stateFrom option when widget definition points directly at an instance');
+					}, TypeError, 'Cannot specify stateFrom option when widget definition points directly at an instance');
 				},
 
 				'options option is not allowed'() {
@@ -2070,7 +2070,7 @@ registerSuite({
 								}
 							]
 						});
-					}, Error, 'Cannot specify options when widget definition points directly at an instance');
+					}, TypeError, 'Cannot specify options when widget definition points directly at an instance');
 				}
 			}
 		},
