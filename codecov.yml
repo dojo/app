@@ -2,3 +2,9 @@ comment:
   branches:
   - master
   - feature/*
+coverage:
+  notify:
+    slack:
+      default:
+        url: "secret:cTMcJ3qFnJ1h+8eXhRtmQpW1jLeGKJuu2QhhtZeni2PbZJibq+/9NZmPKTnOb+7Sd4BZ8K4w4v11THzOhb0xm0tjJVygNrvpTh6lqi+FeLYw4P5KJDZpwCVSufP7cUN4O3vZM/qO4nc12kZEJ3Ba4wDuvQA9tuhqVuUlhCmtPRs="
+        attachments: "sunburst, diff"
