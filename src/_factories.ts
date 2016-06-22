@@ -93,6 +93,18 @@ function isInstance(value: any): value is Instance {
 	return value && typeof value === 'object';
 }
 
+/**
+ * Resolve a factory for an action, store or widget.
+ *
+ * Definitions have either `instance` or `factory` fields. These may be module identifiers. If necessary resolve the
+ * module identifier, then if an instance was defined create a wrapper function that can act as a factory for
+ * that instance.
+ *
+ * @param type What type of factory needs to be resolved
+ * @param definition Definition of the action, store or widget that is resolved
+ * @param resolveMid Function to asynchronously resolve a module identifier
+ * @return A promise for the factory. Rejects if the resolved module does not export an appropriate default
+ */
 function resolveFactory(type: 'action', definition: ActionDefinition, resolveMid: ResolveMid): Promise<ActionFactory>;
 function resolveFactory(type: 'store', definition: StoreDefinition, resolveMid: ResolveMid): Promise<StoreFactory>;
 function resolveFactory(type: 'widget', definition: WidgetDefinition, resolveMid: ResolveMid): Promise<WidgetFactory>;
