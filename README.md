@@ -1,7 +1,8 @@
 # dojo-app
 
 [![Build Status](https://travis-ci.org/dojo/app.svg?branch=master)](https://travis-ci.org/dojo/app)
-[![codecov.io](http://codecov.io/gh/dojo/app/branch/master/graph/badge.svg)](http://codecov.io/gh/dojo/app/branch/master)
+[![codecov.io](https://codecov.io/gh/dojo/app/branch/master/graph/badge.svg)](https://codecov.io/gh/dojo/app/branch/master)
+[![npm version](https://badge.fury.io/js/dojo-app.svg)](http://badge.fury.io/js/dojo-app)
 
 A library for wiring up Dojo 2 applications.
 
