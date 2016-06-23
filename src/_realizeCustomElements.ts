@@ -9,6 +9,7 @@ import { ParentListMixin } from 'dojo-widgets/mixins/createParentListMixin';
 
 import {
 	CombinedRegistry,
+	StoreLike,
 	WidgetFactory,
 	WidgetLike
 } from './createApp';
@@ -241,6 +242,11 @@ function resolveOptions(registry: CombinedRegistry, element: Element, idFromAttr
 	return options;
 }
 
+function resolveStateFromAttribute(registry: CombinedRegistry, element: Element): Promise<StoreLike> {
+	const stateFrom = element.getAttribute('data-state-from');
+	return stateFrom ? registry.getStore(stateFrom) : null;
+}
+
 const noop = () => {};
 
 export default function realizeCustomElements(registry: CombinedRegistry, root: Element): Promise<Handle> {
@@ -286,11 +292,21 @@ export default function realizeCustomElements(registry: CombinedRegistry, root: 
 					else {
 						promise = Promise.all<any>([
 							registry.getCustomElementFactory(custom.name),
-							resolveOptions(registry, custom.element, id)
-						]).then(([factory, options]) => {
+							resolveOptions(registry, custom.element, id),
+							resolveStateFromAttribute(registry, custom.element)
+						]).then(([factory, options, store]) => {
 							const f = <WidgetFactory> factory;
 							if (options) {
 								id = options.id;
+
+								// The `data-state-from` attribute only impacts the options if:
+								// 1) The widget has an ID
+								// 2) There was no stateFrom property on the `data-options` object
+								// 3) It resolved to a store
+								if (id && !options.stateFrom && store) {
+									options.stateFrom = store;
+								}
+
 								return f(options);
 							}
 							else {
