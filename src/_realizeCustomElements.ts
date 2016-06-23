@@ -249,7 +249,7 @@ function resolveStateFromAttribute(registry: CombinedRegistry, element: Element)
 
 const noop = () => {};
 
-export default function realizeCustomElements(registry: CombinedRegistry, root: Element): Promise<Handle> {
+export default function realizeCustomElements(registry: CombinedRegistry, defaultStore: StoreLike, root: Element): Promise<Handle> {
 	// Bottom up, breadth first queue of custom elements who's children's widgets need to be appended to
 	// their own widget. Combined for all widget projectors.
 	const appendQueue: CustomElement[] = [];
@@ -300,8 +300,9 @@ export default function realizeCustomElements(registry: CombinedRegistry, root: 
 						]).then(([_factory, _options, _store, projectorStore]) => {
 							const factory = <WidgetFactory> _factory;
 							const options = <Options> _options || {};
-							// `data-state-from` store of the element takes precedence, then of the projector.
-							const store = <StoreLike> _store || projectorStore;
+							// `data-state-from` store of the element takes precedence, then of the projector, then
+							// the application's default store.
+							const store = <StoreLike> _store || projectorStore || defaultStore;
 
 							id = options.id;
 							// If the widget has an ID, but stateFrom was not in its `data-options` attribute, and

@@ -272,6 +272,8 @@ export interface CombinedRegistry {
 }
 
 export interface AppMixin {
+	defaultStore?: StoreLike;
+
 	/**
 	 * Register an action with the app.
 	 *
@@ -375,6 +377,7 @@ export interface AppMixin {
 export type App = AppMixin & CombinedRegistry;
 
 export interface AppOptions {
+	defaultStore?: StoreLike;
 	toAbsMid?: ToAbsMid;
 }
 
@@ -489,7 +492,12 @@ const createApp = compose({
 			const promise = Promise.resolve().then(() => {
 				// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
 				// factory is registered through this method or loaded from a definition.
-				return factory({ id });
+
+				const options: { id: string, stateFrom?: StoreLike } = { id };
+				if (this.defaultStore) {
+					options.stateFrom = this.defaultStore;
+				}
+				return factory(options);
 			});
 			// Replace the registered factory to ensure next time this widget is needed, the same widget is returned.
 			registryHandle.destroy();
@@ -551,7 +559,7 @@ const createApp = compose({
 	},
 
 	realize(root: Element) {
-		return realizeCustomElements(this, root);
+		return realizeCustomElements(this._registry, this.defaultStore, root);
 	}
 })
 .mixin({
@@ -595,7 +603,7 @@ const createApp = compose({
 		}
 	},
 
-	initialize (instance: App, { toAbsMid = (moduleId: string) => moduleId }: AppOptions = {}) {
+	initialize (instance: App, { defaultStore = null, toAbsMid = (moduleId: string) => moduleId }: AppOptions = {}) {
 		instance._registry = {
 			getAction: instance.getAction.bind(instance),
 			hasAction: instance.hasAction.bind(instance),
@@ -608,6 +616,12 @@ const createApp = compose({
 		};
 		Object.freeze(instance._registry);
 
+		Object.defineProperty(instance, 'defaultStore', {
+			configurable: false,
+			enumerable: true,
+			value: defaultStore,
+			writable: false
+		});
 		instance._resolveMid = makeMidResolver(toAbsMid);
 
 		actions.set(instance, new IdentityRegistry<RegisteredFactory<ActionLike>>());

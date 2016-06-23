@@ -26,6 +26,18 @@ import createApp from 'dojo-app/createApp';
 const app = createApp();
 ```
 
+You can also define a default store at creation time:
+
+```ts
+import createMemoryStore from 'dojo-widgets/util/createMemoryStore';
+
+const defaultStore = createMemoryStore();
+const app = createApp({ defaultStore });
+```
+
+This store will be used as the `stateFrom` option to widget and custom element
+factories, unless another store is specified.
+
 ### Registering actions
 
 If you already have instantiated an action:
