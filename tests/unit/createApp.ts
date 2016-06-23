@@ -1,11 +1,16 @@
 import { EventedListener, EventedListenersMap } from 'dojo-compose/mixins/createEvented';
+import global from 'dojo-core/global';
+import has from 'dojo-core/has';
 import { Handle } from 'dojo-core/interfaces';
 import { assign } from 'dojo-core/lang';
 import Promise from 'dojo-core/Promise';
+import createActualWidget from 'dojo-widgets/createWidget';
+import createContainer from 'dojo-widgets/createContainer';
 import * as registerSuite from 'intern!object';
 import * as assert from 'intern/chai!assert';
 
 import createApp, {
+	App,
 	ActionLike,
 	CombinedRegistry,
 	Identifier,
@@ -22,7 +27,7 @@ import widgetInstanceFixture from '../fixtures/widget-instance';
 
 const { toAbsMid } = require;
 
-function rejects(promise: Promise<any>, errType: Function, msg?: string): Promise<void> {
+function rejects(promise: Promise<any>, errType: Function, msg?: string): Promise<any> {
 	return promise.then(() => {
 		throw new Error('Promise should have rejected');
 	}, (err: any) => {
@@ -30,6 +35,7 @@ function rejects(promise: Promise<any>, errType: Function, msg?: string): Promis
 		if (msg) {
 			assert.strictEqual(err.message, msg);
 		}
+		return err;
 	});
 }
 
@@ -403,6 +409,123 @@ registerSuite({
 					assert.isFalse(app.hasAction('foo'));
 				});
 			}
+		}
+	},
+
+	'#getCustomElementFactory': {
+		'no registered custom element'() {
+			assert.throws(() => createApp().getCustomElementFactory('foo-bar'), Error);
+		},
+
+		'provides a wrapper for the registered factory'() {
+			let receivedOptions: Object;
+			const expectedReturnValue = createWidget();
+
+			const app = createApp();
+			app.registerCustomElementFactory('foo-bar', (options) => {
+				receivedOptions = options;
+				return expectedReturnValue;
+			});
+
+			const wrapper = app.getCustomElementFactory('foo-bar');
+			const expectedOptions = {};
+			const receivedReturnValue = wrapper(expectedOptions);
+			assert.strictEqual(receivedOptions, expectedOptions);
+			assert.strictEqual(receivedReturnValue, expectedReturnValue);
+		}
+	},
+
+	'#hasCustomElementFactory': {
+		'no registered custom element'() {
+			assert.isFalse(createApp().hasCustomElementFactory('foo-bar'));
+		},
+
+		'registered custom element'() {
+			const app = createApp();
+			app.registerCustomElementFactory('foo-bar', createWidget);
+
+			assert.isTrue(app.hasCustomElementFactory('foo-bar'));
+		}
+	},
+
+	'#registerCustomElementFactory': {
+		'hasCustomElementFactory returns true after'() {
+			const app = createApp();
+			app.registerCustomElementFactory('foo-bar', createWidget);
+
+			assert.isTrue(app.hasCustomElementFactory('foo-bar'));
+		},
+
+		'destroying the returned handle': {
+			'deregister the factory'() {
+				const app = createApp();
+				const handle = app.registerCustomElementFactory('foo-bar', createWidget);
+				handle.destroy();
+
+				assert.isFalse(app.hasCustomElementFactory('foo-bar'));
+			},
+
+			'a second time is a noop'() {
+				const app = createApp();
+				const handle = app.registerCustomElementFactory('foo-bar', createWidget);
+				handle.destroy();
+				handle.destroy();
+
+				assert.isFalse(app.hasCustomElementFactory('foo-bar'));
+			}
+		},
+
+		'validates the name': {
+			'must not be empty'() {
+				assert.throws(() => {
+					createApp().registerCustomElementFactory('', createWidget);
+				}, SyntaxError, '\'\' is not a valid custom element name');
+			},
+
+			'must start with a lowercase ASCII letter'() {
+				assert.throws(() => {
+					createApp().registerCustomElementFactory('💩-', createWidget);
+				}, SyntaxError, '\'💩-\' is not a valid custom element name');
+			},
+
+			'must contain a hyphen'() {
+				assert.throws(() => {
+					createApp().registerCustomElementFactory('a', createWidget);
+				}, SyntaxError, '\'a\' is not a valid custom element name');
+			},
+
+			'must not include uppercase ASCII letters'() {
+				assert.throws(() => {
+					createApp().registerCustomElementFactory('a-A', createWidget);
+				}, SyntaxError, '\'a-A\' is not a valid custom element name');
+			},
+
+			'must not be a reserved name'() {
+				[
+					'annotation-xml',
+					'color-profile',
+					'font-face',
+					'font-face-src',
+					'font-face-uri',
+					'font-face-format',
+					'font-face-name',
+					'missing-glyph',
+					'widget-instance',
+					'widget-projector'
+				].forEach((name) => {
+					assert.throws(() => {
+						createApp().registerCustomElementFactory(name, createWidget);
+					}, Error, `'${name}' is not a valid custom element name`);
+				});
+			}
+		},
+
+		'the name must not case-insensitively match a previously registered element'() {
+			const app = createApp();
+			app.registerCustomElementFactory('a-Ø', () => createWidget());
+			assert.throws(() => {
+				app.registerCustomElementFactory('a-ø', () => createWidget());
+			}, Error);
 		}
 	},
 
@@ -1209,6 +1332,109 @@ registerSuite({
 							]
 						});
 					}, TypeError, 'Cannot specify stateFrom option when action definition points directly at an instance');
+				}
+			}
+		},
+
+		'customElements': {
+			'registers multiple'() {
+				const expected = {
+					'foo-bar': createWidget(),
+					'baz-qux': createWidget()
+				};
+
+				const app = createApp();
+				app.loadDefinition({
+					customElements: [
+						{
+							name: 'foo-bar',
+							factory: () => expected['foo-bar']
+						},
+						{
+							name: 'baz-qux',
+							factory: () => expected['baz-qux']
+						}
+					]
+				});
+
+				assert.isTrue(app.hasCustomElementFactory('foo-bar'));
+				assert.isTrue(app.hasCustomElementFactory('baz-qux'));
+
+				return Promise.all([
+					app.getCustomElementFactory('foo-bar')(),
+					app.getCustomElementFactory('baz-qux')()
+				]).then(([fooBar, bazQux]) => {
+					assert.strictEqual(fooBar, expected['foo-bar']);
+					assert.strictEqual(bazQux, expected['baz-qux']);
+				});
+			},
+
+			'factory can be a module identifier'() {
+				const expected = createWidget();
+				stubWidgetFactory(() => expected);
+
+				const app = createApp({ toAbsMid });
+				app.loadDefinition({
+					customElements: [
+						{
+							name: 'foo-bar',
+							factory: '../fixtures/widget-factory'
+						}
+					]
+				});
+
+				return strictEqual(Promise.resolve(app.getCustomElementFactory('foo-bar')()), expected);
+			},
+
+			'cannot create widget if identified module has no default factory export'() {
+				const app = createApp({ toAbsMid });
+				app.loadDefinition({
+					customElements: [
+						{
+							name: 'foo-bar',
+							factory: '../fixtures/no-factory-export'
+						}
+					]
+				});
+
+				return rejects(Promise.resolve(app.getCustomElementFactory('foo-bar')()), Error, 'Could not resolve \'../fixtures/no-factory-export\' to a widget factory function');
+			},
+
+			'registered factory': {
+				'returns a promise while the factory is being resolved'() {
+					const app = createApp();
+					app.loadDefinition({
+						customElements: [
+							{
+								name: 'foo-bar',
+								factory: createWidget
+							}
+						]
+					});
+
+					const factory = app.getCustomElementFactory('foo-bar');
+					const first = factory();
+					const second = factory();
+					assert.instanceOf(first, Promise);
+					assert.instanceOf(second, Promise);
+				},
+
+				// "may" because this depends on the factory
+				'may return a widget when called again'() {
+					const app = createApp();
+					app.loadDefinition({
+						customElements: [
+							{
+								name: 'foo-bar',
+								factory: createWidget
+							}
+						]
+					});
+
+					const factory = app.getCustomElementFactory('foo-bar');
+					return Promise.resolve(factory()).then(() => {
+						assert.notInstanceOf(factory(), Promise);
+					});
 				}
 			}
 		},
@@ -2219,5 +2445,535 @@ registerSuite({
 			app.registerAction('widget', createAction());
 			app.registerStore('widget', createStore());
 		});
-	}
+	},
+
+	'#realize': (() => {
+		let app: App = null;
+		let root: HTMLElement = null;
+		let projector: HTMLElement = null;
+		let stubbedGlobals = false;
+
+		return {
+			before() {
+				if (has('host-node')) {
+					global.document = (<any> require('jsdom')).jsdom('<html><body></body></html>');
+					global.Node = global.document.defaultView.Node;
+					stubbedGlobals = true;
+				}
+			},
+
+			after() {
+				if (stubbedGlobals) {
+					delete global.document;
+					delete global.Node;
+				}
+			},
+
+			beforeEach() {
+				root = document.createElement('div');
+				projector = document.createElement('widget-projector');
+				root.appendChild(projector);
+				app = createApp();
+			},
+
+			'recognizes custom elements by tag name'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+				return app.realize(root).then(() => {
+					assert.equal(projector.firstChild.nodeName, 'MARK');
+				});
+			},
+
+			'tag name comparisons are case-insensitive'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+				return app.realize(root).then(() => {
+					assert.equal(projector.firstChild.nodeName, 'MARK');
+				});
+			},
+
+			'tag name takes precedence over `is` attribute'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = '<widget-instance is="widget-projector" id="foo"></widget-instance>';
+				return app.realize(root).then(() => {
+					assert.equal(root.firstChild.firstChild.nodeName, 'MARK');
+				});
+			},
+
+			'`is` attribute comparison is case-insensitive'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = '<div is="widget-instance" id="foo"></div>';
+				return app.realize(root).then(() => {
+					assert.equal(projector.firstChild.nodeName, 'MARK');
+				});
+			},
+
+			'skips unknown custom elements'() {
+				root.innerHTML = '<custom-element></custom-element><div is="another-element"></div>';
+				return app.realize(root).then(() => {
+					assert.equal(root.firstChild.nodeName, 'CUSTOM-ELEMENT');
+					assert.equal(root.lastChild.nodeName, 'DIV');
+				});
+			},
+
+			'custom elements must be rooted in a widget-projector'() {
+				root.innerHTML = '<widget-instance id="foo"/>';
+				return rejects(app.realize(root), Error, 'Custom tags must be rooted in a widget-projector');
+			},
+
+			'the widget-projector element is left in the DOM'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+				return app.realize(root).then(() => {
+					assert.strictEqual(root.firstChild, projector);
+				});
+			},
+
+			'the widget-projector element may be the root'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+				return app.realize(projector).then(() => {
+					assert.equal(projector.firstChild.nodeName, 'MARK');
+				});
+			},
+
+			'widget-projector elements cannot contain other widget-projector elements'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = '<widget-projector></widget-projector>';
+				return rejects(app.realize(root), Error, 'widget-projector cannot contain another widget-projector');
+			},
+
+			'realized elements are replaced'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				app.registerWidget('bar', createActualWidget({ tagName: 'strong' }));
+				projector.innerHTML = `
+					before1
+					<widget-instance id="foo"></widget-instance>
+					<div>
+						before2
+						<widget-instance id="bar"></widget-instance>
+						after2
+					</div>
+					after1
+				`.trim();
+				return app.realize(root).then(() => {
+					const before1 = projector.firstChild;
+					assert.equal(before1.nodeValue.trim(), 'before1');
+					const foo = <Element> before1.nextSibling;
+					assert.equal(foo.nodeName, 'MARK');
+					const div = foo.nextElementSibling;
+					assert.equal(div.nodeName, 'DIV');
+					const before2 = div.firstChild;
+					assert.equal(before2.nodeValue.trim(), 'before2');
+					const bar = before2.nextSibling;
+					assert.equal(bar.nodeName, 'STRONG');
+					const after2 = bar.nextSibling;
+					assert.equal(after2.nodeValue.trim(), 'after2');
+					const after1 = div.nextSibling;
+					assert.equal(after1.nodeValue.trim(), 'after1');
+				});
+			},
+
+			'supports multiple projection projectors'() {
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				app.registerWidget('bar', createActualWidget({ tagName: 'strong' }));
+				root.innerHTML = `
+					<widget-projector><widget-instance id="foo"></widget-instance></widget-projector>
+					<widget-projector><widget-instance id="bar"></widget-instance></widget-projector>
+				`.trim();
+				return app.realize(root).then(() => {
+					assert.equal(root.firstChild.firstChild.nodeName, 'MARK');
+					assert.equal(root.lastChild.firstChild.nodeName, 'STRONG');
+				});
+			},
+
+			'<widget-instance> custom elements': {
+				'data-widget-id takes precedence over id'() {
+					app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+					projector.innerHTML = '<widget-instance id="bar" data-widget-id="foo"></widget-instance>';
+					return app.realize(root).then(() => {
+						assert.equal(projector.firstChild.nodeName, 'MARK');
+					});
+				},
+
+				'an ID is required'() {
+					projector.innerHTML = '<widget-instance></widget-instance>';
+					return rejects(app.realize(root), Error, 'Cannot resolve widget for a custom element without \'data-widget-id\' or \'id\' attributes');
+				},
+
+				'the ID must resolve to a widget instance'() {
+					projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+					return rejects(app.realize(root), Error, 'Could not find a value for identity \'foo\'');
+				}
+			},
+
+			'realizes registered custom elements'() {
+				app.registerCustomElementFactory('foo-bar', () => createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = '<foo-bar></foo-bar>';
+				return app.realize(root).then(() => {
+					assert.equal(projector.firstChild.nodeName, 'MARK');
+				});
+			},
+
+			'child nodes of custom elements that are not custom elements themselves are discarded'() {
+				app.registerCustomElementFactory('foo-bar', () => createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = '<foo-bar>oh noes</foo-bar>';
+				return app.realize(root).then(() => {
+					assert.equal(projector.firstChild.nodeName, 'MARK');
+					assert.isFalse(projector.firstChild.hasChildNodes());
+				});
+			},
+
+			'the rendered widget hierarchy reflects the nesting of custom elements'() {
+				app.registerCustomElementFactory('container-here', () => createContainer());
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				app.registerWidget('bar', createActualWidget({ tagName: 'strong' }));
+				root.innerHTML = `
+					<widget-projector>
+						<container-here>
+							<widget-instance id="foo"></widget-instance>
+						</container-here>
+					</widget-projector>
+					<widget-projector>
+						<container-here>
+							<widget-instance id="bar"></widget-instance>
+						</container-here>
+					</widget-projector>
+				`.trim();
+				return app.realize(root).then(() => {
+					const first = root.firstElementChild.firstElementChild;
+					assert.equal(first.nodeName, 'DOJO-CONTAINER');
+					assert.equal(first.firstChild.nodeName, 'MARK');
+
+					const second = root.lastElementChild.firstElementChild;
+					assert.equal(second.nodeName, 'DOJO-CONTAINER');
+					assert.equal(second.firstChild.nodeName, 'STRONG');
+				});
+			},
+
+			'the rendered widget hierarchy ignores non-custom elements'() {
+				app.registerCustomElementFactory('container-here', () => createContainer());
+				app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+				projector.innerHTML = `
+					<container-here>
+						<div>
+							<widget-instance id="foo"></widget-instance>
+						</div>
+					</container-here>
+				`.trim();
+				return app.realize(root).then(() => {
+					const container = projector.firstElementChild;
+					assert.equal(container.nodeName, 'DOJO-CONTAINER');
+					assert.equal(container.firstChild.nodeName, 'MARK');
+				});
+			},
+
+			'a widget cannot be attached multiple times in the same projector'() {
+				const widget = createActualWidget({ tagName: 'mark' });
+				app.registerCustomElementFactory('foo-1', () => widget);
+				app.registerCustomElementFactory('foo-2', () => widget);
+				projector.innerHTML = `
+					<foo-1></foo-1>
+					<foo-2></foo-2>
+				`;
+				return rejects(app.realize(root), Error, 'Cannot attach a widget multiple times');
+			},
+
+			'a widget cannot be attached in multiple projectors'() {
+				const widget = createActualWidget({ tagName: 'mark' });
+				app.registerCustomElementFactory('foo-bar', () => widget);
+				root.innerHTML = `
+					<widget-projector><foo-bar></foo-bar></widget-projector>
+					<widget-projector><foo-bar></foo-bar></widget-projector>
+				`;
+				return rejects(app.realize(root), Error, 'Cannot attach a widget multiple times');
+			},
+
+			'a widget cannot be attached if it already has a parent'() {
+				const widget = createActualWidget({ tagName: 'mark' });
+				createContainer().append(widget);
+				app.registerWidget('foo', widget);
+				projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+				return rejects(app.realize(root), Error, 'Cannot attach a widget that already has a parent');
+			},
+
+			'custom elements are created with options': (() => {
+				const opts = (obj: any) => {
+					return JSON.stringify(obj).replace(/"/g, '&quot;');
+				};
+
+				return {
+					'options come from the data-option attribute'() {
+						let actual: { [p: string]: any } = null;
+						app.registerCustomElementFactory('foo-bar', (options) => {
+							actual = options;
+							return createActualWidget({ tagName: 'mark' });
+						});
+						projector.innerHTML = `<foo-bar data-options="${opts({ foo: 'bar', baz: 5 })}"></foo-bar>`;
+						return app.realize(root).then(() => {
+							assert.isNotNull(actual);
+							assert.equal(actual['foo'], 'bar');
+							assert.equal(actual['baz'], 5);
+						});
+					},
+
+					'realization fails if the data-option value is not valid JSON'() {
+						app.registerCustomElementFactory('foo-bar', createWidget);
+						projector.innerHTML = `<foo-bar data-options="${opts({}).slice(1)}"></foo-bar>`;
+						return rejects(app.realize(root), SyntaxError).then((err) => {
+							assert.match(err.message, /^Invalid data-options:/);
+							assert.match(err.message, / \(in "}"\)$/);
+						});
+					},
+
+					'realization fails if the data-option value does not encode an object'() {
+						app.registerCustomElementFactory('foo-bar', createWidget);
+						projector.innerHTML = `<foo-bar data-options="${opts(null)}"></foo-bar>`;
+						return rejects(app.realize(root), TypeError, 'Expected object from data-options (in "null")').then(() => {
+							projector.innerHTML = `<foo-bar data-options="${opts(42)}"></foo-bar>`;
+							return rejects(app.realize(root), TypeError, 'Expected object from data-options (in "42")');
+						});
+					},
+
+					'if present, the "stateFrom" option': {
+						'must be a string'() {
+							app.registerCustomElementFactory('foo-bar', createWidget);
+							projector.innerHTML = `<foo-bar data-options="${opts({ stateFrom: 5 })}"></foo-bar>`;
+							return rejects(app.realize(root), TypeError, 'Expected stateFrom value in data-options to be a non-empty string (in "{\\"stateFrom\\":5}")');
+						},
+
+						'must be a non-empty string'() {
+							app.registerCustomElementFactory('foo-bar', createWidget);
+							projector.innerHTML = `<foo-bar data-options="${opts({ stateFrom: '' })}"></foo-bar>`;
+							return rejects(app.realize(root), TypeError, 'Expected stateFrom value in data-options to be a non-empty string (in "{\\"stateFrom\\":\\"\\"}")');
+						},
+
+						'must identify a registered store'() {
+							app.registerCustomElementFactory('foo-bar', createWidget);
+							projector.innerHTML = `<foo-bar data-options="${opts({ stateFrom: 'store' })}"></foo-bar>`;
+							return rejects(app.realize(root), Error);
+						},
+
+						'causes the custom element factory to be called with a stateFrom option set to the store'() {
+							let actual: { stateFrom: StoreLike } = null;
+							app.registerCustomElementFactory('foo-bar', (options) => {
+								actual = <any> options;
+								return createActualWidget({ tagName: 'mark' });
+							});
+							const expected = createStore();
+							app.registerStore('store', expected);
+							projector.innerHTML = `<foo-bar data-options="${opts({ stateFrom: 'store' })}"></foo-bar>`;
+							return app.realize(root).then(() => {
+								assert.isNotNull(actual);
+								assert.strictEqual(actual.stateFrom, expected);
+							});
+						}
+					},
+
+					'if present, the "listeners" option': {
+						'must be an object (not null)'() {
+							app.registerCustomElementFactory('foo-bar', createWidget);
+							projector.innerHTML = `<foo-bar data-options="${opts({ listeners: null })}"></foo-bar>`;
+							return rejects(
+								app.realize(root),
+								TypeError,
+								'Expected listeners value in data-options to be a widget listeners map with action identifiers (in "{\\"listeners\\":null}")'
+							).then(() => {
+								projector.innerHTML = `<foo-bar data-options="${opts({ listeners: 42 })}"></foo-bar>`;
+								return rejects(
+									app.realize(root),
+									TypeError,
+									'Expected listeners value in data-options to be a widget listeners map with action identifiers (in "{\\"listeners\\":42}")');
+							});
+						},
+
+						'property values must be strings or arrays of strings'() {
+							app.registerCustomElementFactory('foo-bar', createWidget);
+							projector.innerHTML = `<foo-bar data-options="${opts({
+								listeners: {
+									type: 5
+								}
+							})}"></foo-bar>`;
+							return rejects(
+								app.realize(root),
+								TypeError,
+								'Expected listeners value in data-options to be a widget listeners map with action identifiers (in "{\\"listeners\\":{\\"type\\":5}}")'
+							).then(() => {
+								projector.innerHTML = `<foo-bar data-options="${opts({
+									listeners: {
+										type: [true]
+									}
+								})}"></foo-bar>`;
+								return rejects(
+									app.realize(root),
+									TypeError,
+									'Expected listeners value in data-options to be a widget listeners map with action identifiers (in "{\\"listeners\\":{\\"type\\":[true]}}")'
+								);
+							});
+						},
+
+						'the strings must identify registered actions'() {
+							app.registerCustomElementFactory('foo-bar', createWidget);
+							projector.innerHTML = `<foo-bar data-options="${opts({
+								listeners: {
+									type: 'action'
+								}
+							})}"></foo-bar>`;
+							return rejects(app.realize(root), Error);
+						},
+
+						'causes the custom element factory to be called with a listeners map for the actions'() {
+							let actual: { listeners: { [type: string]: ActionLike | ActionLike[] } } = null;
+							app.registerCustomElementFactory('foo-bar', (options) => {
+								actual = <any> options;
+								return createActualWidget({ tagName: 'mark' });
+							});
+							const expected = createAction();
+							app.registerAction('action', expected);
+							projector.innerHTML = `<foo-bar data-options="${opts({
+								listeners: {
+									string: 'action',
+									array: ['action']
+								}
+							})}"></foo-bar>`;
+							return app.realize(root).then(() => {
+								assert.isNotNull(actual);
+								assert.strictEqual(actual.listeners['string'], expected);
+								assert.lengthOf(actual.listeners['array'], 1);
+								assert.strictEqual((<ActionLike[]> actual.listeners['array'])[0], expected);
+							});
+						}
+					}
+				};
+			})(),
+
+			'destroying the returned handle': {
+				'leaves the rendered elements in the DOM'() {
+					app.registerCustomElementFactory('foo-bar', () => createActualWidget({ tagName: 'mark' }));
+					root.innerHTML = '<widget-projector><foo-bar></foo-bar></widget-projector>';
+					return app.realize(root).then((handle) => {
+						handle.destroy();
+						return new Promise((resolve) => { setTimeout(resolve, 50); });
+					}).then(() => {
+						assert.equal(root.firstChild.firstChild.nodeName, 'MARK');
+					});
+				},
+
+				'destroys managed widgets'() {
+					const managedWidget = createActualWidget({ tagName: 'mark' });
+					const attachedWidget = createActualWidget({ tagName: 'strong' });
+					app.registerCustomElementFactory('managed-widget', () => managedWidget);
+					app.registerWidget('attached', attachedWidget);
+
+					let destroyedManaged = false;
+					managedWidget.own({ destroy() { destroyedManaged = true; }});
+					let destroyedAttached = false;
+					attachedWidget.own({ destroy() { destroyedAttached = true; }});
+
+					projector.innerHTML = '<managed-widget></managed-widget><widget-instance id="attached></widget-instance>';
+					return app.realize(root).then((handle) => {
+						handle.destroy();
+
+						assert.isTrue(destroyedManaged);
+						assert.isFalse(destroyedAttached);
+					});
+				},
+
+				'a second time is a noop'() {
+					app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
+					projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+					return app.realize(root).then((handle) => {
+						handle.destroy();
+						handle.destroy();
+						return new Promise((resolve) => { setTimeout(resolve, 50); });
+					}).then(() => {
+						assert.equal(root.firstChild.firstChild.nodeName, 'MARK');
+					});
+				}
+			},
+
+			'identifying and retrieving widgets': {
+				'via data-options'() {
+					const fooBar = createActualWidget();
+					app.registerCustomElementFactory('foo-bar', () => fooBar);
+					projector.innerHTML = '<foo-bar data-options="{&quot;id&quot;:&quot;fooBar&quot;}"></foo-bar>';
+					return app.realize(root).then((handle) => {
+						assert.strictEqual(handle.getWidget('fooBar'), fooBar);
+					});
+				},
+
+				'via data-widget-id'() {
+					const fooBar = createActualWidget();
+					app.registerCustomElementFactory('foo-bar', () => fooBar);
+					projector.innerHTML = '<foo-bar data-widget-id="fooBar"></foo-bar>';
+					return app.realize(root).then((handle) => {
+						assert.strictEqual(handle.getWidget('fooBar'), fooBar);
+					});
+				},
+
+				'via the id attribute'() {
+					const fooBar = createActualWidget();
+					app.registerCustomElementFactory('foo-bar', () => fooBar);
+					projector.innerHTML = '<foo-bar id="fooBar"></foo-bar>';
+					return app.realize(root).then((handle) => {
+						assert.strictEqual(handle.getWidget('fooBar'), fooBar);
+					});
+				},
+
+				'data-options takes precedence over data-widget-id over id'() {
+					const fooBar = createActualWidget();
+					app.registerCustomElementFactory('foo-bar', () => fooBar);
+					const bazQux = createActualWidget();
+					app.registerCustomElementFactory('baz-qux', () => bazQux);
+					projector.innerHTML = `
+						<foo-bar data-widget-id="bazQux" data-options="{&quot;id&quot;:&quot;fooBar&quot;}"></foo-bar>
+						<baz-qux id="fooBar" data-widget-id="bazQux"></baz-qux>
+					`;
+					return app.realize(root).then((handle) => {
+						assert.strictEqual(handle.getWidget('fooBar'), fooBar);
+						assert.strictEqual(handle.getWidget('bazQux'), bazQux);
+					});
+				},
+
+				'ID from data-widget-id is added to the creation options'() {
+					let actual: string;
+					app.registerCustomElementFactory('foo-bar', (options) => {
+						actual = (<any> options).id;
+						return createActualWidget();
+					});
+					projector.innerHTML = '<foo-bar data-widget-id="the-id"></foo-bar>';
+					return app.realize(root).then(() => {
+						assert.equal(actual, 'the-id');
+					});
+				},
+
+				'ID from id is added to the creation options'() {
+					let actual: string;
+					app.registerCustomElementFactory('foo-bar', (options) => {
+						actual = (<any> options).id;
+						return createActualWidget();
+					});
+					projector.innerHTML = '<foo-bar id="the-id" data-options="{}"></foo-bar>';
+					return app.realize(root).then(() => {
+						assert.equal(actual, 'the-id');
+					});
+				},
+
+				'IDs must be unique within the realization'() {
+					app.registerCustomElementFactory('foo-bar', () => createActualWidget());
+					projector.innerHTML = `
+						<foo-bar id="unique"></foo-bar>
+						<foo-bar id="unique"></foo-bar>
+					`;
+					return rejects(app.realize(root), Error, 'A widget with ID \'unique\' already exists');
+				},
+
+				'getWidget() returns null for unknown widgets'() {
+					return app.realize(root).then((handle) => {
+						assert.isNull(handle.getWidget('unknown'));
+					});
+				}
+			}
+		};
+	})()
 });

@@ -12,6 +12,8 @@ Dojo 2 applications consist of widgets, stores and actions. Stores provide data 
 
 This library provides an application factory which lets you define actions, stores and widgets. It takes care of lazily loading them, wiring actions to events emitted by widgets, and making widgets and actions observe stores that hold their state.
 
+It provides an implementation of Custom Elements, allowing you to attach previously registered widgets or indeed register widget factories for custom elements.
+
 ## Features
 
 The examples below are provided in TypeScript syntax. The package does work under JavaScript, but for clarity, the examples will only include one syntax.
@@ -51,6 +53,18 @@ app.registerActionFactory('my-lazy-action', () => {
 	});
 });
 ```
+
+### Registering custom element factories
+
+```ts
+import createWidget from 'dojo-widgets/createWidget';
+
+app.registerCustomElementFactory('tag-name', createWidget);
+```
+
+A factory for a custom element should return a unique widget instance. It receives an `options` object with an optional `id` property and other options from the custom element.
+
+Tag names must be [valid according to the Custom Elements spec](https://www.w3.org/TR/custom-elements/#valid-custom-element-name). Additionally `widget-projector` and `widget-instance` names are reserved. Names are automatically lowercased before the factory is registered.
 
 ### Registering stores
 
@@ -200,6 +214,9 @@ app.loadDefinition({
 	actions: [
 		// describe actions here
 	],
+	customElements: [
+		// describe custom elements here
+	],
 	stores: [
 		// describe stores here
 	],
@@ -214,6 +231,8 @@ Each action, store and widget definition is an object. It must have an `id` prop
 Further, definitions must either have a `factory` or an `instance` property. With `factory` you must specify either a module identifier string or a factory function that can create the appropriate action, store or widget. With `instance` you can also specify a module identifier string, or alternatively an action, store or widget instance as appropriate.
 
 The application factory must be loaded with [`dojo-loader`](https://github.com/dojo/loader) in order to resolve module identifiers. Both ES and UMD modules are supported. The default export is used as the `factory` or `instance` value.
+
+Custom element definitions must have a `name` property, which must be a [valid custom element name](https://www.w3.org/TR/custom-elements/#valid-custom-element-name) (and not `widget-projector` or `widget-instance`). They must also have the `factory` property, but *not* the `id` and `instance` properties
 
 #### Action definitions
 
@@ -265,11 +284,108 @@ This uses the `require()` function available to `my-app/main`, which will resolv
 
 ### Deregistering
 
-The various `register*()` and `register*Factory()` methods return a handle. Call `destroy()` on this handle to deregister the action, store or widget from the application factory.
+The various `register*()` and `register*Factory()` methods return a handle. Call `destroy()` on this handle to deregister the action, custom element, store or widget from the application factory.
 
 `loadDefinition()` also returns a handle. Destroying it will deregister *all* actions, stores and widgets that were registered as part of the definition.
 
 Note that destroying handles will not destroy any action, store or widget instances.
+
+### Custom Elements
+
+Use the `App#realize(root: Element)` method to realize custom elements inside a DOM element.
+
+Widgets are rendered inside a projector. You can declare (multiple) projector slots in your DOM tree using the `widget-projector` custom element. These projectors must not be nested. Other custom elements can only occur within a `widget-projector`. You can pass a single `widget-projector` element as the `root` argument to `App#realize()`.
+
+All descending custom elements are replaced by rendered widgets. Widgets for nested elements are appended to their parent widget. Regular (non-custom) DOM nodes inside custom elements are not preserved, however regular DOM nodes within a `widget-projector` element are.
+
+Custom elements are matched (case-insensitively) to registered factories. First the tag name is matched. If no factory is found, and the element has an `is` attribute, that value is used to find a factory. Unrecognized elements are left in the DOM where possible.
+
+A factory option object can be provided in the DOM by setting the `data-options` attribute to a JSON string. The option object may have a `stateFrom` property containing a store identifier. It may also have a `listeners` property containing a widget listener map. Values for each event type can be action identifiers or arrays thereof. These properties are resolved to the actual store and action instances before the factory is called. Additional properties are passed to the factory as-is.
+
+Widgets can be identified through the `id` property on the options object, a `data-widget-id` attribute, or an `id` attribute. The options object takes precedence over the `data-widget-id` attribute, which takes precedence over the `id` attribute. It's valid to use the different attributes, but only the most specific ID will be passed to the factory (in the `options` object).
+
+The special `widget-instance` custom element can be used to render a previously registered widget. The `data-widget-id` or `id` attribute is used to retrieve the widget. The `data-options` attribute is ignored.
+
+A widget ID can only be used once within a realization. Similarly a widget instance can only be rendered once.
+
+`App#realize()` returns a promise. It is rejected when errors occur (e.g. bad `data-options` values, or a factory throws an error). Otherwise it is fulfilled with a `RealizationHandle` object. Use the `destroy()` method to destroy the created projectors and widgets. Widgets rendered through `widget-instance` are left as-is. Use the `getWidget(id: string)` method to get a widget instance.
+
+Given this application definition:
+
+```ts
+import createContainer from 'dojo-widgets/createContainer';
+import createWidget from 'dojo-widgets/createWidget';
+import createMemoryStore from 'dojo-widgets/util/createMemoryStore';
+
+app.loadDefinition({
+	actions: [
+		{
+			id: 'an-action',
+			instance: './my-action'
+		}
+	],
+	customElements: [
+		{
+			name: 'dojo-container',
+			factory: createContainer
+		},
+		{
+			name: 'a-widget',
+			factory: createWidget
+		}
+	],
+	stores: [
+		{
+			id: 'widget-state',
+			instance: createMemoryStore({
+				data: [
+					{ id: 'widget-1', classes: [ 'awesome' ] }
+				]
+			})
+		}
+	],
+	widgets: [
+		{
+			id: 'widget-2',
+			instance: createWidget({ tagName: 'strong' })
+		}
+	]
+});
+
+app.realize(document.body);
+```
+
+And this `<body>`:
+
+```html
+<body>
+	<widget-projector>
+		<div>
+			<dojo-container>
+				<a-widget dojo-options='{"id":"widget-1","tagName":"mark","stateFrom":"widget-state","listeners":{"click":"an-action"}}'></a-widget>
+				<div>
+					<div is="widget-instance" id="widget-2"></div>
+				</div>
+			</dojo-container>
+		</div>
+	</widget-projector>
+</body>
+```
+
+The realized DOM will be:
+
+```html
+<body>
+	<widget-projector>
+		<div>
+			<dojo-container>
+				<mark class="awesome"></mark>
+				<strong></strong>
+			</dojo-container>
+		</div>
+	</widget-projector>
+</body>
+```
 
 ## How do I use this package?
 

@@ -7,65 +7,17 @@ import {
 	ActionFactory,
 	ActionLike,
 	CombinedRegistry,
+	CustomElementDefinition,
 	ItemDefinition,
 	StoreDefinition,
 	StoreFactory,
 	StoreLike,
 	WidgetDefinition,
 	WidgetFactory,
-	WidgetLike,
-	WidgetListenerOrArray
+	WidgetLike
 } from './createApp';
 import { ResolveMid } from './_moduleResolver';
-
-function resolveListeners(registry: CombinedRegistry, ref: WidgetListenerOrArray): { value?: any; promise?: Promise<any>; } {
-	if (Array.isArray(ref)) {
-		const resolved = ref.map((item) => {
-			return resolveListeners(registry, item);
-		});
-
-		let isSync = true;
-		const values: any[] = [];
-		for (const result of resolved) {
-			if (result.value) {
-				values.push(result.value);
-			} else {
-				isSync = false;
-				values.push(result.promise);
-			}
-		}
-
-		return isSync ? { value: values } : { promise: Promise.all(values) };
-	}
-
-	if (typeof ref !== 'string') {
-		return { value: ref };
-	}
-
-	return { promise: registry.getAction(<string> ref) };
-}
-
-function resolveListenersMap(registry: CombinedRegistry, definition: WidgetDefinition) {
-	const { listeners: defined } = definition;
-	if (!defined) {
-		return null;
-	}
-
-	const map: EventedListenersMap = {};
-	const eventTypes = Object.keys(defined);
-	return eventTypes.reduce((promise, eventType) => {
-		const resolved = resolveListeners(registry, defined[eventType]);
-		if (resolved.value) {
-			map[eventType] = resolved.value;
-			return promise;
-		}
-
-		return resolved.promise.then((value) => {
-			map[eventType] = value;
-			return promise;
-		});
-	}, Promise.resolve(map));
-}
+import resolveListenersMap from './_resolveListenersMap';
 
 function resolveStore(registry: CombinedRegistry, definition: ActionDefinition | WidgetDefinition): void | StoreLike | Promise<StoreLike> {
 	const { stateFrom } = definition;
@@ -82,9 +34,10 @@ function resolveStore(registry: CombinedRegistry, definition: ActionDefinition |
 
 type Factory = ActionFactory | StoreFactory | WidgetFactory;
 type Instance = ActionLike | StoreLike | WidgetLike;
-type FactoryTypes = 'action' | 'store' | 'widget';
+type FactoryTypes = 'action' | 'customElement' | 'store' | 'widget';
 const errorStrings: { [type: string]: string } = {
 	action: 'an action',
+	customElement: 'a widget',
 	store: 'a store',
 	widget: 'a widget'
 };
@@ -93,11 +46,27 @@ function isInstance(value: any): value is Instance {
 	return value && typeof value === 'object';
 }
 
+/**
+ * Resolve a factory for an action, custom element, store or widget.
+ *
+ * Custom element definitions must have a `factory` field. Other definitions have either `instance` or `factory`
+ * fields. These may be module identifiers. If necessary resolve the module identifier, then if an instance was
+ * defined create a wrapper function that can act as a factory for that instance.
+ *
+ * @param type What type of factory needs to be resolved
+ * @param definition Definition of the action, store or widget that is resolved
+ * @param resolveMid Function to asynchronously resolve a module identifier
+ * @return A promise for the factory. Rejects if the resolved module does not export an appropriate default
+ */
 function resolveFactory(type: 'action', definition: ActionDefinition, resolveMid: ResolveMid): Promise<ActionFactory>;
+function resolveFactory(type: 'customElement', definition: CustomElementDefinition, resolveMid: ResolveMid): Promise<WidgetFactory>;
 function resolveFactory(type: 'store', definition: StoreDefinition, resolveMid: ResolveMid): Promise<StoreFactory>;
 function resolveFactory(type: 'widget', definition: WidgetDefinition, resolveMid: ResolveMid): Promise<WidgetFactory>;
-function resolveFactory(type: FactoryTypes, definition: ItemDefinition<Factory, Instance>, resolveMid: ResolveMid): Promise<Factory>;
-function resolveFactory(type: FactoryTypes, { factory, instance }: ItemDefinition<Factory, Instance>, resolveMid: ResolveMid): Promise<Factory> {
+function resolveFactory(type: FactoryTypes, definition: CustomElementDefinition | ItemDefinition<Factory, Instance>, resolveMid: ResolveMid): Promise<Factory>;
+function resolveFactory(type: FactoryTypes, definition: CustomElementDefinition | ItemDefinition<Factory, Instance>, resolveMid: ResolveMid): Promise<Factory> {
+	const { factory } = definition;
+	const { instance = null } = (<ItemDefinition<Factory, Instance>> definition);
+
 	if (typeof factory === 'function') {
 		return Promise.resolve(factory);
 	}
@@ -163,6 +132,28 @@ export function makeActionFactory(definition: ActionDefinition, resolveMid: Reso
 	};
 }
 
+export function makeCustomElementFactory(definition: CustomElementDefinition, resolveMid: ResolveMid): WidgetFactory {
+	let promise: Promise<void>;
+	let factory: WidgetFactory;
+	return () => {
+		if (factory) {
+			return factory();
+		}
+
+		if (!promise) {
+			// Memoize the factory resolution.
+			promise = resolveFactory('customElement', definition, resolveMid).then((result) => {
+				factory = result;
+				promise = null;
+			});
+		}
+
+		return promise.then(() => {
+			return factory();
+		});
+	};
+}
+
 export function makeStoreFactory(definition: StoreDefinition, resolveMid: ResolveMid): StoreFactory {
 	if (!('factory' in definition || 'instance' in definition)) {
 		throw new TypeError('Store definitions must specify either the factory or instance option');
@@ -205,7 +196,7 @@ export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: Reso
 	return () => {
 		return Promise.all<any>([
 			resolveFactory('widget', definition, resolveMid),
-			resolveListenersMap(registry, definition),
+			resolveListenersMap(registry, definition.listeners),
 			resolveStore(registry, definition)
 		]).then((values) => {
 			let factory: WidgetFactory;

@@ -1,18 +1,26 @@
 import { Action } from 'dojo-actions/createAction';
 import compose, { ComposeFactory } from 'dojo-compose/compose';
+import { Destroyable } from 'dojo-compose/mixins/createDestroyable';
 import { EventedListener } from 'dojo-compose/mixins/createEvented';
 import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
 import Promise from 'dojo-core/Promise';
 import WeakMap from 'dojo-core/WeakMap';
+import { RenderableMixin } from 'dojo-widgets/mixins/createRenderable';
 
 import IdentityRegistry from './IdentityRegistry';
 import {
 	makeActionFactory,
+	makeCustomElementFactory,
 	makeStoreFactory,
 	makeWidgetFactory
 } from './_factories';
 import makeMidResolver, { ToAbsMid, ResolveMid } from './_moduleResolver';
+import realizeCustomElements, {
+	isValidName,
+	normalizeName,
+	RealizationHandle
+} from './_realizeCustomElements';
 
 export { ToAbsMid };
 
@@ -28,9 +36,8 @@ export type StoreLike = ObservableState<State>;
 
 /**
  * Any kind of widget.
- * FIXME: There isn't an official Widget interface. Is this even useful?
  */
-export type WidgetLike = Object;
+export type WidgetLike = Destroyable & RenderableMixin;
 
 /**
  * Factory method to (asynchronously) create an action.
@@ -68,6 +75,11 @@ export interface Definitions {
 	 * Action definitions.
 	 */
 	actions?: ActionDefinition[];
+
+	/**
+	 * Custom element definitions.
+	 */
+	customElements?: CustomElementDefinition[];
 
 	/**
 	 * Store definitions.
@@ -117,6 +129,22 @@ export interface ActionDefinition extends ItemDefinition<ActionFactory, ActionLi
 	 * When the action is created it'll automatically observe this store.
 	 */
 	stateFrom?: Identifier | StoreLike;
+}
+
+/**
+ * Definition for a custom element;
+ */
+export interface CustomElementDefinition {
+	/**
+	 * The name of the custom element. Must be valid according to
+	 * <https://www.w3.org/TR/custom-elements/#valid-custom-element-name>.
+	 */
+	name: string;
+
+	/**
+	 * Factory to create a widget, or a module identifier that resolves to such a factory.
+	 */
+	factory: WidgetFactory | string;
 }
 
 /**
@@ -189,6 +217,22 @@ export interface CombinedRegistry {
 	hasAction(id: Identifier): boolean;
 
 	/**
+	 * Get the factory for the custom element with the given name.
+	 *
+	 * @param name Name of the custom element
+	 * @return A factory to create a widget for the custom element.
+	 */
+	getCustomElementFactory(name: string): WidgetFactory;
+
+	/**
+	 * Check whether a custom element has been registered with the given name.
+	 *
+	 * @param name Name of the custom element
+	 * @return `true` if a custom element has been registered, `false` otherwise.
+	 */
+	hasCustomElementFactory(name: string): boolean;
+
+	/**
 	 * Get the store with the given identifier.
 	 *
 	 * Note that the store may still need to be loaded when this method is called.
@@ -253,6 +297,19 @@ export interface AppMixin {
 	registerActionFactory(id: Identifier, factory: ActionFactory): Handle;
 
 	/**
+	 * Register a widget factory for a custom element.
+	 *
+	 * The factory will be called each time a widget instance is needed. It may be called with an options argument
+	 * derived from a `data-options` attribute on the custom element that is to be be replaced by the created widget.
+	 *
+	 * @param name The name of the custom element. Must be valid according to
+	 *   <https://www.w3.org/TR/custom-elements/#valid-custom-element-name>.
+	 * @param factory A factory that (asynchronously) creates a widget.
+	 * @return A handle to deregister the custom element
+	 */
+	registerCustomElementFactory(name: string, factory: WidgetFactory): Handle;
+
+	/**
 	 * Register a store with the app.
 	 *
 	 * @param id How the store is identified
@@ -302,6 +359,14 @@ export interface AppMixin {
 	 */
 	loadDefinition(definitions: Definitions): Handle;
 
+	/**
+	 * Take a root element and replace <widget-instance> elements with widget instances.
+	 *
+	 * @param root The root element that is searched for <widget-instance> elements
+	 * @return A handle to detach rendered widgets from the DOM
+	 */
+	realize(root: Element): Promise<RealizationHandle>;
+
 	_registry: CombinedRegistry;
 	_resolveMid: ResolveMid;
 }
@@ -318,6 +383,7 @@ const noop = () => {};
 
 type RegisteredFactory<T> = () => Promise<T>;
 const actions = new WeakMap<App, IdentityRegistry<RegisteredFactory<ActionLike>>>();
+const customElements = new WeakMap<App, IdentityRegistry<WidgetFactory>>();
 const stores = new WeakMap<App, IdentityRegistry<RegisteredFactory<StoreLike>>>();
 const widgets = new WeakMap<App, IdentityRegistry<RegisteredFactory<WidgetLike>>>();
 
@@ -356,6 +422,27 @@ const createApp = compose({
 				return Promise.resolve(action.configure(this._registry)).then(() => action);
 			});
 		});
+
+		return {
+			destroy() {
+				this.destroy = noop;
+				registryHandle.destroy();
+			}
+		};
+	},
+
+	registerCustomElementFactory(name: string, factory: WidgetFactory): Handle {
+		if (!isValidName(name)) {
+			throw new SyntaxError(`'${name}' is not a valid custom element name'`);
+		}
+
+		// Wrap the factory since the registry cannot store frozen factories, and dojo-compose creates
+		// frozen factories…
+		const wrapped = (options: Object) => factory(options);
+
+		// Note that each custom element requires a new widget, so there's no need to replace the
+		// registered factory.
+		const registryHandle = customElements.get(this).register(normalizeName(name), wrapped);
 
 		return {
 			destroy() {
@@ -417,7 +504,7 @@ const createApp = compose({
 		};
 	},
 
-	loadDefinition({ actions, stores, widgets }: Definitions): Handle {
+	loadDefinition({ actions, customElements, stores, widgets }: Definitions): Handle {
 		const app: App = this;
 		const handles: Handle[] = [];
 
@@ -425,6 +512,14 @@ const createApp = compose({
 			for (const definition of actions) {
 				const factory = makeActionFactory(definition, app._resolveMid);
 				const handle = app.registerActionFactory(definition.id, factory);
+				handles.push(handle);
+			}
+		}
+
+		if (customElements) {
+			for (const definition of customElements) {
+				const factory = makeCustomElementFactory(definition, app._resolveMid);
+				const handle = app.registerCustomElementFactory(definition.name, factory);
 				handles.push(handle);
 			}
 		}
@@ -452,6 +547,10 @@ const createApp = compose({
 				}
 			}
 		};
+	},
+
+	realize(root: Element) {
+		return realizeCustomElements(this, root);
 	}
 })
 .mixin({
@@ -464,6 +563,14 @@ const createApp = compose({
 
 		hasAction(id: Identifier): boolean {
 			return actions.get(this).hasId(id);
+		},
+
+		getCustomElementFactory(name: string): WidgetFactory {
+			return customElements.get(this).get(name);
+		},
+
+		hasCustomElementFactory(name: string) {
+			return customElements.get(this).hasId(name);
 		},
 
 		getStore(id: Identifier): Promise<StoreLike> {
@@ -491,6 +598,8 @@ const createApp = compose({
 		instance._registry = {
 			getAction: instance.getAction.bind(instance),
 			hasAction: instance.hasAction.bind(instance),
+			getCustomElementFactory: instance.getCustomElementFactory.bind(instance),
+			hasCustomElementFactory: instance.hasCustomElementFactory.bind(instance),
 			getStore: instance.getStore.bind(instance),
 			hasStore: instance.hasStore.bind(instance),
 			getWidget: instance.getWidget.bind(instance),
@@ -501,6 +610,7 @@ const createApp = compose({
 		instance._resolveMid = makeMidResolver(toAbsMid);
 
 		actions.set(instance, new IdentityRegistry<RegisteredFactory<ActionLike>>());
+		customElements.set(instance, new IdentityRegistry<RegisteredFactory<WidgetLike>>());
 		stores.set(instance, new IdentityRegistry<RegisteredFactory<StoreLike>>());
 		widgets.set(instance, new IdentityRegistry<RegisteredFactory<WidgetLike>>());
 	}
