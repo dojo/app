@@ -362,7 +362,7 @@ And this `<body>`:
 	<widget-projector>
 		<div>
 			<dojo-container>
-				<a-widget dojo-options='{"id":"widget-1","tagName":"mark","stateFrom":"widget-state","listeners":{"click":"an-action"}}'></a-widget>
+				<a-widget data-options='{"id":"widget-1","tagName":"mark","stateFrom":"widget-state","listeners":{"click":"an-action"}}'></a-widget>
 				<div>
 					<div is="widget-instance" id="widget-2"></div>
 				</div>
