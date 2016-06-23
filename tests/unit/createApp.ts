@@ -2796,7 +2796,7 @@ registerSuite({
 				};
 
 				return {
-					'options come from the data-option attribute'() {
+					'options come from the data-options attribute'() {
 						let fooBar: { [p: string]: any } = null;
 						let bazQux: { [p: string]: any } = null;
 						app.registerCustomElementFactory('foo-bar', (options) => {
@@ -2828,7 +2828,7 @@ registerSuite({
 						});
 					},
 
-					'realization fails if the data-option value is not valid JSON'() {
+					'realization fails if the data-options value is not valid JSON'() {
 						app.registerCustomElementFactory('foo-bar', createWidget);
 						projector.innerHTML = `<foo-bar data-options="${opts({}).slice(1)}"></foo-bar>`;
 						return rejects(app.realize(root), SyntaxError).then((err) => {
@@ -2837,7 +2837,7 @@ registerSuite({
 						});
 					},
 
-					'realization fails if the data-option value does not encode an object'() {
+					'realization fails if the data-options value does not encode an object'() {
 						app.registerCustomElementFactory('foo-bar', createWidget);
 						projector.innerHTML = `<foo-bar data-options="${opts(null)}"></foo-bar>`;
 						return rejects(app.realize(root), TypeError, 'Expected object from data-options (in "null")').then(() => {
