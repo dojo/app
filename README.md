@@ -306,7 +306,9 @@ Widgets can be identified through the `id` property on the options object, a `da
 
 The `data-state-from` attribute may be used on custom elements to specify a store identifier. This will only take effect if a widget ID is also specified. The `stateFrom` property on the options object that is passed to the factory will be set to the referenced store. Any `stateFrom` property in the `data-options` object still takes precedence.
 
-The special `widget-instance` custom element can be used to render a previously registered widget. The `data-widget-id` or `id` attribute is used to retrieve the widget. The `data-state-from` and `data-options` attributes are ignored.
+A default store may be configured by setting the `data-state-from` attribute on the `widget-projector` custom element. It applies to all descendant elements that have IDs, though they can override it by setting their own `data-state-from` attribute or configuring `stateFrom` in their `data-options`.
+
+The special `widget-instance` custom element can be used to render a previously registered widget. The `data-widget-id` or `id` attribute is used to retrieve the widget. The `data-state-from` and `data-options` attributes are ignored. No default store is applied.
 
 A widget ID can only be used once within a realization. Similarly a widget instance can only be rendered once.
 

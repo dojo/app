@@ -275,6 +275,8 @@ export default function realizeCustomElements(registry: CombinedRegistry, root: 
 			immediatePlaceholderLookup.set(projector, children);
 			projectors.push(projector);
 
+			const projectorStateFrom = resolveStateFromAttribute(registry, root);
+
 			// Recursion-free, depth first processing of the tree.
 			let processing = [children];
 			while (processing.length > 0) {
@@ -293,25 +295,23 @@ export default function realizeCustomElements(registry: CombinedRegistry, root: 
 						promise = Promise.all<any>([
 							registry.getCustomElementFactory(custom.name),
 							resolveOptions(registry, custom.element, id),
-							resolveStateFromAttribute(registry, custom.element)
-						]).then(([factory, options, store]) => {
-							const f = <WidgetFactory> factory;
-							if (options) {
-								id = options.id;
+							resolveStateFromAttribute(registry, custom.element),
+							projectorStateFrom
+						]).then(([_factory, _options, _store, projectorStore]) => {
+							const factory = <WidgetFactory> _factory;
+							const options = <Options> _options || {};
+							// `data-state-from` store of the element takes precedence, then of the projector.
+							const store = <StoreLike> _store || projectorStore;
 
-								// The `data-state-from` attribute only impacts the options if:
-								// 1) The widget has an ID
-								// 2) There was no stateFrom property on the `data-options` object
-								// 3) It resolved to a store
-								if (id && !options.stateFrom && store) {
-									options.stateFrom = store;
-								}
+							id = options.id;
+							// If the widget has an ID, but stateFrom was not in its `data-options` attribute, and
+							// either its `data-state-from` attribute resolved to a store, or there is a default
+							// store, set the stateFrom option to the `data-state-from` or default store.
+							if (id && !options.stateFrom && store) {
+								options.stateFrom = store;
+							}
 
-								return f(options);
-							}
-							else {
-								return f();
-							}
+							return factory(options);
 						});
 					}
 
