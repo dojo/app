@@ -2726,7 +2726,7 @@ registerSuite({
 							<baz-qux data-options="${opts({ qux: 'quux', thud: 42 })}"></baz-qux>
 						`;
 						return app.realize(root).then(() => {
-							assert.isNotNull(fooBar);
+							assert.isOk(fooBar);
 							assert.equal(fooBar['foo'], 'bar');
 							assert.equal(fooBar['baz'], 5);
 							assert.isOk(bazQux);
@@ -2782,7 +2782,7 @@ registerSuite({
 							app.registerStore('store', expected);
 							projector.innerHTML = `<foo-bar data-options="${opts({ stateFrom: 'store' })}"></foo-bar>`;
 							return app.realize(root).then(() => {
-								assert.isNotNull(actual);
+								assert.isOk(actual);
 								assert.strictEqual(actual.stateFrom, expected);
 							});
 						}
