@@ -101,10 +101,12 @@ app.registerWidget('my-widget', widget);
 You can also register a factory method which creates the widget only when needed:
 
 ```ts
-app.registerWidgetFactory('my-lazy-store', () => {
-	return createWidget();
+app.registerWidgetFactory('my-lazy-widget', (options) => {
+	return createWidget(options);
 });
 ```
+
+The `options` object will have an `id` property set to `my-lazy-widget`.
 
 ### Seeing if an action, store or widget is registered
 

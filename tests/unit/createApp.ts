@@ -786,6 +786,20 @@ registerSuite({
 			});
 		},
 
+		'factory is called with an options object that has an ID property'() {
+			let actual: { [p: string]: any } = null;
+			const app = createApp();
+			app.registerWidgetFactory('foo', (options: any) => {
+				actual = options;
+				return createWidget();
+			});
+
+			return app.getWidget('foo').then(() => {
+				assert.isOk(actual);
+				assert.equal(actual['id'], 'foo');
+			});
+		},
+
 		'factory may return a promise': {
 			'should resolve with the widget'() {
 				const expected = createWidget();

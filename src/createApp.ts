@@ -341,7 +341,8 @@ export interface AppMixin {
 	/**
 	 * Register a widget factory with the app.
 	 *
-	 * The factory will be called the first time the widget is needed. It'll be called *without* any arguments.
+	 * The factory will be called the first time the widget is needed. It'll be called with an options object
+	 * that has its `id` property set to the widget ID.
 	 *
 	 * @param id How the widget is identified
 	 * @param factory A factory function that (asynchronously) creates a widget.
@@ -488,7 +489,7 @@ const createApp = compose({
 			const promise = Promise.resolve().then(() => {
 				// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
 				// factory is registered through this method or loaded from a definition.
-				return factory();
+				return factory({ id });
 			});
 			// Replace the registered factory to ensure next time this widget is needed, the same widget is returned.
 			registryHandle.destroy();
