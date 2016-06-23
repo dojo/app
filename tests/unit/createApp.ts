@@ -3178,6 +3178,52 @@ registerSuite({
 				}
 			},
 
+			'data-state attribute': {
+				'realization fails if the data-state value is not valid JSON'() {
+					app.registerCustomElementFactory('foo-bar', createActualWidget);
+					app.registerStore('store', createStore());
+					projector.innerHTML = '<foo-bar id="widget" data-state-from="store" data-state=\'}\'></foo-bar>';
+					return rejects(app.realize(root), SyntaxError).then((err) => {
+						assert.match(err.message, /^Invalid data-state:/);
+						assert.match(err.message, / \(in "}"\)$/);
+					});
+				},
+
+				'realization fails if the data-state value does not encode an object'() {
+					app.registerCustomElementFactory('foo-bar', createActualWidget);
+					app.registerStore('store', createStore());
+					projector.innerHTML = '<foo-bar id="widget" data-state-from="store" data-state=\'null\'></foo-bar>';
+					return rejects(app.realize(root), TypeError, 'Expected object from data-state (in "null")').then(() => {
+						projector.innerHTML = '<foo-bar id="widget" data-state-from="store" data-state=\'42\'></foo-bar>';
+						return rejects(app.realize(root), TypeError, 'Expected object from data-state (in "42")');
+					});
+				},
+
+				'for widgets with an ID and stateFrom, patch the store with the state before creating the widget'() {
+					let calls: string[] = [];
+					let patchArgs: any[][] = [];
+
+					const store = createStore();
+					(<any> store).patch = (...args: any[]) => {
+						calls.push('patch');
+						patchArgs.push(args);
+						return Promise.resolve();
+					};
+
+					app.registerCustomElementFactory('foo-bar', () => {
+						calls.push('factory');
+						return createActualWidget();
+					});
+					app.registerStore('store', store);
+
+					projector.innerHTML = '<foo-bar id="widget" data-state-from="store" data-state=\'{"foo":"bar"}\'></foo-bar>';
+					return app.realize(root).then(() => {
+						assert.deepEqual(calls, ['patch', 'factory']);
+						assert.deepEqual(patchArgs, [[{ foo: 'bar' }, { id: 'widget' }]]);
+					});
+				}
+			},
+
 			'destroying the returned handle': {
 				'leaves the rendered elements in the DOM'() {
 					app.registerCustomElementFactory('foo-bar', () => createActualWidget({ tagName: 'mark' }));
