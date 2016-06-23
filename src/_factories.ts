@@ -135,9 +135,9 @@ export function makeActionFactory(definition: ActionDefinition, resolveMid: Reso
 export function makeCustomElementFactory(definition: CustomElementDefinition, resolveMid: ResolveMid): WidgetFactory {
 	let promise: Promise<void>;
 	let factory: WidgetFactory;
-	return () => {
+	return (options: Object) => {
 		if (factory) {
-			return factory();
+			return factory(options);
 		}
 
 		if (!promise) {
@@ -149,7 +149,7 @@ export function makeCustomElementFactory(definition: CustomElementDefinition, re
 		}
 
 		return promise.then(() => {
-			return factory();
+			return factory(options);
 		});
 	};
 }

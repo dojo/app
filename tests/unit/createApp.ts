@@ -2704,16 +2704,34 @@ registerSuite({
 
 				return {
 					'options come from the data-option attribute'() {
-						let actual: { [p: string]: any } = null;
+						let fooBar: { [p: string]: any } = null;
+						let bazQux: { [p: string]: any } = null;
 						app.registerCustomElementFactory('foo-bar', (options) => {
-							actual = options;
+							fooBar = options;
 							return createActualWidget({ tagName: 'mark' });
 						});
-						projector.innerHTML = `<foo-bar data-options="${opts({ foo: 'bar', baz: 5 })}"></foo-bar>`;
+						app.loadDefinition({
+							customElements: [
+								{
+									name: 'baz-qux',
+									factory(options) {
+										bazQux = options;
+										return createActualWidget({ tagName: 'strong' });
+									}
+								}
+							]
+						});
+						projector.innerHTML = `
+							<foo-bar data-options="${opts({ foo: 'bar', baz: 5 })}"></foo-bar>
+							<baz-qux data-options="${opts({ qux: 'quux', thud: 42 })}"></baz-qux>
+						`;
 						return app.realize(root).then(() => {
-							assert.isNotNull(actual);
-							assert.equal(actual['foo'], 'bar');
-							assert.equal(actual['baz'], 5);
+							assert.isNotNull(fooBar);
+							assert.equal(fooBar['foo'], 'bar');
+							assert.equal(fooBar['baz'], 5);
+							assert.isOk(bazQux);
+							assert.equal(bazQux['qux'], 'quux');
+							assert.equal(bazQux['thud'], 42);
 						});
 					},
 
