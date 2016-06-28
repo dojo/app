@@ -79,6 +79,25 @@ function createWidget(): WidgetLike {
 registerSuite({
 	name: 'createApp',
 
+	'#defaultStore': {
+		'defaults to null'() {
+			assert.isNull(createApp().defaultStore);
+		},
+		'set at creation time'() {
+			const store = createStore();
+			const app = createApp({ defaultStore: store });
+			assert.strictEqual(app.defaultStore, store);
+		},
+		'has expected configuration'() {
+			const store = createStore();
+			const app = createApp({ defaultStore: store });
+			const { configurable, enumerable, writable } = Object.getOwnPropertyDescriptor(app, 'defaultStore');
+			assert.isFalse(configurable);
+			assert.isTrue(enumerable);
+			assert.isFalse(writable);
+		}
+	},
+
 	'#getAction': {
 		'no registered action'() {
 			return rejects(createApp().getAction('foo'), Error);
@@ -783,6 +802,35 @@ registerSuite({
 				strictEqual(app.getWidget('foo'), expected)
 			]).then(() => {
 				assert.equal(count, 1);
+			});
+		},
+
+		'factory is called with an options object that has an ID property'() {
+			let actual: { [p: string]: any } = null;
+			const app = createApp();
+			app.registerWidgetFactory('foo', (options: any) => {
+				actual = options;
+				return createWidget();
+			});
+
+			return app.getWidget('foo').then(() => {
+				assert.isOk(actual);
+				assert.equal(actual['id'], 'foo');
+			});
+		},
+
+		'the stateFrom option is set to the default store, if any'() {
+			let actual: { [p: string]: any } = null;
+			const store = createStore();
+			const app = createApp({ defaultStore: store });
+			app.registerWidgetFactory('foo', (options: any) => {
+				actual = options;
+				return createWidget();
+			});
+
+			return app.getWidget('foo').then(() => {
+				assert.isOk(actual);
+				assert.strictEqual(actual['stateFrom'], store);
 			});
 		},
 
@@ -1961,6 +2009,51 @@ registerSuite({
 					});
 				},
 
+				'the factory\'s stateFrom option is set to the default store, if any'() {
+					let actual: { [p: string]: any } = null;
+					const store = createStore();
+					const app = createApp({ defaultStore: store });
+					app.loadDefinition({
+						widgets: [
+							{
+								id: 'foo',
+								factory(options: any) {
+									actual = options;
+									return createWidget();
+								}
+							}
+						]
+					});
+
+					return app.getWidget('foo').then(() => {
+						assert.isOk(actual);
+						assert.strictEqual(actual['stateFrom'], store);
+					});
+				},
+
+				'the definition\'s stateFrom option takes precedence over the default store, if any'() {
+					let actual: { [p: string]: any } = null;
+					const app = createApp({ defaultStore: createStore() });
+					const store = createStore();
+					app.loadDefinition({
+						widgets: [
+							{
+								id: 'foo',
+								stateFrom: store,
+								factory(options: any) {
+									actual = options;
+									return createWidget();
+								}
+							}
+						]
+					});
+
+					return app.getWidget('foo').then(() => {
+						assert.isOk(actual);
+						assert.strictEqual(actual['stateFrom'], store);
+					});
+				},
+
 				'factory may return a promise': {
 					'should resolve with the widget'() {
 						const expected = {
@@ -2726,7 +2819,7 @@ registerSuite({
 							<baz-qux data-options="${opts({ qux: 'quux', thud: 42 })}"></baz-qux>
 						`;
 						return app.realize(root).then(() => {
-							assert.isNotNull(fooBar);
+							assert.isOk(fooBar);
 							assert.equal(fooBar['foo'], 'bar');
 							assert.equal(fooBar['baz'], 5);
 							assert.isOk(bazQux);
@@ -2782,7 +2875,56 @@ registerSuite({
 							app.registerStore('store', expected);
 							projector.innerHTML = `<foo-bar data-options="${opts({ stateFrom: 'store' })}"></foo-bar>`;
 							return app.realize(root).then(() => {
-								assert.isNotNull(actual);
+								assert.isOk(actual);
+								assert.strictEqual(actual.stateFrom, expected);
+							});
+						},
+
+						'takes precedence over data-state-from'() {
+							let actual: { stateFrom: StoreLike } = null;
+							app.registerCustomElementFactory('foo-bar', (options) => {
+								actual = <any> options;
+								return createActualWidget({ tagName: 'mark' });
+							});
+							const expected = createStore();
+							app.registerStore('store', expected);
+							app.registerStore('otherStore', createStore());
+							projector.innerHTML = `<foo-bar data-state-from="otherStore" data-options="${opts({ stateFrom: 'store' })}"></foo-bar>`;
+							return app.realize(root).then(() => {
+								assert.isOk(actual);
+								assert.strictEqual(actual.stateFrom, expected);
+							});
+						},
+
+						'takes precedence over <widget-projector data-state-from>'() {
+							let actual: { stateFrom: StoreLike } = null;
+							app.registerCustomElementFactory('foo-bar', (options) => {
+								actual = <any> options;
+								return createActualWidget({ tagName: 'mark' });
+							});
+							const expected = createStore();
+							app.registerStore('store', expected);
+							app.registerStore('otherStore', createStore());
+							projector.setAttribute('data-state-from', 'otherStore');
+							projector.innerHTML = `<foo-bar data-options="${opts({ stateFrom: 'store' })}"></foo-bar>`;
+							return app.realize(root).then(() => {
+								assert.isOk(actual);
+								assert.strictEqual(actual.stateFrom, expected);
+							});
+						},
+
+						'takes precedence over the default store'() {
+							const app = createApp({ defaultStore: createStore() });
+							let actual: { stateFrom: StoreLike } = null;
+							app.registerCustomElementFactory('foo-bar', (options) => {
+								actual = <any> options;
+								return createActualWidget({ tagName: 'mark' });
+							});
+							const expected = createStore();
+							app.registerStore('store', expected);
+							projector.innerHTML = `<foo-bar data-options="${opts({ stateFrom: 'store' })}"></foo-bar>`;
+							return app.realize(root).then(() => {
+								assert.isOk(actual);
 								assert.strictEqual(actual.stateFrom, expected);
 							});
 						}
@@ -2864,6 +3006,177 @@ registerSuite({
 					}
 				};
 			})(),
+
+			'non-projector data-state-from attribute': {
+				'is ignored if empty'() {
+					let actual: { stateFrom: StoreLike } = null;
+					app.registerCustomElementFactory('foo-bar', (options) => {
+						actual = <any> options;
+						return createActualWidget({ tagName: 'mark' });
+					});
+					projector.innerHTML = `<foo-bar data-state-from="" id="foo"></foo-bar>`;
+					return app.realize(root).then(() => {
+						assert.isOk(actual);
+						assert.notProperty(actual, 'stateFrom');
+					});
+				},
+
+				'must identify a registered store'() {
+					app.registerCustomElementFactory('foo-bar', createWidget);
+					projector.innerHTML = `<foo-bar data-state-from="store" id="foo"></foo-bar>`;
+					return rejects(app.realize(root), Error);
+				},
+
+				'if the element has an ID, causes the custom element factory to be called with a stateFrom option set to the store'() {
+					let actual: { stateFrom: StoreLike } = null;
+					app.registerCustomElementFactory('foo-bar', (options) => {
+						actual = <any> options;
+						return createActualWidget({ tagName: 'mark' });
+					});
+					const expected = createStore();
+					app.registerStore('store', expected);
+					projector.innerHTML = `<foo-bar data-state-from="store" id="foo"></foo-bar>`;
+					return app.realize(root).then(() => {
+						assert.isOk(actual);
+						assert.strictEqual(actual.stateFrom, expected);
+					});
+				},
+
+				'takes precedence over <widget-projector data-state-from>'() {
+					let actual: { stateFrom: StoreLike } = null;
+					app.registerCustomElementFactory('foo-bar', (options) => {
+						actual = <any> options;
+						return createActualWidget({ tagName: 'mark' });
+					});
+					const expected = createStore();
+					app.registerStore('store', expected);
+					app.registerStore('otherStore', createStore());
+					projector.setAttribute('data-state-from', 'otherStore');
+					projector.innerHTML = `<foo-bar data-state-from="store" id="foo"></foo-bar>`;
+					return app.realize(root).then(() => {
+						assert.isOk(actual);
+						assert.strictEqual(actual.stateFrom, expected);
+					});
+				},
+
+				'takes precedence over the default store'() {
+					let actual: { stateFrom: StoreLike } = null;
+					const app = createApp({ defaultStore: createStore() });
+					app.registerCustomElementFactory('foo-bar', (options) => {
+						actual = <any> options;
+						return createActualWidget({ tagName: 'mark' });
+					});
+					const expected = createStore();
+					app.registerStore('store', expected);
+					projector.innerHTML = `<foo-bar data-state-from="store" id="foo"></foo-bar>`;
+					return app.realize(root).then(() => {
+						assert.isOk(actual);
+						assert.strictEqual(actual.stateFrom, expected);
+					});
+				},
+
+				'is ignored if the element does not have an ID'() {
+					let actual: { stateFrom: StoreLike } = null;
+					app.registerCustomElementFactory('foo-bar', (options) => {
+						actual = <any> options;
+						return createActualWidget({ tagName: 'mark' });
+					});
+					app.registerStore('store', createStore());
+					projector.innerHTML = `<foo-bar data-state-from="store" data-options="{}"></foo-bar>`;
+					return app.realize(root).then(() => {
+						assert.isOk(actual);
+						assert.notProperty(actual, 'stateFrom');
+					});
+				}
+			},
+
+			'<widget-projector data-state-from> attribute': {
+				'is ignored if empty'() {
+					let actual: { stateFrom: StoreLike } = null;
+					app.registerCustomElementFactory('foo-bar', (options) => {
+						actual = <any> options;
+						return createActualWidget({ tagName: 'mark' });
+					});
+					projector.setAttribute('data-state-from', '');
+					projector.innerHTML = `<foo-bar id="foo"></foo-bar>`;
+					return app.realize(root).then(() => {
+						assert.isOk(actual);
+						assert.notProperty(actual, 'stateFrom');
+					});
+				},
+
+				'must identify a registered store'() {
+					app.registerCustomElementFactory('foo-bar', createWidget);
+					projector.setAttribute('data-state-from', 'store');
+					projector.innerHTML = `<foo-bar id="foo"></foo-bar>`;
+					return rejects(app.realize(root), Error);
+				},
+
+				'if descendant elements have an ID, causes their custom element factory to be called with a stateFrom option set to the store'() {
+					let actual: { stateFrom: StoreLike } = null;
+					app.registerCustomElementFactory('foo-bar', (options) => {
+						actual = <any> options;
+						return createActualWidget({ tagName: 'mark' });
+					});
+					const expected = createStore();
+					app.registerStore('store', expected);
+					projector.setAttribute('data-state-from', 'store');
+					projector.innerHTML = `<foo-bar id="foo"></foo-bar>`;
+					return app.realize(root).then(() => {
+						assert.isOk(actual);
+						assert.strictEqual(actual.stateFrom, expected);
+					});
+				},
+
+				'takes precedence over the default store'() {
+					let actual: { stateFrom: StoreLike } = null;
+					const app = createApp({ defaultStore: createStore() });
+					app.registerCustomElementFactory('foo-bar', (options) => {
+						actual = <any> options;
+						return createActualWidget({ tagName: 'mark' });
+					});
+					const expected = createStore();
+					app.registerStore('store', expected);
+					projector.setAttribute('data-state-from', 'store');
+					projector.innerHTML = `<foo-bar id="foo"></foo-bar>`;
+					return app.realize(root).then(() => {
+						assert.isOk(actual);
+						assert.strictEqual(actual.stateFrom, expected);
+					});
+				},
+
+				'is ignored for descendant elements that do not have an ID'() {
+					let actual: { stateFrom: StoreLike } = null;
+					app.registerCustomElementFactory('foo-bar', (options) => {
+						actual = <any> options;
+						return createActualWidget({ tagName: 'mark' });
+					});
+					app.registerStore('store', createStore());
+					projector.setAttribute('data-state-from', '');
+					projector.innerHTML = `<foo-bar data-options="{}"></foo-bar>`;
+					return app.realize(root).then(() => {
+						assert.isOk(actual);
+						assert.notProperty(actual, 'stateFrom');
+					});
+				}
+			},
+
+			'the app has a default store': {
+				'if the element has an ID, causes the custom element factory to be called with a stateFrom option set to the store'() {
+					let actual: { stateFrom: StoreLike } = null;
+					const expected = createStore();
+					const app = createApp({ defaultStore: expected });
+					app.registerCustomElementFactory('foo-bar', (options) => {
+						actual = <any> options;
+						return createActualWidget({ tagName: 'mark' });
+					});
+					projector.innerHTML = `<foo-bar id="foo"></foo-bar>`;
+					return app.realize(root).then(() => {
+						assert.isOk(actual);
+						assert.strictEqual(actual.stateFrom, expected);
+					});
+				}
+			},
 
 			'destroying the returned handle': {
 				'leaves the rendered elements in the DOM'() {

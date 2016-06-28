@@ -187,29 +187,32 @@ export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: Reso
 		}
 	}
 
-	let { options } = definition;
-	if (options && ('id' in options || 'listeners' in options || 'stateFrom' in options)) {
+	const { options: rawOptions } = definition;
+	if (rawOptions && ('id' in rawOptions || 'listeners' in rawOptions || 'stateFrom' in rawOptions)) {
 		throw new TypeError('id, listeners and stateFrom options should be in the widget definition itself, not its options value');
 	}
-	options = assign({ id: definition.id }, options);
 
-	return () => {
+	const options: {
+		id: string,
+		listeners?: EventedListenersMap,
+		stateFrom?: StoreLike
+	} = assign({ id: definition.id }, rawOptions);
+
+	return ({ stateFrom: defaultStore }: { stateFrom?: StoreLike }) => {
 		return Promise.all<any>([
 			resolveFactory('widget', definition, resolveMid),
 			resolveListenersMap(registry, definition.listeners),
 			resolveStore(registry, definition)
-		]).then((values) => {
-			let factory: WidgetFactory;
-			let listeners: EventedListenersMap;
-			let store: StoreLike;
-			[factory, listeners, store] = values;
+		]).then(([_factory, _listeners, _store]) => {
+			const factory = <WidgetFactory> _factory;
+			const listeners = <EventedListenersMap> _listeners;
+			const store = <StoreLike> _store || defaultStore;
 
 			if (listeners) {
-				(<any> options).listeners = listeners;
+				options.listeners = listeners;
 			}
-
 			if (store) {
-				(<any> options).stateFrom = store;
+				options.stateFrom = store;
 			}
 
 			return factory(options);

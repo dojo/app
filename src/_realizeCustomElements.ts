@@ -9,6 +9,7 @@ import { ParentListMixin } from 'dojo-widgets/mixins/createParentListMixin';
 
 import {
 	CombinedRegistry,
+	StoreLike,
 	WidgetFactory,
 	WidgetLike
 } from './createApp';
@@ -241,9 +242,14 @@ function resolveOptions(registry: CombinedRegistry, element: Element, idFromAttr
 	return options;
 }
 
+function resolveStateFromAttribute(registry: CombinedRegistry, element: Element): Promise<StoreLike> {
+	const stateFrom = element.getAttribute('data-state-from');
+	return stateFrom ? registry.getStore(stateFrom) : null;
+}
+
 const noop = () => {};
 
-export default function realizeCustomElements(registry: CombinedRegistry, root: Element): Promise<Handle> {
+export default function realizeCustomElements(registry: CombinedRegistry, defaultStore: StoreLike, root: Element): Promise<Handle> {
 	// Bottom up, breadth first queue of custom elements who's children's widgets need to be appended to
 	// their own widget. Combined for all widget projectors.
 	const appendQueue: CustomElement[] = [];
@@ -269,6 +275,8 @@ export default function realizeCustomElements(registry: CombinedRegistry, root: 
 			immediatePlaceholderLookup.set(projector, children);
 			projectors.push(projector);
 
+			const projectorStateFrom = resolveStateFromAttribute(registry, root);
+
 			// Recursion-free, depth first processing of the tree.
 			let processing = [children];
 			while (processing.length > 0) {
@@ -286,16 +294,25 @@ export default function realizeCustomElements(registry: CombinedRegistry, root: 
 					else {
 						promise = Promise.all<any>([
 							registry.getCustomElementFactory(custom.name),
-							resolveOptions(registry, custom.element, id)
-						]).then(([factory, options]) => {
-							const f = <WidgetFactory> factory;
-							if (options) {
-								id = options.id;
-								return f(options);
+							resolveOptions(registry, custom.element, id),
+							resolveStateFromAttribute(registry, custom.element),
+							projectorStateFrom
+						]).then(([_factory, _options, _store, projectorStore]) => {
+							const factory = <WidgetFactory> _factory;
+							const options = <Options> _options || {};
+							// `data-state-from` store of the element takes precedence, then of the projector, then
+							// the application's default store.
+							const store = <StoreLike> _store || projectorStore || defaultStore;
+
+							id = options.id;
+							// If the widget has an ID, but stateFrom was not in its `data-options` attribute, and
+							// either its `data-state-from` attribute resolved to a store, or there is a default
+							// store, set the stateFrom option to the `data-state-from` or default store.
+							if (id && !options.stateFrom && store) {
+								options.stateFrom = store;
 							}
-							else {
-								return f();
-							}
+
+							return factory(options);
 						});
 					}
 

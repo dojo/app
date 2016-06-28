@@ -26,6 +26,18 @@ import createApp from 'dojo-app/createApp';
 const app = createApp();
 ```
 
+You can also define a default store at creation time:
+
+```ts
+import createMemoryStore from 'dojo-widgets/util/createMemoryStore';
+
+const defaultStore = createMemoryStore();
+const app = createApp({ defaultStore });
+```
+
+This store will be used as the `stateFrom` option to widget and custom element
+factories, unless another store is specified.
+
 ### Registering actions
 
 If you already have instantiated an action:
@@ -101,10 +113,12 @@ app.registerWidget('my-widget', widget);
 You can also register a factory method which creates the widget only when needed:
 
 ```ts
-app.registerWidgetFactory('my-lazy-store', () => {
-	return createWidget();
+app.registerWidgetFactory('my-lazy-widget', (options) => {
+	return createWidget(options);
 });
 ```
+
+The `options` object will have an `id` property set to `my-lazy-widget`.
 
 ### Seeing if an action, store or widget is registered
 
@@ -300,11 +314,15 @@ All descending custom elements are replaced by rendered widgets. Widgets for nes
 
 Custom elements are matched (case-insensitively) to registered factories. First the tag name is matched. If no factory is found, and the element has an `is` attribute, that value is used to find a factory. Unrecognized elements are left in the DOM where possible.
 
-A factory option object can be provided in the DOM by setting the `data-options` attribute to a JSON string. The option object may have a `stateFrom` property containing a store identifier. It may also have a `listeners` property containing a widget listener map. Values for each event type can be action identifiers or arrays thereof. These properties are resolved to the actual store and action instances before the factory is called. Additional properties are passed to the factory as-is.
+A factory options object can be provided in the DOM by setting the `data-options` attribute to a JSON string. The options object may have a `stateFrom` property containing a store identifier. It may also have a `listeners` property containing a widget listener map. Values for each event type can be action identifiers or arrays thereof. These properties are resolved to the actual store and action instances before the factory is called. Additional properties are passed to the factory as-is.
 
 Widgets can be identified through the `id` property on the options object, a `data-widget-id` attribute, or an `id` attribute. The options object takes precedence over the `data-widget-id` attribute, which takes precedence over the `id` attribute. It's valid to use the different attributes, but only the most specific ID will be passed to the factory (in the `options` object).
 
-The special `widget-instance` custom element can be used to render a previously registered widget. The `data-widget-id` or `id` attribute is used to retrieve the widget. The `data-options` attribute is ignored.
+The `data-state-from` attribute may be used on custom elements to specify a store identifier. This will only take effect if a widget ID is also specified. The `stateFrom` property on the options object that is passed to the factory will be set to the referenced store. Any `stateFrom` property in the `data-options` object still takes precedence.
+
+A default store may be configured by setting the `data-state-from` attribute on the `widget-projector` custom element. It applies to all descendant elements that have IDs, though they can override it by setting their own `data-state-from` attribute or configuring `stateFrom` in their `data-options`.
+
+The special `widget-instance` custom element can be used to render a previously registered widget. The `data-widget-id` or `id` attribute is used to retrieve the widget. The `data-state-from` and `data-options` attributes are ignored. No default store is applied.
 
 A widget ID can only be used once within a realization. Similarly a widget instance can only be rendered once.
 
