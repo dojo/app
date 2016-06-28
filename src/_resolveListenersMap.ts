@@ -1,4 +1,4 @@
-import { EventedListenersMap } from 'dojo-compose/mixins/createEvented';
+import { EventedListener, EventedListenersMap, EventedListenerOrArray, TargettedEventObject } from 'dojo-compose/mixins/createEvented';
 import Promise from 'dojo-core/Promise';
 
 import {
@@ -7,31 +7,32 @@ import {
 	WidgetListenerOrArray
 } from './createApp';
 
-function resolveListeners(registry: CombinedRegistry, ref: WidgetListenerOrArray): { value?: any; promise?: Promise<any>; } {
+function resolveListeners(registry: CombinedRegistry, ref: WidgetListenerOrArray): [EventedListenerOrArray<TargettedEventObject>, Promise<EventedListenerOrArray<TargettedEventObject>>] {
 	if (Array.isArray(ref)) {
-		const resolved = ref.map((item) => {
-			return resolveListeners(registry, item);
-		});
-
 		let isSync = true;
-		const values: any[] = [];
-		for (const result of resolved) {
-			if (result.value) {
-				values.push(result.value);
-			} else {
+		const results: (EventedListener<TargettedEventObject> | Promise<EventedListener<TargettedEventObject>>)[] = [];
+		for (const item of ref) {
+			const [value, promise] = <[EventedListener<TargettedEventObject>, Promise<EventedListener<TargettedEventObject>>]> resolveListeners(registry, item);
+			if (value) {
+				results.push(value);
+			}
+			else {
 				isSync = false;
-				values.push(result.promise);
+				results.push(promise);
 			}
 		}
 
-		return isSync ? { value: values } : { promise: Promise.all(values) };
+		if (isSync) {
+			return [<EventedListener<TargettedEventObject>[]> results, undefined];
+		}
+		return [undefined, Promise.all(results)];
 	}
 
 	if (typeof ref !== 'string') {
-		return { value: ref };
+		return [<EventedListener<TargettedEventObject>> ref, undefined];
 	}
 
-	return { promise: registry.getAction(<string> ref) };
+	return [undefined, registry.getAction(<string> ref)];
 }
 
 export default function resolveListenersMap(registry: CombinedRegistry, listeners: WidgetListenersMap): Promise<EventedListenersMap> {
@@ -42,13 +43,13 @@ export default function resolveListenersMap(registry: CombinedRegistry, listener
 	const map: EventedListenersMap = {};
 	const eventTypes = Object.keys(listeners);
 	return eventTypes.reduce((promise, eventType) => {
-		const resolved = resolveListeners(registry, listeners[eventType]);
-		if (resolved.value) {
-			map[eventType] = resolved.value;
+		const [value, listenersPromise] = resolveListeners(registry, listeners[eventType]);
+		if (value) {
+			map[eventType] = value;
 			return promise;
 		}
 
-		return resolved.promise.then((value) => {
+		return listenersPromise.then((value) => {
 			map[eventType] = value;
 			return promise;
 		});
