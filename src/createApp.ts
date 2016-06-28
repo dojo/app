@@ -424,18 +424,24 @@ const createApp = compose({
 	registerActionFactory(id: Identifier, factory: ActionFactory): Handle {
 		const app: App = this;
 		let registryHandle = actions.get(app).register(id, () => {
-			const promise = Promise.resolve().then(() => {
-				// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
-				// factory is registered through this method or loaded from a definition.
-				return factory(app._registry);
-			});
+			const promise = Promise.resolve()
+				.then(() => {
+					// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
+					// factory is registered through this method or loaded from a definition.
+					return factory(app._registry);
+				})
+				.then((action) => {
+					// Configure the action, allow for a promise to be returned.
+					return Promise.resolve(action.configure(app._registry)).then(() => {
+						return action;
+					});
+				});
+
 			// Replace the registered factory to ensure next time this action is needed, the same action is returned.
 			registryHandle.destroy();
 			registryHandle = actions.get(app).register(id, () => promise);
 
-			return promise.then((action) => {
-				return Promise.resolve(action.configure(app._registry)).then(() => action);
-			});
+			return promise;
 		});
 
 		return {

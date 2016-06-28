@@ -372,15 +372,25 @@ registerSuite({
 			app.registerActionFactory('foo', () => action);
 
 			let gotAction = false;
+			let againGotAction = false;
 			const actionPromise = app.getAction('foo').then((action) => {
 				gotAction = true;
 			});
-			return Promise.race([actionPromise, new Promise<void>((resolve) => setTimeout(resolve, 10))]).then(() => {
+			const anotherActionPromise = app.getAction('foo').then((action) => {
+				againGotAction = true;
+			});
+			return Promise.race([
+				actionPromise,
+				anotherActionPromise,
+				new Promise<void>((resolve) => setTimeout(resolve, 10))
+			]).then(() => {
 				assert.isFalse(gotAction);
+				assert.isFalse(againGotAction);
 				fulfil();
-				return actionPromise;
+				return Promise.all([actionPromise, anotherActionPromise]);
 			}).then(() => {
 				assert.isTrue(gotAction);
+				assert.isTrue(againGotAction);
 			});
 		},
 
