@@ -393,15 +393,11 @@ const widgets = new WeakMap<App, IdentityRegistry<RegisteredFactory<WidgetLike>>
 
 const createApp = compose({
 	registerAction(id: Identifier, action: ActionLike): Handle {
-		let registryHandle = actions.get(this).register(id, () => {
-			const promise = new Promise<void>((resolve) => {
-				resolve(action.configure(this._registry));
-			}).then(() => action);
-			registryHandle.destroy();
-			registryHandle = actions.get(this).register(id, () => promise);
+		const promise = new Promise<void>((resolve) => {
+			resolve(action.configure(this._registry));
+		}).then(() => action);
 
-			return promise;
-		});
+		const registryHandle = actions.get(this).register(id, () => promise);
 
 		return {
 			destroy() {
