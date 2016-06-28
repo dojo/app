@@ -66,6 +66,8 @@ app.registerActionFactory('my-lazy-action', () => {
 });
 ```
 
+Note that an action instance may only be registered once. A factory is not allowed to return a previously registered instance.
+
 ### Registering custom element factories
 
 ```ts
@@ -98,6 +100,8 @@ app.registerStoreFactory('my-lazy-store', () => {
 });
 ```
 
+Note that a store instance may only be registered once. A factory is not allowed to return a previously registered instance.
+
 ### Registering widgets
 
 If you already have instantiated a widget:
@@ -118,7 +122,9 @@ app.registerWidgetFactory('my-lazy-widget', (options) => {
 });
 ```
 
-The `options` object will have an `id` property set to `my-lazy-widget`.
+The `options` object will have an `id` property set to `my-lazy-widget`. A [registry provider](#registry-providers) is available under the `registryProvider` property.
+
+Note that a widget instance may only be registered once. A factory is not allowed to return a previously registered instance.
 
 ### Seeing if an action, store or widget is registered
 
@@ -131,6 +137,18 @@ app.hasWidget('my-widget');
 ```
 
 Each method returns `true` if the respective item was registered, and `false` if not.
+
+### Finding the ID under which an action, store or widget was registered
+
+To find the ID under which a particular action, store or widget instance was registered, use the `identify*()` methods:
+
+```ts
+app.identifyAction(action);
+app.identifyStore(store);
+app.identifyWidget(widget);
+```
+
+Each method returns the ID string if the respective instance was registered, or throws an error if not.
 
 ### Loading an action, store or widget
 
@@ -244,6 +262,8 @@ Each action, store and widget definition is an object. It must have an `id` prop
 
 Further, definitions must either have a `factory` or an `instance` property. With `factory` you must specify either a module identifier string or a factory function that can create the appropriate action, store or widget. With `instance` you can also specify a module identifier string, or alternatively an action, store or widget instance as appropriate.
 
+Note that if an action, store or widget instance is provided to the `instance` option, the `identify*()` methods will not return their associated ID until the respective `get*()` methods have been called.
+
 The application factory must be loaded with [`dojo-loader`](https://github.com/dojo/loader) in order to resolve module identifiers. Both ES and UMD modules are supported. The default export is used as the `factory` or `instance` value.
 
 Custom element definitions must have a `name` property, which must be a [valid custom element name](https://www.w3.org/TR/custom-elements/#valid-custom-element-name) (and not `widget-projector` or `widget-instance`). They must also have the `factory` property, but *not* the `id` and `instance` properties
@@ -304,6 +324,14 @@ The various `register*()` and `register*Factory()` methods return a handle. Call
 
 Note that destroying handles will not destroy any action, store or widget instances.
 
+### Registry providers
+
+The registry provider can provide read-only registries for actions, stores and widgets. It's available under `app.registryProvider` and passed to widget factories as the `registryProvider` option.
+
+Use `registryProvider.get('actions')` to get an action registry. `registryProvider.get('stores')` gives you a store registry, and `registryProvider.get('widgets')` a widget registry.
+
+Each registry has `get()` and `identify()` methods. These behave the same as the `get*()` and `identify*()` methods of the application.
+
 ### Custom Elements
 
 Use the `App#realize(root: Element)` method to realize custom elements inside a DOM element.
@@ -326,7 +354,7 @@ Custom elements that have widget IDs and a `stateFrom` store may set their `data
 
 The special `widget-instance` custom element can be used to render a previously registered widget. The `data-widget-id` or `id` attribute is used to retrieve the widget. The `data-state`, `data-state-from` and `data-options` attributes are ignored. No default store is applied.
 
-A widget ID can only be used once within a realization. Similarly a widget instance can only be rendered once.
+A widget ID can only be used once within a realization. Similarly a widget instance can only be rendered once. The `identifyWidget()` method is unable to identify widgets created by custom element factories.
 
 `App#realize()` returns a promise. It is rejected when errors occur (e.g. bad `data-options` values, or a factory throws an error). Otherwise it is fulfilled with a `RealizationHandle` object. Use the `destroy()` method to destroy the created projectors and widgets. Widgets rendered through `widget-instance` are left as-is. Use the `getWidget(id: string)` method to get a widget instance.
 

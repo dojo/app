@@ -2,7 +2,6 @@ import { EventedListener, EventedListenersMap } from 'dojo-compose/mixins/create
 import global from 'dojo-core/global';
 import has from 'dojo-core/has';
 import { Handle } from 'dojo-core/interfaces';
-import { assign } from 'dojo-core/lang';
 import Promise from 'dojo-shim/Promise';
 import createActualWidget from 'dojo-widgets/createWidget';
 import createContainer from 'dojo-widgets/createContainer';
@@ -14,6 +13,7 @@ import createApp, {
 	ActionLike,
 	CombinedRegistry,
 	Identifier,
+	RegistryProvider,
 	StoreLike,
 	WidgetLike
 } from 'src/createApp';
@@ -126,7 +126,43 @@ registerSuite({
 		}
 	},
 
+	'#identifyAction': {
+		'action instance has not been registered'() {
+			assert.throws(() => {
+				createApp().identifyAction(createAction());
+			}, Error, 'Could not identify action');
+		},
+
+		'action instance has been registered'() {
+			const action = createAction();
+			const app = createApp();
+			app.registerAction('foo', action);
+			assert.equal(app.identifyAction(action), 'foo');
+		},
+
+		'called with a registered non-action instance'() {
+			const app = createApp();
+			const store = createStore();
+			app.registerStore('foo', store);
+			assert.throws(() => {
+				app.identifyAction(<any> store);
+			}, Error, 'Could not identify action');
+		}
+	},
+
 	'#registerAction': {
+		'action may only be registered once'() {
+			const action = createAction();
+			const app = createApp();
+			app.registerAction('foo', action);
+
+			assert.throws(
+				() => app.registerAction('bar', action),
+				Error,
+				'Could not add action, already registered as action with identity foo'
+			);
+		},
+
 		'immediately calls configure() on the action'() {
 			let called = false;
 			const action = createAction();
@@ -208,11 +244,14 @@ registerSuite({
 
 		'destroying the returned handle': {
 			'deregisters the action'() {
+				const action = createAction();
 				const app = createApp();
-				const handle = app.registerAction('foo', createAction());
 
+				const handle = app.registerAction('foo', action);
 				handle.destroy();
+
 				assert.isFalse(app.hasAction('foo'));
+				assert.doesNotThrow(() => app.registerAction('bar', action));
 			},
 
 			'a second time has no effect'() {
@@ -394,6 +433,15 @@ registerSuite({
 			});
 		},
 
+		'the produced action must be unique'() {
+			const action = createAction();
+			const app = createApp();
+			app.registerAction('foo', action);
+			app.registerActionFactory('bar', () => action);
+
+			return rejects(app.getAction('bar'), Error, 'Could not add action, already registered as action with identity foo');
+		},
+
 		'destroying the returned handle': {
 			'deregisters the factory'() {
 				const app = createApp();
@@ -401,6 +449,25 @@ registerSuite({
 				handle.destroy();
 
 				assert.isFalse(app.hasAction('foo'));
+			},
+
+			'prevents a pending action instance from being registered'() {
+				const action = createAction();
+				let fulfil: () => void;
+				const promise = new Promise((resolve) => {
+					fulfil = () => resolve(action);
+				});
+
+				const app = createApp();
+				const handle = app.registerActionFactory('foo', () => promise);
+
+				app.getAction('foo');
+				handle.destroy();
+				fulfil();
+
+				return new Promise((resolve) => setTimeout(resolve, 10)).then(() => {
+					assert.throws(() => app.identifyAction(action));
+				});
 			},
 
 			'deregisters the action if it has already been created'() {
@@ -575,16 +642,53 @@ registerSuite({
 		}
 	},
 
+	'#identifyStore': {
+		'store instance has not been registered'() {
+			assert.throws(() => {
+				createApp().identifyStore(createStore());
+			}, Error, 'Could not identify store');
+		},
+
+		'store instance has been registered'() {
+			const store = createStore();
+			const app = createApp();
+			app.registerStore('foo', store);
+			assert.equal(app.identifyStore(store), 'foo');
+		},
+
+		'called with a registered non-store instance'() {
+			const app = createApp();
+			const widget = createWidget();
+			app.registerWidget('foo', widget);
+			assert.throws(() => {
+				app.identifyStore(<any> widget);
+			}, Error, 'Could not identify store');
+		}
+	},
+
 	'#registerStore': {
+		'store may only be registered once'() {
+			const store = createStore();
+			const app = createApp();
+			app.registerStore('foo', store);
+
+			assert.throws(
+				() => app.registerStore('bar', store),
+				Error,
+				'Could not add store, already registered as store with identity foo'
+			);
+		},
+
 		'destroying the returned handle': {
 			'deregisters the action'() {
 				const store = createStore();
-
 				const app = createApp();
+
 				const handle = app.registerStore('foo', store);
 				handle.destroy();
 
 				assert.isFalse(app.hasStore('foo'));
+				assert.doesNotThrow(() => app.registerStore('foo', store));
 			},
 
 			'a second time has no effect'() {
@@ -668,6 +772,15 @@ registerSuite({
 			}
 		},
 
+		'the produced store must be unique'() {
+			const store = createStore();
+			const app = createApp();
+			app.registerStore('foo', store);
+			app.registerStoreFactory('bar', () => store);
+
+			return rejects(app.getStore('bar'), Error, 'Could not add store, already registered as store with identity foo');
+		},
+
 		'destroying the returned handle': {
 			'deregisters the factory'() {
 				const app = createApp();
@@ -675,6 +788,25 @@ registerSuite({
 				handle.destroy();
 
 				assert.isFalse(app.hasStore('foo'));
+			},
+
+			'prevents a pending store instance from being registered'() {
+				const store = createStore();
+				let fulfil: () => void;
+				const promise = new Promise((resolve) => {
+					fulfil = () => resolve(store);
+				});
+
+				const app = createApp();
+				const handle = app.registerStoreFactory('foo', () => promise);
+
+				app.getStore('foo');
+				handle.destroy();
+				fulfil();
+
+				return new Promise((resolve) => setTimeout(resolve, 10)).then(() => {
+					assert.throws(() => app.identifyStore(store));
+				});
 			},
 
 			'deregisters the store if it has already been created'() {
@@ -730,16 +862,53 @@ registerSuite({
 		}
 	},
 
+	'#identifyWidget': {
+		'widget instance has not been registered'() {
+			assert.throws(() => {
+				createApp().identifyWidget(createWidget());
+			}, Error, 'Could not identify widget');
+		},
+
+		'widget instance has been registered'() {
+			const widget = createWidget();
+			const app = createApp();
+			app.registerWidget('foo', widget);
+			assert.equal(app.identifyWidget(widget), 'foo');
+		},
+
+		'called with a registered non-widget instance'() {
+			const app = createApp();
+			const action = createAction();
+			app.registerAction('foo', action);
+			assert.throws(() => {
+				app.identifyWidget(<any> action);
+			}, Error, 'Could not identify widget');
+		}
+	},
+
 	'#registerWidget': {
+		'widget may only be registered once'() {
+			const widget = createWidget();
+			const app = createApp();
+			app.registerWidget('foo', widget);
+
+			assert.throws(
+				() => app.registerWidget('bar', widget),
+				Error,
+				'Could not add widget, already registered as widget with identity foo'
+			);
+		},
+
 		'destroying the returned handle': {
 			'deregisters the action'() {
 				const widget = createWidget();
-
 				const app = createApp();
+
 				const handle = app.registerWidget('foo', widget);
 				handle.destroy();
 
 				assert.isFalse(app.hasWidget('foo'));
+				assert.doesNotThrow(() => app.registerWidget('bar', widget));
 			},
 
 			'a second time has no effect'() {
@@ -818,6 +987,20 @@ registerSuite({
 			});
 		},
 
+		'factory is called with an options object that has a registryProvider property'() {
+			let actual: { [p: string]: any } = null;
+			const app = createApp();
+			app.registerWidgetFactory('foo', (options: any) => {
+				actual = options;
+				return createWidget();
+			});
+
+			return app.getWidget('foo').then(() => {
+				assert.isOk(actual);
+				assert.strictEqual(actual['registryProvider'], app.registryProvider);
+			});
+		},
+
 		'the stateFrom option is set to the default store, if any'() {
 			let actual: { [p: string]: any } = null;
 			const store = createStore();
@@ -853,6 +1036,15 @@ registerSuite({
 			}
 		},
 
+		'the produced widget must be unique'() {
+			const widget = createWidget();
+			const app = createApp();
+			app.registerWidget('foo', widget);
+			app.registerWidgetFactory('bar', () => widget);
+
+			return rejects(app.getWidget('bar'), Error, 'Could not add widget, already registered as widget with identity foo');
+		},
+
 		'destroying the returned handle': {
 			'deregisters the factory'() {
 				const app = createApp();
@@ -860,6 +1052,25 @@ registerSuite({
 				handle.destroy();
 
 				assert.isFalse(app.hasWidget('foo'));
+			},
+
+			'prevents a pending widget instance from being registered'() {
+				const widget = createWidget();
+				let fulfil: () => void;
+				const promise = new Promise((resolve) => {
+					fulfil = () => resolve(widget);
+				});
+
+				const app = createApp();
+				const handle = app.registerWidgetFactory('foo', () => promise);
+
+				app.getWidget('foo');
+				handle.destroy();
+				fulfil();
+
+				return new Promise((resolve) => setTimeout(resolve, 10)).then(() => {
+					assert.throws(() => app.identifyWidget(widget));
+				});
 			},
 
 			'deregisters the widget if it has already been created'() {
@@ -1888,6 +2099,22 @@ registerSuite({
 				}, TypeError, 'id, listeners and stateFrom options should be in the widget definition itself, not its options value');
 			},
 
+			'options cannot include the registryProvider property'() {
+				assert.throws(() => {
+					createApp().loadDefinition({
+						widgets: [
+							{
+								id: 'foo',
+								factory: createWidget,
+								options: {
+									registryProvider: 'bar'
+								}
+							}
+						]
+					});
+				}, TypeError, 'registryProvider option must not be specified');
+			},
+
 			'with listeners option': {
 				'refers to an action that is not registered'() {
 					const app = createApp();
@@ -2143,8 +2370,10 @@ registerSuite({
 						foo: { foo: 'unexpected' },
 						bar: { bar: 'unexpected' }
 					};
-					stubWidgetFactory((options) => {
-						(<any> actual).bar = options;
+					stubWidgetFactory((options: any) => {
+						delete options.id;
+						delete options.registryProvider;
+						actual.bar = options;
 						return createWidget();
 					});
 
@@ -2153,8 +2382,10 @@ registerSuite({
 						widgets: [
 							{
 								id: 'foo',
-								factory(options) {
-									(<any> actual).foo = options;
+								factory(options: any) {
+									delete options.id;
+									delete options.registryProvider;
+									actual.foo = options;
 									return createWidget();
 								},
 								options: expected.foo
@@ -2171,8 +2402,49 @@ registerSuite({
 						app.getWidget('foo'),
 						app.getWidget('bar')
 					]).then(() => {
-						assert.deepEqual(actual.foo, assign({ id: 'foo' }, expected.foo));
-						assert.deepEqual(actual.bar, assign({ id: 'bar' }, expected.bar));
+						assert.deepEqual(actual.foo, expected.foo);
+						assert.deepEqual(actual.bar, expected.bar);
+					});
+				},
+
+				'factory is always passed id and registryProvider options'() {
+					interface Options {
+						id: string;
+						registryProvider: RegistryProvider;
+					}
+
+					let fooOptions: Options = null;
+					let barOptions: Options = null;
+					stubWidgetFactory((options: Options) => {
+						barOptions = options;
+						return createWidget();
+					});
+
+					const app = createApp({ toAbsMid });
+					app.loadDefinition({
+						widgets: [
+							{
+								id: 'foo',
+								factory(options: Options) {
+									fooOptions = options;
+									return createWidget();
+								}
+							},
+							{
+								id: 'bar',
+								factory: '../fixtures/widget-factory'
+							}
+						]
+					});
+
+					return Promise.all([
+						app.getWidget('foo'),
+						app.getWidget('bar')
+					]).then(() => {
+						assert.equal(fooOptions.id, 'foo');
+						assert.strictEqual(fooOptions.registryProvider, app.registryProvider);
+						assert.equal(barOptions.id, 'bar');
+						assert.strictEqual(barOptions.registryProvider, app.registryProvider);
 					});
 				},
 
@@ -2866,6 +3138,25 @@ registerSuite({
 						});
 					},
 
+					'the "registryProvider" option must not be present in data-options'() {
+						app.registerCustomElementFactory('foo-bar', createWidget);
+						projector.innerHTML = `<foo-bar data-options="${opts({ registryProvider: {} })}"></foo-bar>`;
+						return rejects(app.realize(root), Error, 'Unexpected registryProvider value in data-options (in "{\\"registryProvider\\":{}}")');
+					},
+
+					'the "registryProvider" option is provided to the factory'() {
+						let actual: { registryProvider: RegistryProvider } = null;
+						app.registerCustomElementFactory('foo-bar', (options) => {
+							actual = <any> options;
+							return createActualWidget({ tagName: 'mark' });
+						});
+						projector.innerHTML = `<foo-bar></foo-bar>`;
+						return app.realize(root).then(() => {
+							assert.isOk(actual);
+							assert.strictEqual(actual.registryProvider, app.registryProvider);
+						});
+					},
+
 					'if present, the "stateFrom" option': {
 						'must be a string'() {
 							app.registerCustomElementFactory('foo-bar', createWidget);
@@ -3372,5 +3663,81 @@ registerSuite({
 				}
 			}
 		};
-	})()
+	})(),
+
+	'#registryProvider': (() => {
+		const action = createAction();
+		const store = createStore();
+		const widget = createWidget();
+		const app = createApp();
+		app.registerAction('action', action);
+		app.registerStore('store', store);
+		app.registerWidget('widget', widget);
+		const { registryProvider } = app;
+
+		return {
+			'get(\'actions\') returns an action registry'() {
+				const registry = registryProvider.get('actions');
+				assert.equal(registry.identify(action), 'action');
+				return strictEqual(registry.get('action'), action);
+			},
+
+			'get(\'stores\') returns a store registry'() {
+				const registry = registryProvider.get('stores');
+				assert.equal(registry.identify(store), 'store');
+				return strictEqual(registry.get('store'), store);
+			},
+
+			'get(\'widgets\') returns a widget registry'() {
+				const registry = registryProvider.get('widgets');
+				assert.equal(registry.identify(widget), 'widget');
+				return strictEqual(registry.get('widget'), widget);
+			},
+
+			'any other get() call throws'() {
+				assert.throws(() => registryProvider.get('foo'), Error, 'No such store: foo');
+			},
+
+			'has expected configuration'() {
+				const { configurable, enumerable, writable } = Object.getOwnPropertyDescriptor(app, 'registryProvider');
+				assert.isFalse(configurable);
+				assert.isTrue(enumerable);
+				assert.isFalse(writable);
+			}
+		};
+	})(),
+
+	'correct error message when factories return unexpected instance types'() {
+		const app = createApp();
+
+		const action = createAction();
+		const store = createStore();
+
+		const handles: Handle[] = [];
+		handles.push(
+			app.registerActionFactory('foo', () => action),
+			app.registerStoreFactory('foo', () => <any> action)
+		);
+
+		rejects(
+			Promise.all<any>([app.getAction('foo'), app.getStore('foo')]),
+			Error,
+			'Could not add store, already registered as action with identity foo'
+		).then(() => {
+			while (handles.length) {
+				handles.shift().destroy();
+			}
+
+			handles.push(
+				app.registerStoreFactory('bar', () => store),
+				app.registerWidgetFactory('bar', () => <any> store)
+			);
+
+			rejects(
+				Promise.all<any>([app.getStore('bar'), app.getWidget('bar')]),
+				Error,
+				'Could not add widget, already registered as store with identity bar'
+			);
+		});
+	}
 });

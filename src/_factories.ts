@@ -9,6 +9,7 @@ import {
 	CombinedRegistry,
 	CustomElementDefinition,
 	ItemDefinition,
+	RegistryProvider,
 	StoreDefinition,
 	StoreFactory,
 	StoreLike,
@@ -188,17 +189,31 @@ export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: Reso
 	}
 
 	const { options: rawOptions } = definition;
-	if (rawOptions && ('id' in rawOptions || 'listeners' in rawOptions || 'stateFrom' in rawOptions)) {
-		throw new TypeError('id, listeners and stateFrom options should be in the widget definition itself, not its options value');
+	if (rawOptions) {
+		if ('id' in rawOptions || 'listeners' in rawOptions || 'stateFrom' in rawOptions) {
+			throw new TypeError('id, listeners and stateFrom options should be in the widget definition itself, not its options value');
+		}
+		if ('registryProvider' in rawOptions) {
+			throw new TypeError('registryProvider option must not be specified');
+		}
 	}
 
-	const options: {
-		id: string,
-		listeners?: EventedListenersMap,
-		stateFrom?: StoreLike
-	} = assign({ id: definition.id }, rawOptions);
+	interface BaseOptions {
+		registryProvider: RegistryProvider;
+		stateFrom?: StoreLike;
+	}
 
-	return ({ stateFrom: defaultStore }: { stateFrom?: StoreLike }) => {
+	return ({ registryProvider, stateFrom: defaultStore }: BaseOptions) => {
+		interface Options extends BaseOptions {
+			id: string;
+			listeners?: EventedListenersMap;
+		}
+
+		const options: Options = assign({
+			id: definition.id,
+			registryProvider
+		}, rawOptions);
+
 		return Promise.all<any>([
 			resolveFactory('widget', definition, resolveMid),
 			resolveListenersMap(registry, definition.listeners),

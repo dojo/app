@@ -9,6 +9,7 @@ import { ParentListMixin } from 'dojo-widgets/mixins/createParentListMixin';
 
 import {
 	CombinedRegistry,
+	RegistryProvider,
 	StoreLike,
 	WidgetFactory,
 	WidgetLike
@@ -161,13 +162,14 @@ function getIdFromAttributes(element: Element): string {
 interface Options {
 	id?: string;
 	listeners?: any;
+	registryProvider: RegistryProvider;
 	stateFrom?: any;
 }
 
-function resolveOptions(registry: CombinedRegistry, element: Element, idFromAttributes: string): Options | Promise<Options> {
+function resolveOptions(registry: CombinedRegistry, registryProvider: RegistryProvider, element: Element, idFromAttributes: string): Options | Promise<Options> {
 	const str = element.getAttribute('data-options') || '';
 	if (!str) {
-		return idFromAttributes ? { id: idFromAttributes } : null;
+		return idFromAttributes ? { id: idFromAttributes, registryProvider } : { registryProvider };
 	}
 
 	let options: Options;
@@ -179,6 +181,11 @@ function resolveOptions(registry: CombinedRegistry, element: Element, idFromAttr
 	if (!options || typeof options !== 'object') {
 		throw new TypeError(`Expected object from data-options (in ${JSON.stringify(str)})`);
 	}
+
+	if ('registryProvider' in options) {
+		throw new Error(`Unexpected registryProvider value in data-options (in ${JSON.stringify(str)})`);
+	}
+	options.registryProvider = registryProvider;
 
 	if (!('id' in options) && idFromAttributes) {
 		options.id = idFromAttributes;
@@ -268,7 +275,7 @@ function getInitialState(element: Element): Object {
 
 const noop = () => {};
 
-export default function realizeCustomElements(registry: CombinedRegistry, defaultStore: StoreLike, root: Element): Promise<Handle> {
+export default function realizeCustomElements(registry: CombinedRegistry, registryProvider: RegistryProvider, defaultStore: StoreLike, root: Element): Promise<Handle> {
 	// Bottom up, breadth first queue of custom elements who's children's widgets need to be appended to
 	// their own widget. Combined for all widget projectors.
 	const appendQueue: CustomElement[] = [];
@@ -313,12 +320,12 @@ export default function realizeCustomElements(registry: CombinedRegistry, defaul
 					else {
 						promise = Promise.all<any>([
 							registry.getCustomElementFactory(custom.name),
-							resolveOptions(registry, custom.element, id),
+							resolveOptions(registry, registryProvider, custom.element, id),
 							resolveStateFromAttribute(registry, custom.element),
 							projectorStateFrom
 						]).then(([_factory, _options, _store, projectorStore]) => {
 							const factory = <WidgetFactory> _factory;
-							const options = <Options> _options || {};
+							const options = <Options> _options;
 							// `data-state-from` store of the element takes precedence, then of the projector, then
 							// the application's default store.
 							const store = <StoreLike> _store || projectorStore || defaultStore;
