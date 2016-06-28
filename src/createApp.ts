@@ -272,6 +272,10 @@ export interface CombinedRegistry {
 }
 
 export interface AppMixin {
+	/**
+	 * A default store to be used as the `stateFrom` option to widget and custom element factories, unless another
+	 * store is specified.
+	 */
 	defaultStore?: StoreLike;
 
 	/**
@@ -377,7 +381,16 @@ export interface AppMixin {
 export type App = AppMixin & CombinedRegistry;
 
 export interface AppOptions {
+	/**
+	 * A default store to be used as the `stateFrom` option to widget and custom element factories, unless another
+	 * store is specified.
+	 */
 	defaultStore?: StoreLike;
+
+	/**
+	 * Function that maps a (relative) module identifier to an absolute one. Used to resolve relative module
+	 * identifiers in definitions.
+	 */
 	toAbsMid?: ToAbsMid;
 }
 
