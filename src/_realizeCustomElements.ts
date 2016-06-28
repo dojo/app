@@ -247,6 +247,25 @@ function resolveStateFromAttribute(registry: CombinedRegistry, element: Element)
 	return stateFrom ? registry.getStore(stateFrom) : null;
 }
 
+function getInitialState(element: Element): Object {
+	const str = element.getAttribute('data-state') || '';
+	if (!str) {
+		return null;
+	}
+
+	let initialState: Object;
+	try {
+		initialState = JSON.parse(str);
+	} catch (err) {
+		throw new SyntaxError(`Invalid data-state: ${err.message} (in ${JSON.stringify(str)})`);
+	}
+	if (!initialState || typeof initialState !== 'object') {
+		throw new TypeError(`Expected object from data-state (in ${JSON.stringify(str)})`);
+	}
+
+	return initialState;
+}
+
 const noop = () => {};
 
 export default function realizeCustomElements(registry: CombinedRegistry, defaultStore: StoreLike, root: Element): Promise<Handle> {
@@ -310,6 +329,15 @@ export default function realizeCustomElements(registry: CombinedRegistry, defaul
 							// store, set the stateFrom option to the `data-state-from` or default store.
 							if (id && !options.stateFrom && store) {
 								options.stateFrom = store;
+							}
+
+							if (id && options.stateFrom) {
+								const initialState = getInitialState(custom.element);
+								if (initialState) {
+									return options.stateFrom.patch(initialState, { id }).then(() => {
+										return factory(options);
+									});
+								}
 							}
 
 							return factory(options);
