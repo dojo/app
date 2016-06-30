@@ -406,11 +406,12 @@ const widgets = new WeakMap<App, IdentityRegistry<RegisteredFactory<WidgetLike>>
 
 const createApp = compose({
 	registerAction(id: Identifier, action: ActionLike): Handle {
+		const app: App = this;
 		const promise = new Promise<void>((resolve) => {
-			resolve(action.configure(this._registry));
+			resolve(action.configure(app._registry));
 		}).then(() => action);
 
-		const registryHandle = actions.get(this).register(id, () => promise);
+		const registryHandle = actions.get(app).register(id, () => promise);
 
 		return {
 			destroy() {
@@ -421,18 +422,19 @@ const createApp = compose({
 	},
 
 	registerActionFactory(id: Identifier, factory: ActionFactory): Handle {
-		let registryHandle = actions.get(this).register(id, () => {
+		const app: App = this;
+		let registryHandle = actions.get(app).register(id, () => {
 			const promise = Promise.resolve().then(() => {
 				// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
 				// factory is registered through this method or loaded from a definition.
-				return factory(this._registry);
+				return factory(app._registry);
 			});
 			// Replace the registered factory to ensure next time this action is needed, the same action is returned.
 			registryHandle.destroy();
-			registryHandle = actions.get(this).register(id, () => promise);
+			registryHandle = actions.get(app).register(id, () => promise);
 
 			return promise.then((action) => {
-				return Promise.resolve(action.configure(this._registry)).then(() => action);
+				return Promise.resolve(action.configure(app._registry)).then(() => action);
 			});
 		});
 
@@ -449,13 +451,15 @@ const createApp = compose({
 			throw new SyntaxError(`'${name}' is not a valid custom element name'`);
 		}
 
+		const app: App = this;
+
 		// Wrap the factory since the registry cannot store frozen factories, and dojo-compose creates
 		// frozen factories…
 		const wrapped = (options: Object) => factory(options);
 
 		// Note that each custom element requires a new widget, so there's no need to replace the
 		// registered factory.
-		const registryHandle = customElements.get(this).register(normalizeName(name), wrapped);
+		const registryHandle = customElements.get(app).register(normalizeName(name), wrapped);
 
 		return {
 			destroy() {
@@ -466,12 +470,14 @@ const createApp = compose({
 	},
 
 	registerStore(id: Identifier, store: StoreLike): Handle {
+		const app: App = this;
 		const promise = Promise.resolve(store);
-		return stores.get(this).register(id, () => promise);
+		return stores.get(app).register(id, () => promise);
 	},
 
 	registerStoreFactory(id: Identifier, factory: StoreFactory): Handle {
-		let registryHandle = stores.get(this).register(id, () => {
+		const app: App = this;
+		let registryHandle = stores.get(app).register(id, () => {
 			const promise = Promise.resolve().then(() => {
 				// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
 				// factory is registered through this method or loaded from a definition.
@@ -479,7 +485,7 @@ const createApp = compose({
 			});
 			// Replace the registered factory to ensure next time this store is needed, the same store is returned.
 			registryHandle.destroy();
-			registryHandle = stores.get(this).register(id, () => promise);
+			registryHandle = stores.get(app).register(id, () => promise);
 			return promise;
 		});
 
@@ -492,25 +498,27 @@ const createApp = compose({
 	},
 
 	registerWidget(id: Identifier, widget: WidgetLike): Handle {
+		const app: App = this;
 		const promise = Promise.resolve(widget);
-		return widgets.get(this).register(id, () => promise);
+		return widgets.get(app).register(id, () => promise);
 	},
 
 	registerWidgetFactory(id: Identifier, factory: WidgetFactory): Handle {
-		let registryHandle = widgets.get(this).register(id, () => {
+		const app: App = this;
+		let registryHandle = widgets.get(app).register(id, () => {
 			const promise = Promise.resolve().then(() => {
 				// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
 				// factory is registered through this method or loaded from a definition.
 
 				const options: { id: string, stateFrom?: StoreLike } = { id };
-				if (this.defaultStore) {
-					options.stateFrom = this.defaultStore;
+				if (app.defaultStore) {
+					options.stateFrom = app.defaultStore;
 				}
 				return factory(options);
 			});
 			// Replace the registered factory to ensure next time this widget is needed, the same widget is returned.
 			registryHandle.destroy();
-			registryHandle = widgets.get(this).register(id, () => promise);
+			registryHandle = widgets.get(app).register(id, () => promise);
 			return promise;
 		});
 
@@ -568,7 +576,8 @@ const createApp = compose({
 	},
 
 	realize(root: Element) {
-		return realizeCustomElements(this._registry, this.defaultStore, root);
+		const app: App = this;
+		return realizeCustomElements(app._registry, app.defaultStore, root);
 	}
 })
 .mixin({
