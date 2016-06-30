@@ -16,14 +16,6 @@ import {
 } from './createApp';
 import resolveListenersMap from './_resolveListenersMap';
 
-export interface RealizationHandle extends Handle {
-	/**
-	 * Get a realized widget with the given ID.
-	 * @return The widget, or `null` if no such widget exists
-	 */
-	getWidget(id: string): WidgetLike;
-}
-
 const reservedNames = new Set([
 	// According to <https://www.w3.org/TR/custom-elements/#valid-custom-element-name>.
 	'annotation-xml',
@@ -273,14 +265,34 @@ function getInitialState(element: Element): Object {
 	return initialState;
 }
 
+let idCount = 0;
+function generateId(): string {
+	return `custom-element-${++idCount}`;
+}
+
 const noop = () => {};
 
-export default function realizeCustomElements(registry: CombinedRegistry, registryProvider: RegistryProvider, defaultStore: StoreLike, root: Element): Promise<Handle> {
+/**
+ * Realizes custom elements within a root element.
+ *
+ * @param defaultStore The default store of the app, may be null.
+ * @param registerInstance Callback for registering new widget instances with the app
+ * @param registry Read-only registry of actions, custom element factories, stores and widgets
+ * @param registryProvider Registry provider, to be passed to custom element factories
+ * @param root The element within which custom elements are realized
+ *
+ * @return A handle to detach rendered widgets from the DOM and remove them from the widget registry
+ */
+export default function realizeCustomElements(
+	defaultStore: StoreLike,
+	registerInstance: (widget: WidgetLike, id: string) => Handle,
+	registry: CombinedRegistry,
+	registryProvider: RegistryProvider,
+	root: Element
+): Promise<Handle> {
 	// Bottom up, breadth first queue of custom elements who's children's widgets need to be appended to
 	// their own widget. Combined for all widget projectors.
 	const appendQueue: CustomElement[] = [];
-	// All identified widgets.
-	const identifiedWidgets = new Map<string, WidgetLike>();
 	// For each projector, track the immediate custom element descendants. These placeholder
 	// elements will be replaced with rendered widgets.
 	const immediatePlaceholderLookup = new Map<Projector, CustomElement[]>();
@@ -288,6 +300,8 @@ export default function realizeCustomElements(registry: CombinedRegistry, regist
 	const projectors: Projector[] = [];
 	// Widgets that are created during realization (not registered instances).
 	const managedWidgets: WidgetLike[] = [];
+	// Other handles that need to be cleaned up.
+	const handles: Handle[] = [];
 
 	// Return a new promise here so API errors can be thrown in the executor, while still resulting in a
 	// promise rejection.
@@ -352,14 +366,6 @@ export default function realizeCustomElements(registry: CombinedRegistry, regist
 					}
 
 					loadedWidgets.push(promise.then((widget) => {
-						// Ensure identified widgets are unique.
-						if (id !== undefined) {
-							if (identifiedWidgets.has(id)) {
-								throw new Error(`A widget with ID '${id}' already exists`);
-							}
-							identifiedWidgets.set(id, widget);
-						}
-
 						// Store the widget for easy access.
 						custom.widget = widget;
 
@@ -367,6 +373,22 @@ export default function realizeCustomElements(registry: CombinedRegistry, regist
 						// whilst realizing the custom elements. These should be managed.
 						if (!isWidgetInstance) {
 							managedWidgets.push(widget);
+
+							// Belatedly ensure no other widget with this ID exists.
+							if (id && registry.hasWidget(id)) {
+								throw new Error(`A widget with ID '${id}' already exists`);
+							}
+
+							// Add the instance to the various registries the app may maintain. This requires
+							// an ID, so generate one if necessary.
+							// TODO: Should the widget be created with this ID? It shouldn't have a use for it…
+							try {
+								handles.push(registerInstance(widget, id || generateId()));
+							} catch (_) {
+								// registering() will throw if the widget has already been registered. Throw a
+								// friendlier error message.
+								throw new Error('Cannot attach a widget multiple times');
+							}
 						}
 
 						return widget;
@@ -386,10 +408,6 @@ export default function realizeCustomElements(registry: CombinedRegistry, regist
 		resolve(Promise.all(loadedWidgets));
 	}).then((widgets) => {
 		// Guard against improper widget usage.
-		const uniques = new Set(widgets);
-		if (uniques.size !== widgets.length) {
-			throw new Error('Cannot attach a widget multiple times');
-		}
 		for (const widget of widgets) {
 			// <any> hammer because `widget` could be anything.
 			if ((<any> widget).parent) {
@@ -441,10 +459,9 @@ export default function realizeCustomElements(registry: CombinedRegistry, regist
 				for (const w of managedWidgets) {
 					w.destroy();
 				}
-			},
-
-			getWidget(id: string) {
-				return identifiedWidgets.get(id) || null;
+				for (const h of handles) {
+					h.destroy();
+				}
 			}
 		};
 	});

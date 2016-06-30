@@ -354,9 +354,9 @@ Custom elements that have widget IDs and a `stateFrom` store may set their `data
 
 The special `widget-instance` custom element can be used to render a previously registered widget. The `data-widget-id` or `id` attribute is used to retrieve the widget. The `data-state`, `data-state-from` and `data-options` attributes are ignored. No default store is applied.
 
-A widget ID can only be used once within a realization. Similarly a widget instance can only be rendered once. The `identifyWidget()` method is unable to identify widgets created by custom element factories.
+A widget ID can only be used once within an application. Similarly a widget instance can only be rendered once. The `getWidget()`, `hasWidget()` and `identifyWidget()` methods will work with widgets created by custom element factories.
 
-`App#realize()` returns a promise. It is rejected when errors occur (e.g. bad `data-options` values, or a factory throws an error). Otherwise it is fulfilled with a `RealizationHandle` object. Use the `destroy()` method to destroy the created projectors and widgets. Widgets rendered through `widget-instance` are left as-is. Use the `getWidget(id: string)` method to get a widget instance.
+`App#realize()` returns a promise. It is rejected when errors occur (e.g. bad `data-options` values, or a factory throws an error). Otherwise it is fulfilled with a `Handle` object. Use the `destroy()` method to destroy the created projectors and widgets. Widgets rendered through `widget-instance` are left as-is.
 
 Given this application definition:
 

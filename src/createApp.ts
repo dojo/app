@@ -19,8 +19,7 @@ import InstanceRegistry from './_InstanceRegistry';
 import makeMidResolver, { ToAbsMid, ResolveMid } from './_moduleResolver';
 import realizeCustomElements, {
 	isValidName,
-	normalizeName,
-	RealizationHandle
+	normalizeName
 } from './_realizeCustomElements';
 import RegistryProvider from './_RegistryProvider';
 
@@ -407,9 +406,9 @@ export interface AppMixin {
 	 * Take a root element and replace <widget-instance> elements with widget instances.
 	 *
 	 * @param root The root element that is searched for <widget-instance> elements
-	 * @return A handle to detach rendered widgets from the DOM
+	 * @return A handle to detach rendered widgets from the DOM and remove them from the widget registry
 	 */
-	realize(root: Element): Promise<RealizationHandle>;
+	realize(root: Element): Promise<Handle>;
 
 	_instanceRegistry: InstanceRegistry;
 	_registry: CombinedRegistry;
@@ -438,7 +437,8 @@ const noop = () => {};
 
 type RegisteredFactory<T> = () => Promise<T>;
 const actions = new WeakMap<App, IdentityRegistry<RegisteredFactory<ActionLike>>>();
-const customElements = new WeakMap<App, IdentityRegistry<WidgetFactory>>();
+const customElementFactories = new WeakMap<App, IdentityRegistry<WidgetFactory>>();
+const customElementInstances = new WeakMap<App, IdentityRegistry<WidgetLike>>();
 const stores = new WeakMap<App, IdentityRegistry<RegisteredFactory<StoreLike>>>();
 const widgets = new WeakMap<App, IdentityRegistry<RegisteredFactory<WidgetLike>>>();
 
@@ -515,7 +515,7 @@ const createApp = compose({
 
 		// Note that each custom element requires a new widget, so there's no need to replace the
 		// registered factory.
-		const registryHandle = customElements.get(app).register(normalizeName(name), wrapped);
+		const registryHandle = customElementFactories.get(app).register(normalizeName(name), wrapped);
 
 		return {
 			destroy() {
@@ -681,7 +681,25 @@ const createApp = compose({
 
 	realize(root: Element) {
 		const app: App = this;
-		return realizeCustomElements(app._registry, app.registryProvider, app.defaultStore, root);
+		const { defaultStore, _registry: registry, registryProvider } = app;
+
+		const createdInstances = customElementInstances.get(app);
+		const registerInstance = (instance: WidgetLike, id: string) => {
+			// Maps the instance to its ID
+			const instanceHandle = app._instanceRegistry.addWidget(instance, id);
+			// Maps the ID to the instance
+			const idHandle = createdInstances.register(id, instance);
+
+			return {
+				destroy() {
+					this.destroy = noop;
+					instanceHandle.destroy();
+					idHandle.destroy();
+				}
+			};
+		};
+
+		return realizeCustomElements(defaultStore, registerInstance, registry, registryProvider, root);
 	}
 })
 .mixin({
@@ -702,11 +720,11 @@ const createApp = compose({
 		},
 
 		getCustomElementFactory(name: string): WidgetFactory {
-			return customElements.get(this).get(name);
+			return customElementFactories.get(this).get(name);
 		},
 
 		hasCustomElementFactory(name: string) {
-			return customElements.get(this).hasId(name);
+			return customElementFactories.get(this).hasId(name);
 		},
 
 		getStore(id: Identifier): Promise<StoreLike> {
@@ -725,13 +743,36 @@ const createApp = compose({
 		},
 
 		getWidget(id: Identifier): Promise<WidgetLike> {
+			// Widgets either need to be resolved from a factory, or have been created when realizing
+			// custom elements.
+			const factories = widgets.get(this);
+			const instances = customElementInstances.get(this);
 			return new Promise((resolve) => {
-				resolve(widgets.get(this).get(id)());
+				// First see if a factory exists for the widget.
+				let factory: WidgetFactory;
+				try {
+					factory = factories.get(id);
+				} catch (missingFactory) {
+					try {
+						// Otherwise try and get an existing instance.
+						const instance = instances.get(id);
+						resolve(instance);
+						return; // Make sure to return!
+					} catch (_) {
+						// Don't confuse people by complaining about missing instances, rethrow the
+						// original error.
+						throw missingFactory;
+					}
+				}
+				// This is only reached when a factory exists. Call it and resolve with the result.
+				// If it throws that's fine, it'll reject the promise.
+				resolve(factory());
 			});
 		},
 
 		hasWidget(id: Identifier): boolean {
-			return widgets.get(this).hasId(id);
+			// See if there is a widget factory, or else an existing custom element instance.
+			return widgets.get(this).hasId(id) || customElementInstances.get(this).hasId(id);
 		},
 
 		identifyWidget(widget: WidgetLike): string {
@@ -774,7 +815,8 @@ const createApp = compose({
 		});
 
 		actions.set(instance, new IdentityRegistry<RegisteredFactory<ActionLike>>());
-		customElements.set(instance, new IdentityRegistry<RegisteredFactory<WidgetLike>>());
+		customElementFactories.set(instance, new IdentityRegistry<RegisteredFactory<WidgetLike>>());
+		customElementInstances.set(instance, new IdentityRegistry<WidgetLike>());
 		stores.set(instance, new IdentityRegistry<RegisteredFactory<StoreLike>>());
 		widgets.set(instance, new IdentityRegistry<RegisteredFactory<WidgetLike>>());
 	}

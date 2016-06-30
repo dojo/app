@@ -3074,6 +3074,21 @@ registerSuite({
 				return rejects(app.realize(root), Error, 'Cannot attach a widget multiple times');
 			},
 
+			'a widget cannot be attached in multiple realizations'() {
+				const widget = createActualWidget({ tagName: 'mark' });
+				app.registerCustomElementFactory('foo-bar', () => widget);
+				projector.innerHTML = '<foo-bar></foo-bar>';
+				const clone = <Element> projector.cloneNode(true);
+				return rejects(
+					Promise.all([
+						app.realize(projector),
+						app.realize(clone)
+					]),
+					Error,
+					'Cannot attach a widget multiple times'
+				);
+			},
+
 			'a widget cannot be attached if it already has a parent'() {
 				const widget = createActualWidget({ tagName: 'mark' });
 				createContainer().append(widget);
@@ -3567,6 +3582,20 @@ registerSuite({
 					});
 				},
 
+				'deregisters custom element instances'() {
+					const managedWidget = createActualWidget({ tagName: 'mark' });
+					app.registerCustomElementFactory('managed-widget', () => managedWidget);
+
+					projector.innerHTML = '<managed-widget id="foo"></managed-widget>';
+					return app.realize(root).then((handle) => {
+						assert.isTrue(app.hasWidget('foo'));
+						assert.equal(app.identifyWidget(managedWidget), 'foo');
+						handle.destroy();
+						assert.isFalse(app.hasWidget('foo'));
+						assert.throws(() => app.identifyWidget(managedWidget));
+					});
+				},
+
 				'a second time is a noop'() {
 					app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
 					projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
@@ -3585,8 +3614,8 @@ registerSuite({
 					const fooBar = createActualWidget();
 					app.registerCustomElementFactory('foo-bar', () => fooBar);
 					projector.innerHTML = '<foo-bar data-options="{&quot;id&quot;:&quot;fooBar&quot;}"></foo-bar>';
-					return app.realize(root).then((handle) => {
-						assert.strictEqual(handle.getWidget('fooBar'), fooBar);
+					return app.realize(root).then(() => {
+						assert.equal(app.identifyWidget(fooBar), 'fooBar');
 					});
 				},
 
@@ -3594,8 +3623,8 @@ registerSuite({
 					const fooBar = createActualWidget();
 					app.registerCustomElementFactory('foo-bar', () => fooBar);
 					projector.innerHTML = '<foo-bar data-widget-id="fooBar"></foo-bar>';
-					return app.realize(root).then((handle) => {
-						assert.strictEqual(handle.getWidget('fooBar'), fooBar);
+					return app.realize(root).then(() => {
+						assert.equal(app.identifyWidget(fooBar), 'fooBar');
 					});
 				},
 
@@ -3603,8 +3632,8 @@ registerSuite({
 					const fooBar = createActualWidget();
 					app.registerCustomElementFactory('foo-bar', () => fooBar);
 					projector.innerHTML = '<foo-bar id="fooBar"></foo-bar>';
-					return app.realize(root).then((handle) => {
-						assert.strictEqual(handle.getWidget('fooBar'), fooBar);
+					return app.realize(root).then(() => {
+						assert.equal(app.identifyWidget(fooBar), 'fooBar');
 					});
 				},
 
@@ -3617,9 +3646,9 @@ registerSuite({
 						<foo-bar data-widget-id="bazQux" data-options="{&quot;id&quot;:&quot;fooBar&quot;}"></foo-bar>
 						<baz-qux id="fooBar" data-widget-id="bazQux"></baz-qux>
 					`;
-					return app.realize(root).then((handle) => {
-						assert.strictEqual(handle.getWidget('fooBar'), fooBar);
-						assert.strictEqual(handle.getWidget('bazQux'), bazQux);
+					return app.realize(root).then(() => {
+						assert.equal(app.identifyWidget(fooBar), 'fooBar');
+						assert.equal(app.identifyWidget(bazQux), 'bazQux');
 					});
 				},
 
@@ -3656,9 +3685,40 @@ registerSuite({
 					return rejects(app.realize(root), Error, 'A widget with ID \'unique\' already exists');
 				},
 
-				'getWidget() returns null for unknown widgets'() {
-					return app.realize(root).then((handle) => {
-						assert.isNull(handle.getWidget('unknown'));
+				'IDs must be unique within the application'() {
+					app.registerCustomElementFactory('foo-bar', () => createActualWidget());
+					app.registerWidget('unique', createWidget());
+					projector.innerHTML = `
+						<foo-bar id="unique"></foo-bar>
+					`;
+					return rejects(app.realize(root), Error, 'A widget with ID \'unique\' already exists');
+				},
+
+				'widgets without IDs can still be identified'() {
+					const widget = createActualWidget();
+					app.registerCustomElementFactory('foo-bar', () => widget);
+					projector.innerHTML = '<foo-bar></foo-bar>';
+					return app.realize(root).then(() => {
+						const id = app.identifyWidget(widget);
+						assert(id && typeof id === 'string');
+					});
+				},
+
+				'hasWidget() returns true for custom element instances'() {
+					const widget = createActualWidget();
+					app.registerCustomElementFactory('foo-bar', () => widget);
+					projector.innerHTML = '<foo-bar id="foo"></foo-bar>';
+					return app.realize(root).then(() => {
+						assert.isTrue(app.hasWidget('foo'));
+					});
+				},
+
+				'getWidget() returns custom element instances'() {
+					const widget = createActualWidget();
+					app.registerCustomElementFactory('foo-bar', () => widget);
+					projector.innerHTML = '<foo-bar id="foo"></foo-bar>';
+					return app.realize(root).then(() => {
+						return strictEqual(app.getWidget('foo'), widget);
 					});
 				}
 			}
