@@ -1,8 +1,8 @@
-import { from as arrayFrom } from 'dojo-core/array';
+import { from as arrayFrom } from 'dojo-shim/array';
 import { Handle } from 'dojo-core/interfaces';
-import Promise from 'dojo-core/Promise';
-import Set from 'dojo-core/Set';
-import Map from 'dojo-core/Map';
+import Promise from 'dojo-shim/Promise';
+import Set from 'dojo-shim/Set';
+import Map from 'dojo-shim/Map';
 import { place, Position } from 'dojo-dom/dom';
 import { createProjector, Projector } from 'dojo-widgets/projector';
 import { ParentListMixin } from 'dojo-widgets/mixins/createParentListMixin';

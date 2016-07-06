@@ -3,7 +3,7 @@ import global from 'dojo-core/global';
 import has from 'dojo-core/has';
 import { Handle } from 'dojo-core/interfaces';
 import { assign } from 'dojo-core/lang';
-import Promise from 'dojo-core/Promise';
+import Promise from 'dojo-shim/Promise';
 import createActualWidget from 'dojo-widgets/createWidget';
 import createContainer from 'dojo-widgets/createContainer';
 import * as registerSuite from 'intern!object';

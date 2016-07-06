@@ -1,6 +1,6 @@
 import * as registerSuite from 'intern!object';
 import * as assert from 'intern/chai!assert';
-import Symbol from 'dojo-core/Symbol';
+import Symbol from 'dojo-shim/Symbol';
 
 import IdentityRegistry from 'src/IdentityRegistry';
 

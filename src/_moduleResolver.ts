@@ -1,4 +1,4 @@
-import Promise from 'dojo-core/Promise';
+import Promise from 'dojo-shim/Promise';
 
 /**
  * Internal interface to asynchronously resolve a module by its identifier.

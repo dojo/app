@@ -4,8 +4,8 @@ import { Destroyable } from 'dojo-compose/mixins/createDestroyable';
 import { EventedListener } from 'dojo-compose/mixins/createEvented';
 import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
-import Promise from 'dojo-core/Promise';
-import WeakMap from 'dojo-core/WeakMap';
+import Promise from 'dojo-shim/Promise';
+import WeakMap from 'dojo-shim/WeakMap';
 import { RenderableMixin } from 'dojo-widgets/mixins/createRenderable';
 
 import IdentityRegistry from './IdentityRegistry';

@@ -5,6 +5,8 @@
 		"dojo-compose": "npm:dojo-compose",
 		"dojo-core": "npm:dojo-core",
 		"dojo-dom": "npm:dojo-dom",
+		"dojo-has": "npm:dojo-has",
+		"dojo-shim": "npm:dojo-shim",
 		"extra-immutable": "github:dojo/typings/custom/dojo2-extras/immutable.d.ts#004fc065b3b24412c9b6575cdc06545964c370b5",
 		"extra-maquette": "github:dojo/typings/custom/dojo2-extras/maquette.d.ts#004fc065b3b24412c9b6575cdc06545964c370b5",
 		"extra-rxjs": "github:dojo/typings/custom/dojo2-extras/rxjs.d.ts#6008ffd2b3a102d6f07ec5fe7a1a3cd637157757"

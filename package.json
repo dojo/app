@@ -25,10 +25,12 @@
   "typings": "./dist/umd/dojo-app.d.ts",
   "peerDependencies": {
     "@reactivex/rxjs": "5.0.0-beta.6",
-    "dojo-actions": "^2.0.0-alpha.4",
-    "dojo-compose": "^2.0.0-beta.6",
-    "dojo-core": "^2.0.0-alpha.7",
-    "dojo-dom": "^2.0.0-alpha.1",
+    "dojo-actions": "^2.0.0-alpha.5",
+    "dojo-compose": "^2.0.0-beta.7",
+    "dojo-core": "^2.0.0-alpha.9",
+    "dojo-dom": "^2.0.0-alpha.2",
+    "dojo-has": "^2.0.0-alpha.1",
+    "dojo-shim": "^2.0.0-alpha.1",
     "dojo-widgets": "^2.0.0-alpha.3",
     "immutable": "^3.8.1",
     "maquette": "^2.3.2"

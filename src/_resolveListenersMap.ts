@@ -1,5 +1,5 @@
 import { EventedListener, EventedListenersMap, EventedListenerOrArray, TargettedEventObject } from 'dojo-compose/mixins/createEvented';
-import Promise from 'dojo-core/Promise';
+import Promise from 'dojo-shim/Promise';
 
 import {
 	CombinedRegistry,

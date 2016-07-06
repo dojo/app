@@ -1,6 +1,6 @@
 import { EventedListenersMap } from 'dojo-compose/mixins/createEvented';
 import { assign } from 'dojo-core/lang';
-import Promise from 'dojo-core/Promise';
+import Promise from 'dojo-shim/Promise';
 
 import {
 	ActionDefinition,
