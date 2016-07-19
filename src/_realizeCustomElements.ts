@@ -378,9 +378,8 @@ export default function realizeCustomElements(
 								throw new Error(`A widget with ID '${id}' already exists`);
 							}
 
-							// Add the instance to the various registries the app may maintain. This requires
-							// an ID, so generate one if necessary.
-							// TODO: Should the widget be created with this ID? It shouldn't have a use for it…
+							// Add the instance to the various registries the app may maintain. This requires an ID, so
+							// generate one if necessary. It's OK for the widget to not be aware of its generated ID.
 							try {
 								handles.push(registerInstance(widget, id || generateId()));
 							} catch (_) {
