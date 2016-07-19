@@ -5,7 +5,6 @@ import Set from 'dojo-shim/Set';
 import Map from 'dojo-shim/Map';
 import { place, Position } from 'dojo-dom/dom';
 import { createProjector, Projector } from 'dojo-widgets/projector';
-import { ParentListMixin } from 'dojo-widgets/mixins/createParentListMixin';
 
 import {
 	CombinedRegistry,
@@ -417,10 +416,9 @@ export default function realizeCustomElements(
 
 		// Build up the widget hierarchy.
 		for (const custom of appendQueue) {
-			// Assume the widget has the ParentListMixin.
-			const parent = <WidgetLike & ParentListMixin<WidgetLike>> custom.widget;
 			const widgets = custom.children.map(child => child.widget);
-			parent.append(widgets);
+			// Assume the widget has an append() method. Don't bother typing it since it's resolved dynamically anyway.
+			(<any> custom.widget).append(widgets);
 		}
 
 		// Attach all projectors at the same time.
