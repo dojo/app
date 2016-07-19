@@ -38,10 +38,16 @@
 		"./tests/intern-local.ts",
 		"./tests/intern-saucelabs.ts",
 		"./tests/intern.ts",
+		"./tests/support/createApp.ts",
 		"./tests/support/Reporter.ts",
 		"./tests/support/util.ts",
 		"./tests/unit/all.ts",
 		"./tests/unit/createApp.ts",
+		"./tests/unit/createApp/actions.ts",
+		"./tests/unit/createApp/customElements.ts",
+		"./tests/unit/createApp/realize.ts",
+		"./tests/unit/createApp/stores.ts",
+		"./tests/unit/createApp/widgets.ts",
 		"./tests/unit/IdentityRegistry.ts",
 		"./tests/unit/main.ts"
 	]
