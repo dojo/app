@@ -413,6 +413,8 @@ export interface AppMixin {
 	_instanceRegistry: InstanceRegistry;
 	_registry: CombinedRegistry;
 	_resolveMid: ResolveMid;
+
+	_registerInstance(instance: WidgetLike, id: string): Handle;
 }
 
 export type App = AppMixin & CombinedRegistry;
@@ -438,9 +440,9 @@ const noop = () => {};
 type RegisteredFactory<T> = () => Promise<T>;
 const actionFactories = new WeakMap<App, IdentityRegistry<RegisteredFactory<ActionLike>>>();
 const customElementFactories = new WeakMap<App, IdentityRegistry<WidgetFactory>>();
-const customElementInstances = new WeakMap<App, IdentityRegistry<WidgetLike>>();
 const storeFactories = new WeakMap<App, IdentityRegistry<RegisteredFactory<StoreLike>>>();
 const widgetFactories = new WeakMap<App, IdentityRegistry<RegisteredFactory<WidgetLike>>>();
+const widgetInstances = new WeakMap<App, IdentityRegistry<WidgetLike>>();
 
 const createApp = compose({
 	registerAction(id: Identifier, action: ActionLike): Handle {
@@ -681,25 +683,30 @@ const createApp = compose({
 
 	realize(root: Element) {
 		const app: App = this;
-		const { defaultStore, _registry: registry, registryProvider } = app;
+		const {
+			_registerInstance: registerInstance,
+			_registry: registry,
+			defaultStore,
+			registryProvider
+		} = app;
 
-		const createdInstances = customElementInstances.get(app);
-		const registerInstance = (instance: WidgetLike, id: string) => {
-			// Maps the instance to its ID
-			const instanceHandle = app._instanceRegistry.addWidget(instance, id);
-			// Maps the ID to the instance
-			const idHandle = createdInstances.register(id, instance);
+		return realizeCustomElements(defaultStore, registerInstance.bind(app), registry, registryProvider, root);
+	},
 
-			return {
-				destroy() {
-					this.destroy = noop;
-					instanceHandle.destroy();
-					idHandle.destroy();
-				}
-			};
+	_registerInstance(instance: WidgetLike, id: string): Handle {
+		const app: App = this;
+		// Maps the instance to its ID
+		const instanceHandle = app._instanceRegistry.addWidget(instance, id);
+		// Maps the ID to the instance
+		const idHandle = widgetInstances.get(app).register(id, instance);
+
+		return {
+			destroy() {
+				this.destroy = noop;
+				instanceHandle.destroy();
+				idHandle.destroy();
+			}
 		};
-
-		return realizeCustomElements(defaultStore, registerInstance, registry, registryProvider, root);
 	}
 })
 .mixin({
@@ -746,7 +753,7 @@ const createApp = compose({
 			// Widgets either need to be resolved from a factory, or have been created when realizing
 			// custom elements.
 			const factories = widgetFactories.get(this);
-			const instances = customElementInstances.get(this);
+			const instances = widgetInstances.get(this);
 			return new Promise((resolve) => {
 				// First see if a factory exists for the widget.
 				let factory: WidgetFactory;
@@ -772,7 +779,7 @@ const createApp = compose({
 
 		hasWidget(id: Identifier): boolean {
 			// See if there is a widget factory, or else an existing custom element instance.
-			return widgetFactories.get(this).hasId(id) || customElementInstances.get(this).hasId(id);
+			return widgetFactories.get(this).hasId(id) || widgetInstances.get(this).hasId(id);
 		},
 
 		identifyWidget(widget: WidgetLike): string {
@@ -816,9 +823,9 @@ const createApp = compose({
 
 		actionFactories.set(instance, new IdentityRegistry<RegisteredFactory<ActionLike>>());
 		customElementFactories.set(instance, new IdentityRegistry<RegisteredFactory<WidgetLike>>());
-		customElementInstances.set(instance, new IdentityRegistry<WidgetLike>());
 		storeFactories.set(instance, new IdentityRegistry<RegisteredFactory<StoreLike>>());
 		widgetFactories.set(instance, new IdentityRegistry<RegisteredFactory<WidgetLike>>());
+		widgetInstances.set(instance, new IdentityRegistry<WidgetLike>());
 	}
 }) as AppFactory;
 
