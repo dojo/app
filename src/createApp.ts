@@ -1,12 +1,11 @@
 import { Action } from 'dojo-actions/createAction';
 import compose, { ComposeFactory } from 'dojo-compose/compose';
-import { Destroyable } from 'dojo-compose/mixins/createDestroyable';
 import { EventedListener } from 'dojo-compose/mixins/createEvented';
 import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
 import Promise from 'dojo-shim/Promise';
 import WeakMap from 'dojo-shim/WeakMap';
-import { RenderableMixin } from 'dojo-widgets/mixins/createRenderable';
+import { Renderable } from 'dojo-widgets/mixins/createRenderable';
 
 import IdentityRegistry from './IdentityRegistry';
 import {
@@ -38,7 +37,7 @@ export type StoreLike = ObservableState<State>;
 /**
  * Any kind of widget.
  */
-export type WidgetLike = Destroyable & RenderableMixin;
+export type WidgetLike = Renderable;
 
 /**
  * Factory method to (asynchronously) create an action.
