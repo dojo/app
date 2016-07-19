@@ -385,7 +385,7 @@ export default function realizeCustomElements(
 							try {
 								handles.push(registerInstance(widget, id || generateId()));
 							} catch (_) {
-								// registering() will throw if the widget has already been registered. Throw a
+								// registerInstance() will throw if the widget has already been registered. Throw a
 								// friendlier error message.
 								throw new Error('Cannot attach a widget multiple times');
 							}
