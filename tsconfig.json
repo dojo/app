@@ -19,6 +19,7 @@
 		"./typings/index.d.ts",
 		"./src/_factories.ts",
 		"./src/_InstanceRegistry.ts",
+		"./src/_makeIdGenerator.ts",
 		"./src/_moduleResolver.ts",
 		"./src/_realizeCustomElements.ts",
 		"./src/_RegistryProvider.ts",

@@ -13,6 +13,7 @@ import {
 	WidgetFactory,
 	WidgetLike
 } from './createApp';
+import makeIdGenerator from './_makeIdGenerator';
 import resolveListenersMap from './_resolveListenersMap';
 
 const reservedNames = new Set([
@@ -264,10 +265,7 @@ function getInitialState(element: Element): Object {
 	return initialState;
 }
 
-let idCount = 0;
-function generateId(): string {
-	return `custom-element-${++idCount}`;
-}
+const generateId = makeIdGenerator('custom-element-');
 
 const noop = () => {};
 
