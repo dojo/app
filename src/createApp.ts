@@ -431,7 +431,7 @@ export interface AppFactory extends ComposeFactory<App, AppOptions> {}
 
 const noop = () => {};
 
-type RegisteredFactory<T> = () => Promise<T>;
+type RegisteredFactory<T> = () => T | Promise<T>;
 const actionFactories = new WeakMap<App, IdentityRegistry<RegisteredFactory<ActionLike>>>();
 const customElementFactories = new WeakMap<App, IdentityRegistry<WidgetFactory>>();
 const identifiers = new WeakMap<App, Set<Identifier>>();
@@ -569,9 +569,7 @@ const createApp = compose({
 
 		const idHandle = addIdentifier(app, id);
 		const instanceHandle = instanceRegistries.get(app).addStore(store, id);
-
-		const promise = Promise.resolve(store);
-		const registryHandle = storeFactories.get(app).register(id, () => promise);
+		const registryHandle = storeFactories.get(app).register(id, () => store);
 
 		return {
 			destroy() {
@@ -626,9 +624,7 @@ const createApp = compose({
 
 		const idHandle = addIdentifier(app, id);
 		const instanceHandle = instanceRegistries.get(app).addWidget(widget, id);
-
-		const promise = Promise.resolve(widget);
-		const registryHandle = widgetFactories.get(app).register(id, () => promise);
+		const registryHandle = widgetFactories.get(app).register(id, () => widget);
 
 		return {
 			destroy() {
