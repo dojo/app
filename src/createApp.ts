@@ -184,7 +184,8 @@ export interface WidgetDefinition extends ItemDefinition<WidgetFactory, WidgetLi
 	stateFrom?: Identifier | StoreLike;
 
 	/**
-	 * Optional options object passed to the widget factory. Must not contain `id` and `stateFrom` properties.
+	 * Optional options object passed to the widget factory. Must not contain `id`, `listeners` and `stateFrom`
+	 * properties.
 	 */
 	options?: Object;
 }
