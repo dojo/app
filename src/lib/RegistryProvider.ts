@@ -5,7 +5,7 @@ import {
 	CombinedRegistry,
 	StoreLike,
 	WidgetLike
-} from './createApp';
+} from '../createApp';
 
 /**
  * Registry to (asynchronously) get instances by their ID.

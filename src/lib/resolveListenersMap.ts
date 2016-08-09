@@ -5,7 +5,7 @@ import {
 	CombinedRegistry,
 	WidgetListenersMap,
 	WidgetListenerOrArray
-} from './createApp';
+} from '../createApp';
 
 function resolveListeners(registry: CombinedRegistry, ref: WidgetListenerOrArray): [EventedListenerOrArray<TargettedEventObject>, Promise<EventedListenerOrArray<TargettedEventObject>>] {
 	if (Array.isArray(ref)) {

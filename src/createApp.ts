@@ -13,14 +13,14 @@ import {
 	makeCustomElementFactory,
 	makeStoreFactory,
 	makeWidgetFactory
-} from './_factories';
-import InstanceRegistry from './_InstanceRegistry';
-import makeMidResolver, { ToAbsMid, ResolveMid } from './_moduleResolver';
+} from './lib/factories';
+import InstanceRegistry from './lib/InstanceRegistry';
+import makeMidResolver, { ToAbsMid, ResolveMid } from './lib/moduleResolver';
 import realizeCustomElements, {
 	isValidName,
 	normalizeName
-} from './_realizeCustomElements';
-import RegistryProvider from './_RegistryProvider';
+} from './lib/realizeCustomElements';
+import RegistryProvider from './lib/RegistryProvider';
 
 export { RegistryProvider, ToAbsMid };
 
