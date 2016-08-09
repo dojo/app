@@ -362,9 +362,10 @@ export default function realizeCustomElements(
 							if (id && options.stateFrom) {
 								const initialState = getInitialState(custom.element);
 								if (initialState) {
-									return options.stateFrom.patch(initialState, { id }).then(() => {
-										return factory(options);
-									});
+									return options.stateFrom.add(initialState, { id })
+										// Ignore error, assume store already contains state for this widget.
+										.catch(() => undefined)
+										.then(() => factory(options));
 								}
 							}
 

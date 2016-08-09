@@ -713,14 +713,14 @@ registerSuite({
 			});
 		},
 
-		'for widgets with an ID and stateFrom, patch the store with the state before creating the widget'() {
+		'for widgets with an ID and stateFrom, add the state to the store before creating the widget'() {
 			let calls: string[] = [];
-			let patchArgs: any[][] = [];
+			let addArgs: any[][] = [];
 
 			const store = createStore();
-			(<any> store).patch = (...args: any[]) => {
-				calls.push('patch');
-				patchArgs.push(args);
+			(<any> store).add = (...args: any[]) => {
+				calls.push('add');
+				addArgs.push(args);
 				return Promise.resolve();
 			};
 
@@ -732,8 +732,29 @@ registerSuite({
 
 			projector.innerHTML = '<foo-bar id="widget" data-state-from="store" data-state=\'{"foo":"bar"}\'></foo-bar>';
 			return app.realize(root).then(() => {
-				assert.deepEqual(calls, ['patch', 'factory']);
-				assert.deepEqual(patchArgs, [[{ foo: 'bar' }, { id: 'widget' }]]);
+				assert.deepEqual(calls, ['add', 'factory']);
+				assert.deepEqual(addArgs, [[{ foo: 'bar' }, { id: 'widget' }]]);
+			});
+		},
+
+		'creates the widget even if adding state fails'() {
+			let calls: string[] = [];
+
+			const store = createStore();
+			(<any> store).add = (...args: any[]) => {
+				calls.push('add');
+				return Promise.reject(new Error());
+			};
+
+			app.registerCustomElementFactory('foo-bar', () => {
+				calls.push('factory');
+				return createActualWidget();
+			});
+			app.registerStore('store', store);
+
+			projector.innerHTML = '<foo-bar id="widget" data-state-from="store" data-state=\'{"foo":"bar"}\'></foo-bar>';
+			return app.realize(root).then(() => {
+				assert.deepEqual(calls, ['add', 'factory']);
 			});
 		}
 	},

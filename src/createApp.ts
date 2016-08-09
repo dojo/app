@@ -34,7 +34,9 @@ export type ActionLike = Action<any, any, any>;
 /**
  * Any kind of store.
  */
-export type StoreLike = ObservableState<State>;
+export type StoreLike = ObservableState<State> & {
+	add<T>(item: T, options?: any): Promise<T>;
+}
 
 /**
  * Any kind of widget.

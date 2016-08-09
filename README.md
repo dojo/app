@@ -380,7 +380,7 @@ The `data-state-from` attribute may be used on custom elements to specify a stor
 
 A default widget store may be configured by setting the `data-state-from` attribute on the `app-projector` custom element. It applies to all descendant elements that have IDs, though they can override it by setting their own `data-state-from` attribute or configuring `stateFrom` in their `data-options`.
 
-Custom elements that have widget IDs and a `stateFrom` store may set their `data-state` attribute to an initial state object, encoded as a JSON string. The store will be patched with the initial state and the widget ID before the widget is created.
+Custom elements that have widget IDs and a `stateFrom` store may set their `data-state` attribute to an initial state object, encoded as a JSON string. This initial state will be added to the store before the widget is created. The store is assumed to reject the initial state if it already contains state for the widget. This error will be ignored and the widget will be created with whatever state was already in the store.
 
 The special `app-widget` custom element can be used to render a previously registered widget. The `data-uid` or `id` attribute is used to retrieve the widget. The `data-state`, `data-state-from` and `data-options` attributes are ignored. No default widget store is applied.
 
