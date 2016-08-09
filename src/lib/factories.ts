@@ -16,9 +16,9 @@ import {
 	WidgetDefinition,
 	WidgetFactory,
 	WidgetLike
-} from './createApp';
-import { ResolveMid } from './_moduleResolver';
-import resolveListenersMap from './_resolveListenersMap';
+} from '../createApp';
+import { ResolveMid } from './moduleResolver';
+import resolveListenersMap from './resolveListenersMap';
 
 function resolveStore(registry: CombinedRegistry, definition: ActionDefinition | WidgetDefinition): void | StoreLike | Promise<StoreLike> {
 	const { stateFrom } = definition;

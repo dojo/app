@@ -6,7 +6,7 @@ import {
 	Identifier,
 	StoreLike,
 	WidgetLike
-} from './createApp';
+} from '../createApp';
 
 type Instance = ActionLike | StoreLike | WidgetLike;
 enum Type { Action, Store, Widget };

@@ -12,9 +12,9 @@ import {
 	StoreLike,
 	WidgetFactory,
 	WidgetLike
-} from './createApp';
-import makeIdGenerator from './_makeIdGenerator';
-import resolveListenersMap from './_resolveListenersMap';
+} from '../createApp';
+import makeIdGenerator from './makeIdGenerator';
+import resolveListenersMap from './resolveListenersMap';
 
 const reservedNames = new Set([
 	// According to <https://www.w3.org/TR/custom-elements/#valid-custom-element-name>.
