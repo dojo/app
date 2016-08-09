@@ -171,6 +171,9 @@ export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: Reso
 		if ('listeners' in definition) {
 			throw new TypeError('Cannot specify listeners option when widget definition points directly at an instance');
 		}
+		if ('state' in definition) {
+			throw new TypeError('Cannot specify state option when widget definition points directly at an instance');
+		}
 		if ('stateFrom' in definition) {
 			throw new TypeError('Cannot specify stateFrom option when widget definition points directly at an instance');
 		}
@@ -200,8 +203,9 @@ export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: Reso
 			listeners?: EventedListenersMap;
 		}
 
+		const { id, state: initialState } = definition;
 		const options: Options = assign({
-			id: definition.id,
+			id,
 			registryProvider
 		}, rawOptions);
 
@@ -219,6 +223,13 @@ export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: Reso
 			}
 			if (store) {
 				options.stateFrom = store;
+			}
+
+			if (store && initialState) {
+				return store.add(initialState, { id })
+					// Ignore error, assume store already contains state for this widget.
+					.catch(() => undefined)
+					.then(() => factory(options));
 			}
 
 			return factory(options);

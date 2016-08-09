@@ -176,6 +176,11 @@ export interface WidgetDefinition extends ItemDefinition<WidgetFactory, WidgetLi
 	listeners?: WidgetListenersMap;
 
 	/**
+	 * Initial state, to be added to the widget's store, if any.
+	 */
+	state?: any;
+
+	/**
 	 * Identifier of a store which the widget should observe for its state.
 	 *
 	 * When the widget is created, the store is passed as the `stateFrom` option.

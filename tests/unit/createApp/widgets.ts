@@ -862,6 +862,73 @@ registerSuite({
 					return app.getWidget('foo').then(() => {
 						assert.strictEqual(actual, expected);
 					});
+				},
+
+				'and state option': {
+					'state is added to the store before factory is called'() {
+						let calls: string[] = [];
+						let addArgs: any[][] = [];
+
+						const store = createStore();
+						(<any> store).add = (...args: any[]) => {
+							calls.push('add');
+							addArgs.push(args);
+							return Promise.resolve();
+						};
+
+						const state = { foo: 'bar' };
+
+						const app = createApp();
+						app.loadDefinition({
+							widgets: [
+								{
+									id: 'foo',
+									factory() {
+										calls.push('factory');
+										return createWidget();
+									},
+									state,
+									stateFrom: store
+								}
+							]
+						});
+
+						return app.getWidget('foo').then(() => {
+							assert.deepEqual(calls, ['add', 'factory']);
+							assert.deepEqual(addArgs, [[{ foo: 'bar' }, { id: 'foo' }]]);
+						});
+					},
+
+					'the factory is called even if adding state fails'() {
+						let calls: string[] = [];
+
+						const store = createStore();
+						(<any> store).add = (...args: any[]) => {
+							calls.push('add');
+							return Promise.reject(new Error());
+						};
+
+						const state = { foo: 'bar' };
+
+						const app = createApp();
+						app.loadDefinition({
+							widgets: [
+								{
+									id: 'foo',
+									factory() {
+										calls.push('factory');
+										return createWidget();
+									},
+									state,
+									stateFrom: store
+								}
+							]
+						});
+
+						return app.getWidget('foo').then(() => {
+							assert.deepEqual(calls, ['add', 'factory']);
+						});
+					}
 				}
 			}
 		},
@@ -925,6 +992,20 @@ registerSuite({
 						]
 					});
 				}, TypeError, 'Cannot specify listeners option when widget definition points directly at an instance');
+			},
+
+			'state option is not allowed'() {
+				assert.throws(() => {
+					createApp().loadDefinition({
+						widgets: [
+							{
+								id: 'foo',
+								instance: createWidget(),
+								state: {}
+							}
+						]
+					});
+				}, TypeError, 'Cannot specify state option when widget definition points directly at an instance');
 			},
 
 			'stateFrom option is not allowed'() {

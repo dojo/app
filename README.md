@@ -316,9 +316,11 @@ If you use `factory` in your store definition you can use the `options` property
 
 Like stores, widget factories typically take an options argument. Widget definitions too support the `options` property, letting you specify the object that is passed when the factory is called.
 
-The `options` object must not contain `id`, `listeners` and `stateFrom` properties. These need to be specified in the widget definition itself.
+The `options` object must not contain `id`, `listeners`, `state` and `stateFrom` properties. These need to be specified in the widget definition itself.
 
 Use the `listeners` object to automatically wire events emitted by the widget. Keys are event types. Values are event listeners, actions, string identifiers for actions that are registered with the application factory, or an array containing such values.
+
+Use the `state` property to define an initial state that is added to the widget's store before the widget is created, if any. This will be done lazily once the widget is needed. The store is assumed to reject the initial state if it already contains state for the widget. This error will be ignored and the widget will be created with whatever state was already in the store.
 
 Use the `stateFrom` property to specify the store that the widget should observe for its state. It can be an actual store or a string identifier for a store that is registered with the application factory.
 
