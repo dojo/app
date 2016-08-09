@@ -1,5 +1,5 @@
-import { from as arrayFrom } from 'dojo-shim/array';
 import { Handle } from 'dojo-core/interfaces';
+import { from as arrayFrom } from 'dojo-shim/array';
 import Promise from 'dojo-shim/Promise';
 import Set from 'dojo-shim/Set';
 import Map from 'dojo-shim/Map';
