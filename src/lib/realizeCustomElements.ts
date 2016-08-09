@@ -1,3 +1,4 @@
+import { EventedListenersMap } from 'dojo-compose/mixins/createEvented';
 import { Handle } from 'dojo-core/interfaces';
 import { from as arrayFrom } from 'dojo-shim/array';
 import Promise from 'dojo-shim/Promise';
@@ -151,11 +152,17 @@ function getIdFromAttributes(element: Element): string {
 	return element.getAttribute('data-uid') || element.getAttribute('id') || undefined;
 }
 
-interface Options {
+interface JsonOptions {
 	id?: string;
 	listeners?: any;
-	registryProvider: RegistryProvider;
 	stateFrom?: any;
+}
+
+interface Options {
+	id?: string;
+	listeners?: EventedListenersMap;
+	registryProvider: RegistryProvider;
+	stateFrom?: StoreLike;
 }
 
 function resolveOptions(registry: CombinedRegistry, registryProvider: RegistryProvider, element: Element, idFromAttributes: string): Options | Promise<Options> {
@@ -164,29 +171,31 @@ function resolveOptions(registry: CombinedRegistry, registryProvider: RegistryPr
 		return idFromAttributes ? { id: idFromAttributes, registryProvider } : { registryProvider };
 	}
 
-	let options: Options;
+	let json: JsonOptions;
 	try {
-		options = JSON.parse(str);
+		json = JSON.parse(str);
 	} catch (err) {
 		throw new SyntaxError(`Invalid data-options: ${err.message} (in ${JSON.stringify(str)})`);
 	}
-	if (!options || typeof options !== 'object') {
+	if (!json || typeof json !== 'object') {
 		throw new TypeError(`Expected object from data-options (in ${JSON.stringify(str)})`);
 	}
 
-	if ('registryProvider' in options) {
+	// Reassign, casted to the correct interface.
+	const options = <Options> json;
+	if ('registryProvider' in json) {
 		throw new Error(`Unexpected registryProvider value in data-options (in ${JSON.stringify(str)})`);
 	}
 	options.registryProvider = registryProvider;
 
-	if (!('id' in options) && idFromAttributes) {
+	if (!('id' in json) && idFromAttributes) {
 		options.id = idFromAttributes;
 	}
 
 	const promises: Promise<void>[] = [];
 
-	if ('stateFrom' in options) {
-		const { stateFrom } = options;
+	if ('stateFrom' in json) {
+		const { stateFrom } = json;
 		if (!stateFrom || typeof stateFrom !== 'string') {
 			throw new TypeError(`Expected stateFrom value in data-options to be a non-empty string (in ${JSON.stringify(str)})`);
 		}
@@ -196,8 +205,8 @@ function resolveOptions(registry: CombinedRegistry, registryProvider: RegistryPr
 		}));
 	}
 
-	if ('listeners' in options) {
-		const { listeners } = options;
+	if ('listeners' in json) {
+		const { listeners } = json;
 
 		let valid = true;
 		if (!listeners || typeof listeners !== 'object') {
@@ -336,11 +345,11 @@ export default function realizeCustomElements(
 							resolveStateFromAttribute(registry, custom.element),
 							projectorStateFrom
 						]).then(([_factory, _options, _store, projectorStore]) => {
-							const factory = <WidgetFactory> _factory;
-							const options = <Options> _options;
+							const factory: WidgetFactory = _factory;
+							const options: Options = _options;
 							// `data-state-from` store of the element takes precedence, then of the projector, then
 							// the application's default widget store.
-							const store = <StoreLike> _store || projectorStore || defaultWidgetStore;
+							const store: StoreLike = _store || projectorStore || defaultWidgetStore;
 
 							id = options.id;
 							// If the widget has an ID, but stateFrom was not in its `data-options` attribute, and
