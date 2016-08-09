@@ -138,6 +138,14 @@ app.hasWidget('my-widget');
 
 Each method returns `true` if the respective item was registered, and `false` if not.
 
+Besides checking `app.defaultStore` you can use the `DEFAULT_STORE` symbol to see if a default store was provided:
+
+```ts
+import { DEFAULT_STORE } from 'dojo-app/createApp';
+
+app.hasStore(DEFAULT_STORE);
+```
+
 ### Finding the ID under which an action, store or widget was registered
 
 To find the ID under which a particular action, store or widget instance was registered, use the `identify*()` methods:
@@ -150,6 +158,8 @@ app.identifyWidget(widget);
 
 Each method returns the ID string if the respective instance was registered, or throws an error if not.
 
+Note that the default store, if any, is registered under the `DEFAULT_STORE` symbol, *not* an ID string.
+
 ### Loading an action, store or widget
 
 You can load previously registered actions, stores and widgets using the `get*()` methods:
@@ -161,6 +171,14 @@ app.getWidget('my-widget');
 ```
 
 Each method returns a promise for the respective item. If the item was not registered or could not be loaded, the promise is rejected.
+
+Besides accessing `app.defaultStore` you can use the `DEFAULT_STORE` symbol to get the default store:
+
+```ts
+import { DEFAULT_STORE } from 'dojo-app/createApp';
+
+app.getStore(DEFAULT_STORE);
+```
 
 ### Configuring actions
 

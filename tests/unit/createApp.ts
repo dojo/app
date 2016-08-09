@@ -3,7 +3,7 @@ import Promise from 'dojo-shim/Promise';
 import * as registerSuite from 'intern!object';
 import * as assert from 'intern/chai!assert';
 
-import createApp from 'src/createApp';
+import createApp, { DEFAULT_STORE } from 'src/createApp';
 
 import { stub as stubActionFactory } from '../fixtures/action-factory';
 import {
@@ -35,6 +35,15 @@ registerSuite({
 			assert.isFalse(configurable);
 			assert.isTrue(enumerable);
 			assert.isFalse(writable);
+		},
+		'ends up in the registry'() {
+			const store = createStore();
+			const app = createApp({ defaultStore: store });
+			assert.strictEqual(app.identifyStore(store), DEFAULT_STORE);
+			assert.isTrue(app.hasStore(DEFAULT_STORE));
+			return app.getStore(DEFAULT_STORE).then((actual) => {
+				assert.strictEqual(actual, store);
+			});
 		}
 	},
 

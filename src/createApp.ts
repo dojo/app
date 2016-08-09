@@ -5,6 +5,7 @@ import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
 import Promise from 'dojo-shim/Promise';
 import Set from 'dojo-shim/Set';
+import Symbol from 'dojo-shim/Symbol';
 import WeakMap from 'dojo-shim/WeakMap';
 import { Renderable } from 'dojo-widgets/mixins/createRenderable';
 
@@ -128,6 +129,9 @@ export interface ActionDefinition extends ItemDefinition<ActionFactory, ActionLi
 	 * Identifier of a store which the action should observe for its state.
 	 *
 	 * When the action is created it'll automatically observe this store.
+	 *
+	 * Note that the `DEFAULT_STORE` identifier is not supported. Default stores are automatically used if stateFrom
+	 * is not provided.
 	 */
 	stateFrom?: Identifier | StoreLike;
 }
@@ -171,6 +175,9 @@ export interface WidgetDefinition extends ItemDefinition<WidgetFactory, WidgetLi
 	 * Identifier of a store which the widget should observe for its state.
 	 *
 	 * When the widget is created, the store is passed as the `stateFrom` option.
+	 *
+	 * Note that the `DEFAULT_STORE` identifier is not supported. Default stores are automatically used if stateFrom
+	 * is not provided.
 	 */
 	stateFrom?: Identifier | StoreLike;
 
@@ -252,7 +259,7 @@ export interface CombinedRegistry {
 	 * @return A promise for when the store has been loaded. Rejected if loading fails or if no store is registered
 	 *   with the given identifier.
 	 */
-	getStore(id: Identifier): Promise<StoreLike>;
+	getStore(id: Identifier | symbol): Promise<StoreLike>;
 
 	/**
 	 * Check whether a store has been registered with the given identifier.
@@ -260,7 +267,7 @@ export interface CombinedRegistry {
 	 * @param id Identifier for the store
 	 * @return `true` if a store has been registered, `false` otherwise.
 	 */
-	hasStore(id: Identifier): boolean;
+	hasStore(id: Identifier | symbol): boolean;
 
 	/**
 	 * Look up the identifier for which the given store has been registered.
@@ -270,7 +277,7 @@ export interface CombinedRegistry {
 	 * @param store The store
 	 * @return The identifier
 	 */
-	identifyStore(store: StoreLike): Identifier;
+	identifyStore(store: StoreLike): Identifier | symbol;
 
 	/**
 	 * Get the widget with the given identifier.
@@ -428,6 +435,11 @@ export interface AppOptions {
 }
 
 export interface AppFactory extends ComposeFactory<App, AppOptions> {}
+
+/**
+ * Identifier for the default store, which is available if it was provided the app factory was created.
+ */
+export const DEFAULT_STORE = Symbol('App factory default store identifier');
 
 const noop = () => {};
 
@@ -769,17 +781,17 @@ const createApp = compose({
 			return customElementFactories.get(this).hasId(name);
 		},
 
-		getStore(id: Identifier): Promise<StoreLike> {
+		getStore(id: Identifier | symbol): Promise<StoreLike> {
 			return new Promise((resolve) => {
 				resolve(storeFactories.get(this).get(id)());
 			});
 		},
 
-		hasStore(id: Identifier): boolean {
+		hasStore(id: Identifier | symbol): boolean {
 			return storeFactories.get(this).hasId(id);
 		},
 
-		identifyStore(store: StoreLike): string {
+		identifyStore(store: StoreLike): Identifier | symbol {
 			const app: App = this;
 			return instanceRegistries.get(app).identifyStore(store);
 		},
@@ -863,6 +875,11 @@ const createApp = compose({
 		midResolvers.set(instance, makeMidResolver(toAbsMid));
 		publicRegistries.set(instance, publicRegistry);
 		widgetInstances.set(instance, new IdentityRegistry<WidgetLike>());
+
+		if (instance.defaultStore) {
+			instanceRegistries.get(instance).addStore(instance.defaultStore, DEFAULT_STORE);
+			storeFactories.get(instance).register(DEFAULT_STORE, () => instance.defaultStore);
+		}
 	}
 }) as AppFactory;
 
