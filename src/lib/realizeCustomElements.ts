@@ -15,6 +15,7 @@ import {
 	WidgetLike
 } from '../createApp';
 import makeIdGenerator from './makeIdGenerator';
+import parseJsonAttribute from './parseJsonAttribute';
 import resolveListenersMap from './resolveListenersMap';
 
 const reservedNames = new Set([
@@ -172,18 +173,10 @@ function resolveOptions(registry: CombinedRegistry, registryProvider: RegistryPr
 		return idFromAttributes ? { id: idFromAttributes, registryProvider } : { registryProvider };
 	}
 
-	let json: JsonOptions;
-	try {
-		json = JSON.parse(str);
-	} catch (err) {
-		throw new SyntaxError(`Invalid data-options: ${err.message} (in ${JSON.stringify(str)})`);
-	}
-	if (!json || typeof json !== 'object') {
-		throw new TypeError(`Expected object from data-options (in ${JSON.stringify(str)})`);
-	}
-
+	const json = parseJsonAttribute<JsonOptions>('data-options', str);
 	// Reassign, casted to the correct interface.
 	const options = <Options> json;
+
 	if ('registryProvider' in json) {
 		throw new Error(`Unexpected registryProvider value in data-options (in ${JSON.stringify(str)})`);
 	}
@@ -262,17 +255,7 @@ function getInitialState(element: Element): Object {
 		return null;
 	}
 
-	let initialState: Object;
-	try {
-		initialState = JSON.parse(str);
-	} catch (err) {
-		throw new SyntaxError(`Invalid data-state: ${err.message} (in ${JSON.stringify(str)})`);
-	}
-	if (!initialState || typeof initialState !== 'object') {
-		throw new TypeError(`Expected object from data-state (in ${JSON.stringify(str)})`);
-	}
-
-	return initialState;
+	return parseJsonAttribute('data-state', str);
 }
 
 const generateId = makeIdGenerator('custom-element-');
