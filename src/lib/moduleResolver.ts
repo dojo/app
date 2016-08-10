@@ -4,7 +4,7 @@ import Promise from 'dojo-shim/Promise';
  * Internal interface to asynchronously resolve a module by its identifier.
  */
 export interface ResolveMid {
-	(mid: string): Promise<any>;
+	<T>(mid: string): Promise<T>;
 }
 
 /**
@@ -15,7 +15,7 @@ export interface ToAbsMid {
 }
 
 export default function makeResolver(toAbsMid: ToAbsMid): ResolveMid {
-	return function resolveMid(mid: string): Promise<any> {
+	return function resolveMid<T>(mid: string): Promise<T> {
 		return new Promise((resolve) => {
 			// Assumes require() is an AMD loader!
 			require([toAbsMid(mid)], (module) => {
