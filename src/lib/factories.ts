@@ -71,36 +71,36 @@ function resolveFactory(type: FactoryTypes, definition: CustomElementDefinition 
 	if (typeof factory === 'function') {
 		return Promise.resolve(factory);
 	}
-
-	if (isInstance(instance)) {
+	else if (isInstance(instance)) {
 		// <any> hammer since TypeScript can't resolve match the correct overloaded Instance type with the correct
 		// Factory return value.
 		const factory: Factory = () => <any> instance;
 		return Promise.resolve(factory);
 	}
-
-	const mid = <string> (factory || instance);
-	return resolveMid(mid).then((defaultExport) => {
-		if (factory) {
-			if (typeof defaultExport !== 'function') {
-				throw new Error(`Could not resolve '${mid}' to ${errorStrings[type]} factory function`);
+	else {
+		return new Promise((resolve, reject) => {
+			if (instance) {
+				resolveMid<Instance>(instance).then((defaultExport) => {
+					if (!defaultExport || typeof defaultExport !== 'object') {
+						reject(new Error(`Could not resolve '${instance}' to ${errorStrings[type]} instance`));
+					}
+					else {
+						resolve(() => defaultExport);
+					}
+				}).catch(reject);
 			}
-
-			const factory: Factory = defaultExport;
-			return factory;
-		}
-
-		// istanbul ignore else Action factories are expected to guard against definitions with neither
-		// factory or instance properties.
-		if (instance) {
-			if (!defaultExport || typeof defaultExport !== 'object') {
-				throw new Error(`Could not resolve '${mid}' to ${errorStrings[type]} instance`);
+			else {
+				resolveMid<Factory>(factory).then((defaultExport) => {
+					if (typeof defaultExport !== 'function') {
+						reject(new Error(`Could not resolve '${factory}' to ${errorStrings[type]} factory function`));
+					}
+					else {
+						resolve(defaultExport);
+					}
+				}).catch(reject);
 			}
-
-			const instance: Instance = defaultExport;
-			return () => instance;
-		}
-	});
+		});
+	}
 }
 
 export function makeActionFactory(definition: ActionDefinition, resolveMid: ResolveMid): ActionFactory {
