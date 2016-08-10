@@ -1,5 +1,4 @@
-import global from 'dojo-core/global';
-import has from 'dojo-core/has';
+import { Handle } from 'dojo-core/interfaces';
 import Promise from 'dojo-shim/Promise';
 import createActualWidget from 'dojo-widgets/createWidget';
 import createContainer from 'dojo-widgets/createContainer';
@@ -20,6 +19,7 @@ import {
 	rejects,
 	strictEqual
 } from '../../support/createApp';
+import stubDom from '../../support/stubDom';
 
 function opts (obj: any) {
 	return JSON.stringify(obj).replace(/"/g, '&quot;');
@@ -28,24 +28,17 @@ function opts (obj: any) {
 let app: App = null;
 let root: HTMLElement = null;
 let projector: HTMLElement = null;
-let stubbedGlobals = false;
+let stubbedGlobals: Handle = null;
 
 registerSuite({
-	name: 'createApp#realize',
+	name: 'createApp#realize (custom elements)',
 
 	before() {
-		if (has('host-node')) {
-			global.document = (<any> require('jsdom')).jsdom('<html><body></body></html>');
-			global.Node = global.document.defaultView.Node;
-			stubbedGlobals = true;
-		}
+		stubbedGlobals = stubDom();
 	},
 
 	after() {
-		if (stubbedGlobals) {
-			delete global.document;
-			delete global.Node;
-		}
+		stubbedGlobals.destroy();
 	},
 
 	beforeEach() {

@@ -260,8 +260,6 @@ function getInitialState(element: Element): Object {
 
 const generateId = makeIdGenerator('custom-element-');
 
-const noop = () => {};
-
 /**
  * Realizes custom elements within a root element.
  *
@@ -444,8 +442,7 @@ export default function realizeCustomElements(
 		return Promise.all(attachedProjectors);
 	}).then(() => {
 		return {
-			destroy(this: Handle) {
-				this.destroy = noop;
+			destroy() {
 				for (const p of projectors) {
 					p.destroy();
 				}

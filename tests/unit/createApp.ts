@@ -140,7 +140,7 @@ registerSuite({
 			const expected = createAction();
 
 			return new Promise((resolve) => {
-				require(['tests/fixtures/amd-factory'], (factory) => {
+				require(['tests/fixtures/generic-amd-factory'], (factory) => {
 					factory.stub(() => expected);
 					resolve();
 				});
@@ -150,7 +150,7 @@ registerSuite({
 					actions: [
 						{
 							id: 'foo',
-							factory: 'tests/fixtures/amd-factory'
+							factory: 'tests/fixtures/generic-amd-factory'
 						}
 					]
 				});
