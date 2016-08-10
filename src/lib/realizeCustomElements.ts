@@ -26,10 +26,7 @@ const reservedNames = new Set([
 	'font-face-uri',
 	'font-face-format',
 	'font-face-name',
-	'missing-glyph',
-	// These are reserved by this module.
-	'app-projector',
-	'app-widget'
+	'missing-glyph'
 ]);
 
 // According to <https://www.w3.org/TR/custom-elements/#valid-custom-element-name>.
@@ -47,6 +44,10 @@ export function isValidName(name: string): boolean {
 	}
 
 	if (reservedNames.has(name)) { // Reserved names must not be used.
+		return false;
+	}
+
+	if (/^app-/.test(name)) { // Names must not start with app-
 		return false;
 	}
 
