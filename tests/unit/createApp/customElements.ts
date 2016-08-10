@@ -114,7 +114,10 @@ registerSuite({
 					'font-face-format',
 					'font-face-name',
 					'missing-glyph',
+					'app-action',
+					'app-actions',
 					'app-projector',
+					'app-store',
 					'app-widget'
 				].forEach((name) => {
 					assert.throws(() => {
