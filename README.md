@@ -90,7 +90,7 @@ app.registerCustomElementFactory('tag-name', createWidget);
 
 A factory for a custom element should return a unique widget instance. It receives an `options` object with an optional `id` property and other options from the custom element.
 
-Tag names must be [valid according to the Custom Elements spec](https://www.w3.org/TR/custom-elements/#valid-custom-element-name). Additionally `app-projector` and `app-widget` names are reserved. Names are automatically lowercased before the factory is registered.
+Tag names must be [valid according to the Custom Elements spec](https://www.w3.org/TR/custom-elements/#valid-custom-element-name). Additionally names starting with `app-` are reserved. Names are automatically lowercased before the factory is registered.
 
 ### Registering stores
 
@@ -298,7 +298,7 @@ Note that if an action, store or widget instance is provided to the `instance` o
 
 The application factory must be loaded with [`dojo-loader`](https://github.com/dojo/loader) in order to resolve module identifiers. Both ES and UMD modules are supported. The default export is used as the `factory` or `instance` value.
 
-Custom element definitions must have a `name` property, which must be a [valid custom element name](https://www.w3.org/TR/custom-elements/#valid-custom-element-name) (and not `app-projector` or `app-widget`). They must also have the `factory` property, but *not* the `id` and `instance` properties
+Custom element definitions must have a `name` property, which must be a [valid custom element name](https://www.w3.org/TR/custom-elements/#valid-custom-element-name) (and not start with `app-`). They must also have the `factory` property, but *not* the `id` and `instance` properties
 
 #### Action definitions
 
