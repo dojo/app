@@ -1,7 +1,8 @@
 import './createApp';
 import './createApp/actions';
 import './createApp/customElements';
-import './createApp/realize';
+import './createApp/extractRegistrationElements';
+import './createApp/realizeCustomElements';
 import './createApp/stores';
 import './createApp/widgets';
 import './IdentityRegistry';

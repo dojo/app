@@ -11,6 +11,7 @@ import WeakMap from 'dojo-shim/WeakMap';
 import { Child } from 'dojo-widgets/mixins/interfaces';
 
 import IdentityRegistry from './IdentityRegistry';
+import extractRegistrationElements from './lib/extractRegistrationElements';
 import {
 	makeActionFactory,
 	makeCustomElementFactory,
@@ -876,14 +877,47 @@ const createApp = compose({
 	},
 
 	realize(this: App, root: Element) {
-		return realizeCustomElements(
-			this.defaultWidgetStore,
-			(id) => addIdentifier(this, id),
-			(instance: WidgetLike, id: string) => registerInstance(this, instance, id),
-			this,
-			this.registryProvider,
-			root
-		);
+		const resolveMid = midResolvers.get(this);
+		return extractRegistrationElements(resolveMid, root)
+			.then(({ actions, defaultStores, stores }) => {
+				const definitionHandle = this.loadDefinition({ actions, stores });
+				if (defaultStores.length === 0) {
+					return definitionHandle;
+				}
+
+				return Promise.all(defaultStores.map(({ type, definition }) => {
+					const factory = makeStoreFactory(definition, resolveMid);
+					return Promise.resolve(factory())
+						.then((store) => {
+							if (type === 'action') {
+								this.defaultActionStore = store;
+							}
+							else {
+								this.defaultWidgetStore = store;
+							}
+						});
+				}))
+				.then(() => definitionHandle);
+			})
+			.then((definitionHandle) => {
+				return realizeCustomElements(
+					this.defaultWidgetStore,
+					(id) => addIdentifier(this, id),
+					(instance: WidgetLike, id: string) => registerInstance(this, instance, id),
+					this,
+					this.registryProvider,
+					root
+				)
+				.then((realizationHandle) => {
+					return {
+						destroy(this: Handle) {
+							this.destroy = noop;
+							definitionHandle.destroy();
+							realizationHandle.destroy();
+						}
+					};
+				});
+			});
 	}
 })
 .mixin({
