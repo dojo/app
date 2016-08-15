@@ -344,7 +344,7 @@ Custom elements are matched (case-insensitively) to registered factories. First 
 
 A factory options object can be provided in the DOM by setting the `data-options` attribute to a JSON string. The options object may have a `stateFrom` property containing a store identifier. It may also have a `listeners` property containing a widget listener map. Values for each event type can be action identifiers or arrays thereof. These properties are resolved to the actual store and action instances before the factory is called. Additional properties are passed to the factory as-is.
 
-Widgets can be identified through the `id` property on the options object, a `data-widget-id` attribute, or an `id` attribute. The options object takes precedence over the `data-widget-id` attribute, which takes precedence over the `id` attribute. It's valid to use the different attributes, but only the most specific ID will be passed to the factory (in the `options` object).
+Widgets can be identified through the `id` property on the options object, a `data-uid` attribute, or an `id` attribute. The options object takes precedence over the `data-uid` attribute, which takes precedence over the `id` attribute. It's valid to use the different attributes, but only the most specific ID will be passed to the factory (in the `options` object).
 
 The `data-state-from` attribute may be used on custom elements to specify a store identifier. This will only take effect if a widget ID is also specified. The `stateFrom` property on the options object that is passed to the factory will be set to the referenced store. Any `stateFrom` property in the `data-options` object still takes precedence.
 
@@ -352,7 +352,7 @@ A default store may be configured by setting the `data-state-from` attribute on 
 
 Custom elements that have widget IDs and a `stateFrom` store may set their `data-state` attribute to an initial state object, encoded as a JSON string. The store will be patched with the initial state and the widget ID before the widget is created.
 
-The special `app-widget` custom element can be used to render a previously registered widget. The `data-widget-id` or `id` attribute is used to retrieve the widget. The `data-state`, `data-state-from` and `data-options` attributes are ignored. No default store is applied.
+The special `app-widget` custom element can be used to render a previously registered widget. The `data-uid` or `id` attribute is used to retrieve the widget. The `data-state`, `data-state-from` and `data-options` attributes are ignored. No default store is applied.
 
 A widget ID can only be used once within an application. Similarly a widget instance can only be rendered once. The `getWidget()`, `hasWidget()` and `identifyWidget()` methods will work with widgets created by custom element factories.
 
