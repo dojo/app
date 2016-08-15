@@ -148,7 +148,7 @@ function getCustomElementsByWidgetProjector(registry: CombinedRegistry, root: El
 }
 
 function getIdFromAttributes(element: Element): string {
-	return element.getAttribute('data-widget-id') || element.getAttribute('id') || undefined;
+	return element.getAttribute('data-uid') || element.getAttribute('id') || undefined;
 }
 
 interface Options {
@@ -324,7 +324,7 @@ export default function realizeCustomElements(
 					let promise: Promise<WidgetLike> = null;
 					if (isWidgetInstance) {
 						if (!id) {
-							throw new Error('Cannot resolve widget for a custom element without \'data-widget-id\' or \'id\' attributes');
+							throw new Error('Cannot resolve widget for a custom element without \'data-uid\' or \'id\' attributes');
 						}
 						promise = registry.getWidget(id);
 					}

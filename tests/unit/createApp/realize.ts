@@ -167,9 +167,9 @@ registerSuite({
 	},
 
 	'<app-widget> custom elements': {
-		'data-widget-id takes precedence over id'() {
+		'data-uid takes precedence over id'() {
 			app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
-			projector.innerHTML = '<app-widget id="bar" data-widget-id="foo"></app-widget>';
+			projector.innerHTML = '<app-widget id="bar" data-uid="foo"></app-widget>';
 			return app.realize(root).then(() => {
 				assert.equal(projector.firstChild.nodeName, 'MARK');
 			});
@@ -177,7 +177,7 @@ registerSuite({
 
 		'an ID is required'() {
 			projector.innerHTML = '<app-widget></app-widget>';
-			return rejects(app.realize(root), Error, 'Cannot resolve widget for a custom element without \'data-widget-id\' or \'id\' attributes');
+			return rejects(app.realize(root), Error, 'Cannot resolve widget for a custom element without \'data-uid\' or \'id\' attributes');
 		},
 
 		'the ID must resolve to a widget instance'() {
@@ -807,10 +807,10 @@ registerSuite({
 			});
 		},
 
-		'via data-widget-id'() {
+		'via data-uid'() {
 			const fooBar = createActualWidget();
 			app.registerCustomElementFactory('foo-bar', () => fooBar);
-			projector.innerHTML = '<foo-bar data-widget-id="fooBar"></foo-bar>';
+			projector.innerHTML = '<foo-bar data-uid="fooBar"></foo-bar>';
 			return app.realize(root).then(() => {
 				assert.equal(app.identifyWidget(fooBar), 'fooBar');
 			});
@@ -825,14 +825,14 @@ registerSuite({
 			});
 		},
 
-		'data-options takes precedence over data-widget-id over id'() {
+		'data-options takes precedence over data-uid over id'() {
 			const fooBar = createActualWidget();
 			app.registerCustomElementFactory('foo-bar', () => fooBar);
 			const bazQux = createActualWidget();
 			app.registerCustomElementFactory('baz-qux', () => bazQux);
 			projector.innerHTML = `
-				<foo-bar data-widget-id="bazQux" data-options="{&quot;id&quot;:&quot;fooBar&quot;}"></foo-bar>
-				<baz-qux id="fooBar" data-widget-id="bazQux"></baz-qux>
+				<foo-bar data-uid="bazQux" data-options="{&quot;id&quot;:&quot;fooBar&quot;}"></foo-bar>
+				<baz-qux id="fooBar" data-uid="bazQux"></baz-qux>
 			`;
 			return app.realize(root).then(() => {
 				assert.equal(app.identifyWidget(fooBar), 'fooBar');
@@ -840,13 +840,13 @@ registerSuite({
 			});
 		},
 
-		'ID from data-widget-id is added to the creation options'() {
+		'ID from data-uid is added to the creation options'() {
 			let actual: string;
 			app.registerCustomElementFactory('foo-bar', (options) => {
 				actual = (<any> options).id;
 				return createActualWidget();
 			});
-			projector.innerHTML = '<foo-bar data-widget-id="the-id"></foo-bar>';
+			projector.innerHTML = '<foo-bar data-uid="the-id"></foo-bar>';
 			return app.realize(root).then(() => {
 				assert.equal(actual, 'the-id');
 			});
