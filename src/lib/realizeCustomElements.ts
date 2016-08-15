@@ -272,7 +272,7 @@ const noop = () => {};
 /**
  * Realizes custom elements within a root element.
  *
- * @param defaultStore The default store of the app, may be null.
+ * @param defaultWidgetStore The default widget store of the app, may be null.
  * @param registerInstance Callback for registering new widget instances with the app
  * @param registry Read-only registry of actions, custom element factories, stores and widgets
  * @param registryProvider Registry provider, to be passed to custom element factories
@@ -281,7 +281,7 @@ const noop = () => {};
  * @return A handle to detach rendered widgets from the DOM and remove them from the widget registry
  */
 export default function realizeCustomElements(
-	defaultStore: StoreLike,
+	defaultWidgetStore: StoreLike,
 	addIdentifier: (id: string) => Handle,
 	registerInstance: (widget: WidgetLike, id: string) => Handle,
 	registry: CombinedRegistry,
@@ -339,13 +339,13 @@ export default function realizeCustomElements(
 							const factory = <WidgetFactory> _factory;
 							const options = <Options> _options;
 							// `data-state-from` store of the element takes precedence, then of the projector, then
-							// the application's default store.
-							const store = <StoreLike> _store || projectorStore || defaultStore;
+							// the application's default widget store.
+							const store = <StoreLike> _store || projectorStore || defaultWidgetStore;
 
 							id = options.id;
 							// If the widget has an ID, but stateFrom was not in its `data-options` attribute, and
 							// either its `data-state-from` attribute resolved to a store, or there is a default
-							// store, set the stateFrom option to the `data-state-from` or default store.
+							// store, set the stateFrom option to the `data-state-from` or default widget store.
 							if (id && !options.stateFrom && store) {
 								options.stateFrom = store;
 							}

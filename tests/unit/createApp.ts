@@ -3,7 +3,7 @@ import Promise from 'dojo-shim/Promise';
 import * as registerSuite from 'intern!object';
 import * as assert from 'intern/chai!assert';
 
-import createApp, { DEFAULT_STORE } from 'src/createApp';
+import createApp, { DEFAULT_WIDGET_STORE } from 'src/createApp';
 
 import { stub as stubActionFactory } from '../fixtures/action-factory';
 import {
@@ -19,33 +19,33 @@ const { toAbsMid } = require;
 registerSuite({
 	name: 'createApp',
 
-	'#defaultStore': {
+	'#defaultWidgetStore': {
 		'defaults to null'() {
-			assert.isNull(createApp().defaultStore);
+			assert.isNull(createApp().defaultWidgetStore);
 		},
 		'can be set at creation time'() {
 			const store = createStore();
-			const app = createApp({ defaultStore: store });
-			assert.strictEqual(app.defaultStore, store);
+			const app = createApp({ defaultWidgetStore: store });
+			assert.strictEqual(app.defaultWidgetStore, store);
 		},
 		'can be set after creation'() {
 			const store = createStore();
 			const app = createApp();
-			app.defaultStore = store;
-			assert.strictEqual(app.defaultStore, store);
+			app.defaultWidgetStore = store;
+			assert.strictEqual(app.defaultWidgetStore, store);
 		},
 		'can only be set once'() {
 			const store = createStore();
-			const app = createApp({ defaultStore: store });
-			assert.throws(() => app.defaultStore = createStore(), Error);
-			assert.strictEqual(app.defaultStore, store);
+			const app = createApp({ defaultWidgetStore: store });
+			assert.throws(() => app.defaultWidgetStore = createStore(), Error);
+			assert.strictEqual(app.defaultWidgetStore, store);
 		},
 		'ends up in the registry'() {
 			const store = createStore();
-			const app = createApp({ defaultStore: store });
-			assert.strictEqual(app.identifyStore(store), DEFAULT_STORE);
-			assert.isTrue(app.hasStore(DEFAULT_STORE));
-			return app.getStore(DEFAULT_STORE).then((actual) => {
+			const app = createApp({ defaultWidgetStore: store });
+			assert.strictEqual(app.identifyStore(store), DEFAULT_WIDGET_STORE);
+			assert.isTrue(app.hasStore(DEFAULT_WIDGET_STORE));
+			return app.getStore(DEFAULT_WIDGET_STORE).then((actual) => {
 				assert.strictEqual(actual, store);
 			});
 		}

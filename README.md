@@ -26,22 +26,22 @@ import createApp from 'dojo-app/createApp';
 const app = createApp();
 ```
 
-You can also define a default store at creation time:
+You can also define a default widget store at creation time:
 
 ```ts
 import createMemoryStore from 'dojo-widgets/util/createMemoryStore';
 
-const defaultStore = createMemoryStore();
-const app = createApp({ defaultStore });
+const defaultWidgetStore = createMemoryStore();
+const app = createApp({ defaultWidgetStore });
 ```
 
-Or you can, *just once*, assign a default store:
+Or you can, *just once*, assign a default widget store:
 
 ```ts
 import createMemoryStore from 'dojo-widgets/util/createMemoryStore';
 
 const app = createApp();
-app.defaultStore = createMemoryStore();
+app.defaultWidgetStore = createMemoryStore();
 ```
 
 This store will be used as the `stateFrom` option to widget and custom element factories, unless another store is specified.
@@ -146,12 +146,12 @@ app.hasWidget('my-widget');
 
 Each method returns `true` if the respective item was registered, and `false` if not.
 
-Besides checking `app.defaultStore` you can use the `DEFAULT_STORE` symbol to see if a default store was provided:
+Besides checking `app.defaultWidgetStore` you can use the `DEFAULT_WIDGET_STORE` symbol to see if a default widget store was provided:
 
 ```ts
-import { DEFAULT_STORE } from 'dojo-app/createApp';
+import { DEFAULT_WIDGET_STORE } from 'dojo-app/createApp';
 
-app.hasStore(DEFAULT_STORE);
+app.hasStore(DEFAULT_WIDGET_STORE);
 ```
 
 ### Finding the ID under which an action, store or widget was registered
@@ -166,7 +166,7 @@ app.identifyWidget(widget);
 
 Each method returns the ID string if the respective instance was registered, or throws an error if not.
 
-Note that the default store, if any, is registered under the `DEFAULT_STORE` symbol, *not* an ID string.
+Note that the default widget store, if any, is registered under the `DEFAULT_WIDGET_STORE` symbol, *not* an ID string.
 
 ### Loading an action, store or widget
 
@@ -180,12 +180,12 @@ app.getWidget('my-widget');
 
 Each method returns a promise for the respective item. If the item was not registered or could not be loaded, the promise is rejected.
 
-Besides accessing `app.defaultStore` you can use the `DEFAULT_STORE` symbol to get the default store:
+Besides accessing `app.defaultWidgetStore` you can use the `DEFAULT_WIDGET_STORE` symbol to get the default widget store:
 
 ```ts
-import { DEFAULT_STORE } from 'dojo-app/createApp';
+import { DEFAULT_WIDGET_STORE } from 'dojo-app/createApp';
 
-app.getStore(DEFAULT_STORE);
+app.getStore(DEFAULT_WIDGET_STORE);
 ```
 
 ### Configuring actions
@@ -374,11 +374,11 @@ Widgets can be identified through the `id` property on the options object, a `da
 
 The `data-state-from` attribute may be used on custom elements to specify a store identifier. This will only take effect if a widget ID is also specified. The `stateFrom` property on the options object that is passed to the factory will be set to the referenced store. Any `stateFrom` property in the `data-options` object still takes precedence.
 
-A default store may be configured by setting the `data-state-from` attribute on the `app-projector` custom element. It applies to all descendant elements that have IDs, though they can override it by setting their own `data-state-from` attribute or configuring `stateFrom` in their `data-options`.
+A default widget store may be configured by setting the `data-state-from` attribute on the `app-projector` custom element. It applies to all descendant elements that have IDs, though they can override it by setting their own `data-state-from` attribute or configuring `stateFrom` in their `data-options`.
 
 Custom elements that have widget IDs and a `stateFrom` store may set their `data-state` attribute to an initial state object, encoded as a JSON string. The store will be patched with the initial state and the widget ID before the widget is created.
 
-The special `app-widget` custom element can be used to render a previously registered widget. The `data-uid` or `id` attribute is used to retrieve the widget. The `data-state`, `data-state-from` and `data-options` attributes are ignored. No default store is applied.
+The special `app-widget` custom element can be used to render a previously registered widget. The `data-uid` or `id` attribute is used to retrieve the widget. The `data-state`, `data-state-from` and `data-options` attributes are ignored. No default widget store is applied.
 
 A widget ID can only be used once within an application. Similarly a widget instance can only be rendered once. The `getWidget()`, `hasWidget()` and `identifyWidget()` methods will work with widgets created by custom element factories.
 

@@ -428,8 +428,8 @@ registerSuite({
 				});
 			},
 
-			'takes precedence over the default store'() {
-				const app = createApp({ defaultStore: createStore() });
+			'takes precedence over the default widget store'() {
+				const app = createApp({ defaultWidgetStore: createStore() });
 				let actual: { stateFrom: StoreLike } = null;
 				app.registerCustomElementFactory('foo-bar', (options) => {
 					actual = <any> options;
@@ -573,9 +573,9 @@ registerSuite({
 			});
 		},
 
-		'takes precedence over the default store'() {
+		'takes precedence over the default widget store'() {
 			let actual: { stateFrom: StoreLike } = null;
-			const app = createApp({ defaultStore: createStore() });
+			const app = createApp({ defaultWidgetStore: createStore() });
 			app.registerCustomElementFactory('foo-bar', (options) => {
 				actual = <any> options;
 				return createActualWidget({ tagName: 'mark' });
@@ -642,9 +642,9 @@ registerSuite({
 			});
 		},
 
-		'takes precedence over the default store'() {
+		'takes precedence over the default widget store'() {
 			let actual: { stateFrom: StoreLike } = null;
-			const app = createApp({ defaultStore: createStore() });
+			const app = createApp({ defaultWidgetStore: createStore() });
 			app.registerCustomElementFactory('foo-bar', (options) => {
 				actual = <any> options;
 				return createActualWidget({ tagName: 'mark' });
@@ -675,11 +675,11 @@ registerSuite({
 		}
 	},
 
-	'the app has a default store': {
+	'the app has a default widget store': {
 		'if the element has an ID, causes the custom element factory to be called with a stateFrom option set to the store'() {
 			let actual: { stateFrom: StoreLike } = null;
 			const expected = createStore();
-			const app = createApp({ defaultStore: expected });
+			const app = createApp({ defaultWidgetStore: expected });
 			app.registerCustomElementFactory('foo-bar', (options) => {
 				actual = <any> options;
 				return createActualWidget({ tagName: 'mark' });

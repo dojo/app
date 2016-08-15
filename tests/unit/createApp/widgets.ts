@@ -193,10 +193,10 @@ registerSuite({
 			});
 		},
 
-		'the stateFrom option is set to the default store, if any'() {
+		'the stateFrom option is set to the default widget store, if any'() {
 			let actual: { [p: string]: any } = null;
 			const store = createStore();
-			const app = createApp({ defaultStore: store });
+			const app = createApp({ defaultWidgetStore: store });
 			app.registerWidgetFactory('foo', (options: any) => {
 				actual = options;
 				return createWidget();
@@ -527,10 +527,10 @@ registerSuite({
 				});
 			},
 
-			'the factory\'s stateFrom option is set to the default store, if any'() {
+			'the factory\'s stateFrom option is set to the default widget store, if any'() {
 				let actual: { [p: string]: any } = null;
 				const store = createStore();
-				const app = createApp({ defaultStore: store });
+				const app = createApp({ defaultWidgetStore: store });
 				app.loadDefinition({
 					widgets: [
 						{
@@ -549,9 +549,9 @@ registerSuite({
 				});
 			},
 
-			'the definition\'s stateFrom option takes precedence over the default store, if any'() {
+			'the definition\'s stateFrom option takes precedence over the default widget store, if any'() {
 				let actual: { [p: string]: any } = null;
-				const app = createApp({ defaultStore: createStore() });
+				const app = createApp({ defaultWidgetStore: createStore() });
 				const store = createStore();
 				app.loadDefinition({
 					widgets: [

@@ -203,7 +203,7 @@ export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: Reso
 		stateFrom?: StoreLike;
 	}
 
-	return ({ registryProvider, stateFrom: defaultStore }: BaseOptions) => {
+	return ({ registryProvider, stateFrom: defaultWidgetStore }: BaseOptions) => {
 		interface Options extends BaseOptions {
 			id: string;
 			listeners?: EventedListenersMap;
@@ -221,7 +221,7 @@ export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: Reso
 		]).then(([_factory, _listeners, _store]) => {
 			const factory = <WidgetFactory> _factory;
 			const listeners = <EventedListenersMap> _listeners;
-			const store = <StoreLike> _store || defaultStore;
+			const store = <StoreLike> _store || defaultWidgetStore;
 
 			if (listeners) {
 				options.listeners = listeners;

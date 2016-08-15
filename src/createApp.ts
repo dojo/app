@@ -130,8 +130,7 @@ export interface ActionDefinition extends ItemDefinition<ActionFactory, ActionLi
 	 *
 	 * When the action is created it'll automatically observe this store.
 	 *
-	 * Note that the `DEFAULT_STORE` identifier is not supported. Default stores are automatically used if stateFrom
-	 * is not provided.
+	 * Note that the `DEFAULT_WIDGET_STORE` identifier is not supported.
 	 */
 	stateFrom?: Identifier | StoreLike;
 }
@@ -176,8 +175,8 @@ export interface WidgetDefinition extends ItemDefinition<WidgetFactory, WidgetLi
 	 *
 	 * When the widget is created, the store is passed as the `stateFrom` option.
 	 *
-	 * Note that the `DEFAULT_STORE` identifier is not supported. Default stores are automatically used if stateFrom
-	 * is not provided.
+	 * Note that the `DEFAULT_WIDGET_STORE` identifier is not supported. The default widget store is automatically used
+	 * if stateFrom is not provided.
 	 */
 	stateFrom?: Identifier | StoreLike;
 
@@ -314,7 +313,7 @@ export interface AppMixin {
 	 * A default store to be used as the `stateFrom` option to widget and custom element factories, unless another
 	 * store is specified.
 	 */
-	defaultStore?: StoreLike;
+	defaultWidgetStore?: StoreLike;
 
 	/**
 	 * Provides access to read-only registries for actions, stores and widgets.
@@ -425,7 +424,7 @@ export interface AppOptions {
 	 * A default store to be used as the `stateFrom` option to widget and custom element factories, unless another
 	 * store is specified.
 	 */
-	defaultStore?: StoreLike;
+	defaultWidgetStore?: StoreLike;
 
 	/**
 	 * Function that maps a (relative) module identifier to an absolute one. Used to resolve relative module
@@ -437,9 +436,9 @@ export interface AppOptions {
 export interface AppFactory extends ComposeFactory<App, AppOptions> {}
 
 /**
- * Identifier for the default store, if any.
+ * Identifier for the default widget store, if any.
  */
-export const DEFAULT_STORE = Symbol('App factory default store identifier');
+export const DEFAULT_WIDGET_STORE = Symbol('Identifier for default widget stores');
 
 const noop = () => {};
 
@@ -488,17 +487,17 @@ function registerInstance(app: App, instance: WidgetLike, id: string): Handle {
 }
 
 const createApp = compose({
-	set defaultStore(store: StoreLike) {
+	set defaultWidgetStore(store: StoreLike) {
 		const app: App = this;
-		instanceRegistries.get(app).addStore(store, DEFAULT_STORE);
-		storeFactories.get(app).register(DEFAULT_STORE, () => store);
+		instanceRegistries.get(app).addStore(store, DEFAULT_WIDGET_STORE);
+		storeFactories.get(app).register(DEFAULT_WIDGET_STORE, () => store);
 	},
 
-	get defaultStore() {
+	get defaultWidgetStore() {
 		const app: App = this;
 		const factories = storeFactories.get(app);
-		if (factories.hasId(DEFAULT_STORE)) {
-			return <StoreLike> factories.get(DEFAULT_STORE)();
+		if (factories.hasId(DEFAULT_WIDGET_STORE)) {
+			return <StoreLike> factories.get(DEFAULT_WIDGET_STORE)();
 		}
 		else {
 			return null;
@@ -683,15 +682,15 @@ const createApp = compose({
 				// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
 				// factory is registered through this method or loaded from a definition.
 
-				const { registryProvider, defaultStore } = app;
+				const { registryProvider, defaultWidgetStore } = app;
 				interface Options {
 					id: string;
 					registryProvider: RegistryProvider;
 					stateFrom?: StoreLike;
 				}
 				const options: Options = { id, registryProvider };
-				if (defaultStore) {
-					options.stateFrom = defaultStore;
+				if (defaultWidgetStore) {
+					options.stateFrom = defaultWidgetStore;
 				}
 				return factory(options);
 			}).then((widget) => {
@@ -767,14 +766,12 @@ const createApp = compose({
 
 	realize(root: Element) {
 		const app: App = this;
-		const { defaultStore, registryProvider } = app;
-
 		return realizeCustomElements(
-			defaultStore,
+			app.defaultWidgetStore,
 			(id) => addIdentifier(app, id),
 			(instance: WidgetLike, id: string) => registerInstance(app, instance, id),
 			publicRegistries.get(app),
-			registryProvider,
+			app.registryProvider,
 			root
 		);
 	}
@@ -858,7 +855,7 @@ const createApp = compose({
 		}
 	},
 
-	initialize (instance: App, { defaultStore = null, toAbsMid = (moduleId: string) => moduleId }: AppOptions = {}) {
+	initialize (instance: App, { defaultWidgetStore = null, toAbsMid = (moduleId: string) => moduleId }: AppOptions = {}) {
 		const publicRegistry = {
 			getAction: instance.getAction.bind(instance),
 			hasAction: instance.hasAction.bind(instance),
@@ -886,8 +883,8 @@ const createApp = compose({
 		registryProviders.set(instance, new RegistryProvider(publicRegistry));
 		widgetInstances.set(instance, new IdentityRegistry<WidgetLike>());
 
-		if (defaultStore) {
-			instance.defaultStore = defaultStore;
+		if (defaultWidgetStore) {
+			instance.defaultWidgetStore = defaultWidgetStore;
 		}
 	}
 }) as AppFactory;
