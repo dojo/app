@@ -35,8 +35,16 @@ const defaultStore = createMemoryStore();
 const app = createApp({ defaultStore });
 ```
 
-This store will be used as the `stateFrom` option to widget and custom element
-factories, unless another store is specified.
+Or you can, *just once*, assign a default store:
+
+```ts
+import createMemoryStore from 'dojo-widgets/util/createMemoryStore';
+
+const app = createApp();
+app.defaultStore = createMemoryStore();
+```
+
+This store will be used as the `stateFrom` option to widget and custom element factories, unless another store is specified.
 
 ### Registering actions
 

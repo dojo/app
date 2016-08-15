@@ -437,7 +437,7 @@ export interface AppOptions {
 export interface AppFactory extends ComposeFactory<App, AppOptions> {}
 
 /**
- * Identifier for the default store, which is available if it was provided the app factory was created.
+ * Identifier for the default store, if any.
  */
 export const DEFAULT_STORE = Symbol('App factory default store identifier');
 
@@ -453,6 +453,7 @@ const widgetFactories = new WeakMap<App, IdentityRegistry<RegisteredFactory<Widg
 const instanceRegistries = new WeakMap<App, InstanceRegistry>();
 const midResolvers = new WeakMap<App, ResolveMid>();
 const publicRegistries = new WeakMap<App, CombinedRegistry>();
+const registryProviders = new WeakMap<App, RegistryProvider>();
 const widgetInstances = new WeakMap<App, IdentityRegistry<WidgetLike>>();
 
 function addIdentifier(app: App, id: Identifier) {
@@ -487,6 +488,28 @@ function registerInstance(app: App, instance: WidgetLike, id: string): Handle {
 }
 
 const createApp = compose({
+	set defaultStore(store: StoreLike) {
+		const app: App = this;
+		instanceRegistries.get(app).addStore(store, DEFAULT_STORE);
+		storeFactories.get(app).register(DEFAULT_STORE, () => store);
+	},
+
+	get defaultStore() {
+		const app: App = this;
+		const factories = storeFactories.get(app);
+		if (factories.hasId(DEFAULT_STORE)) {
+			return <StoreLike> factories.get(DEFAULT_STORE)();
+		}
+		else {
+			return null;
+		}
+	},
+
+	get registryProvider() {
+		const app: App = this;
+		return registryProviders.get(app);
+	},
+
 	registerAction(id: Identifier, action: ActionLike): Handle {
 		const app: App = this;
 
@@ -851,20 +874,6 @@ const createApp = compose({
 		};
 		Object.freeze(publicRegistry);
 
-		Object.defineProperty(instance, 'defaultStore', {
-			configurable: false,
-			enumerable: true,
-			value: defaultStore,
-			writable: false
-		});
-
-		Object.defineProperty(instance, 'registryProvider', {
-			configurable: false,
-			enumerable: true,
-			value: new RegistryProvider(publicRegistry),
-			writable: false
-		});
-
 		actionFactories.set(instance, new IdentityRegistry<RegisteredFactory<ActionLike>>());
 		customElementFactories.set(instance, new IdentityRegistry<RegisteredFactory<WidgetLike>>());
 		identifiers.set(instance, new Set<Identifier>());
@@ -874,11 +883,11 @@ const createApp = compose({
 		instanceRegistries.set(instance, new InstanceRegistry());
 		midResolvers.set(instance, makeMidResolver(toAbsMid));
 		publicRegistries.set(instance, publicRegistry);
+		registryProviders.set(instance, new RegistryProvider(publicRegistry));
 		widgetInstances.set(instance, new IdentityRegistry<WidgetLike>());
 
-		if (instance.defaultStore) {
-			instanceRegistries.get(instance).addStore(instance.defaultStore, DEFAULT_STORE);
-			storeFactories.get(instance).register(DEFAULT_STORE, () => instance.defaultStore);
+		if (defaultStore) {
+			instance.defaultStore = defaultStore;
 		}
 	}
 }) as AppFactory;

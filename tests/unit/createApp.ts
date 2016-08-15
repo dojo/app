@@ -23,18 +23,22 @@ registerSuite({
 		'defaults to null'() {
 			assert.isNull(createApp().defaultStore);
 		},
-		'set at creation time'() {
+		'can be set at creation time'() {
 			const store = createStore();
 			const app = createApp({ defaultStore: store });
 			assert.strictEqual(app.defaultStore, store);
 		},
-		'has expected configuration'() {
+		'can be set after creation'() {
+			const store = createStore();
+			const app = createApp();
+			app.defaultStore = store;
+			assert.strictEqual(app.defaultStore, store);
+		},
+		'can only be set once'() {
 			const store = createStore();
 			const app = createApp({ defaultStore: store });
-			const { configurable, enumerable, writable } = Object.getOwnPropertyDescriptor(app, 'defaultStore');
-			assert.isFalse(configurable);
-			assert.isTrue(enumerable);
-			assert.isFalse(writable);
+			assert.throws(() => app.defaultStore = createStore(), Error);
+			assert.strictEqual(app.defaultStore, store);
 		},
 		'ends up in the registry'() {
 			const store = createStore();
@@ -186,11 +190,10 @@ registerSuite({
 				assert.throws(() => registryProvider.get('foo'), Error, 'No such store: foo');
 			},
 
-			'has expected configuration'() {
-				const { configurable, enumerable, writable } = Object.getOwnPropertyDescriptor(app, 'registryProvider');
-				assert.isFalse(configurable);
-				assert.isTrue(enumerable);
-				assert.isFalse(writable);
+			'is read-only'() {
+				assert.throws(() => {
+					app.registryProvider = null;
+				}, TypeError);
 			}
 		};
 	})(),
