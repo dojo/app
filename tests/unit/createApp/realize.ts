@@ -50,14 +50,14 @@ registerSuite({
 
 	beforeEach() {
 		root = document.createElement('div');
-		projector = document.createElement('widget-projector');
+		projector = document.createElement('app-projector');
 		root.appendChild(projector);
 		app = createApp();
 	},
 
 	'recognizes custom elements by tag name'() {
 		app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
-		projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+		projector.innerHTML = '<app-widget id="foo"></app-widget>';
 		return app.realize(root).then(() => {
 			assert.equal(projector.firstChild.nodeName, 'MARK');
 		});
@@ -65,7 +65,7 @@ registerSuite({
 
 	'tag name comparisons are case-insensitive'() {
 		app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
-		projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+		projector.innerHTML = '<app-widget id="foo"></app-widget>';
 		return app.realize(root).then(() => {
 			assert.equal(projector.firstChild.nodeName, 'MARK');
 		});
@@ -73,7 +73,7 @@ registerSuite({
 
 	'tag name takes precedence over `is` attribute'() {
 		app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
-		projector.innerHTML = '<widget-instance is="widget-projector" id="foo"></widget-instance>';
+		projector.innerHTML = '<app-widget is="app-projector" id="foo"></app-widget>';
 		return app.realize(root).then(() => {
 			assert.equal(root.firstChild.firstChild.nodeName, 'MARK');
 		});
@@ -81,7 +81,7 @@ registerSuite({
 
 	'`is` attribute comparison is case-insensitive'() {
 		app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
-		projector.innerHTML = '<div is="widget-instance" id="foo"></div>';
+		projector.innerHTML = '<div is="app-widget" id="foo"></div>';
 		return app.realize(root).then(() => {
 			assert.equal(projector.firstChild.nodeName, 'MARK');
 		});
@@ -95,31 +95,31 @@ registerSuite({
 		});
 	},
 
-	'custom elements must be rooted in a widget-projector'() {
-		root.innerHTML = '<widget-instance id="foo"/>';
-		return rejects(app.realize(root), Error, 'Custom tags must be rooted in a widget-projector');
+	'custom elements must be rooted in a app-projector'() {
+		root.innerHTML = '<app-widget id="foo"/>';
+		return rejects(app.realize(root), Error, 'Custom tags must be rooted in a app-projector');
 	},
 
-	'the widget-projector element is left in the DOM'() {
+	'the app-projector element is left in the DOM'() {
 		app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
-		projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+		projector.innerHTML = '<app-widget id="foo"></app-widget>';
 		return app.realize(root).then(() => {
 			assert.strictEqual(root.firstChild, projector);
 		});
 	},
 
-	'the widget-projector element may be the root'() {
+	'the app-projector element may be the root'() {
 		app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
-		projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+		projector.innerHTML = '<app-widget id="foo"></app-widget>';
 		return app.realize(projector).then(() => {
 			assert.equal(projector.firstChild.nodeName, 'MARK');
 		});
 	},
 
-	'widget-projector elements cannot contain other widget-projector elements'() {
+	'app-projector elements cannot contain other app-projector elements'() {
 		app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
-		projector.innerHTML = '<widget-projector></widget-projector>';
-		return rejects(app.realize(root), Error, 'widget-projector cannot contain another widget-projector');
+		projector.innerHTML = '<app-projector></app-projector>';
+		return rejects(app.realize(root), Error, 'app-projector cannot contain another app-projector');
 	},
 
 	'realized elements are replaced'() {
@@ -127,10 +127,10 @@ registerSuite({
 		app.registerWidget('bar', createActualWidget({ tagName: 'strong' }));
 		projector.innerHTML = `
 			before1
-			<widget-instance id="foo"></widget-instance>
+			<app-widget id="foo"></app-widget>
 			<div>
 				before2
-				<widget-instance id="bar"></widget-instance>
+				<app-widget id="bar"></app-widget>
 				after2
 			</div>
 			after1
@@ -157,8 +157,8 @@ registerSuite({
 		app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
 		app.registerWidget('bar', createActualWidget({ tagName: 'strong' }));
 		root.innerHTML = `
-			<widget-projector><widget-instance id="foo"></widget-instance></widget-projector>
-			<widget-projector><widget-instance id="bar"></widget-instance></widget-projector>
+			<app-projector><app-widget id="foo"></app-widget></app-projector>
+			<app-projector><app-widget id="bar"></app-widget></app-projector>
 		`.trim();
 		return app.realize(root).then(() => {
 			assert.equal(root.firstChild.firstChild.nodeName, 'MARK');
@@ -166,22 +166,22 @@ registerSuite({
 		});
 	},
 
-	'<widget-instance> custom elements': {
+	'<app-widget> custom elements': {
 		'data-widget-id takes precedence over id'() {
 			app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
-			projector.innerHTML = '<widget-instance id="bar" data-widget-id="foo"></widget-instance>';
+			projector.innerHTML = '<app-widget id="bar" data-widget-id="foo"></app-widget>';
 			return app.realize(root).then(() => {
 				assert.equal(projector.firstChild.nodeName, 'MARK');
 			});
 		},
 
 		'an ID is required'() {
-			projector.innerHTML = '<widget-instance></widget-instance>';
+			projector.innerHTML = '<app-widget></app-widget>';
 			return rejects(app.realize(root), Error, 'Cannot resolve widget for a custom element without \'data-widget-id\' or \'id\' attributes');
 		},
 
 		'the ID must resolve to a widget instance'() {
-			projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+			projector.innerHTML = '<app-widget id="foo"></app-widget>';
 			return rejects(app.realize(root), Error, 'Could not find a value for identity \'foo\'');
 		}
 	},
@@ -208,16 +208,16 @@ registerSuite({
 		app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
 		app.registerWidget('bar', createActualWidget({ tagName: 'strong' }));
 		root.innerHTML = `
-			<widget-projector>
+			<app-projector>
 				<container-here>
-					<widget-instance id="foo"></widget-instance>
+					<app-widget id="foo"></app-widget>
 				</container-here>
-			</widget-projector>
-			<widget-projector>
+			</app-projector>
+			<app-projector>
 				<container-here>
-					<widget-instance id="bar"></widget-instance>
+					<app-widget id="bar"></app-widget>
 				</container-here>
-			</widget-projector>
+			</app-projector>
 		`.trim();
 		return app.realize(root).then(() => {
 			const first = root.firstElementChild.firstElementChild;
@@ -236,7 +236,7 @@ registerSuite({
 		projector.innerHTML = `
 			<container-here>
 				<div>
-					<widget-instance id="foo"></widget-instance>
+					<app-widget id="foo"></app-widget>
 				</div>
 			</container-here>
 		`.trim();
@@ -262,8 +262,8 @@ registerSuite({
 		const widget = createActualWidget({ tagName: 'mark' });
 		app.registerCustomElementFactory('foo-bar', () => widget);
 		root.innerHTML = `
-			<widget-projector><foo-bar></foo-bar></widget-projector>
-			<widget-projector><foo-bar></foo-bar></widget-projector>
+			<app-projector><foo-bar></foo-bar></app-projector>
+			<app-projector><foo-bar></foo-bar></app-projector>
 		`;
 		return rejects(app.realize(root), Error, 'Cannot attach a widget multiple times');
 	},
@@ -287,7 +287,7 @@ registerSuite({
 		const widget = createActualWidget({ tagName: 'mark' });
 		createContainer().append(widget);
 		app.registerWidget('foo', widget);
-		projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+		projector.innerHTML = '<app-widget id="foo"></app-widget>';
 		return rejects(app.realize(root), Error, 'Cannot attach a widget that already has a parent');
 	},
 
@@ -411,7 +411,7 @@ registerSuite({
 				});
 			},
 
-			'takes precedence over <widget-projector data-state-from>'() {
+			'takes precedence over <app-projector data-state-from>'() {
 				let actual: { stateFrom: StoreLike } = null;
 				app.registerCustomElementFactory('foo-bar', (options) => {
 					actual = <any> options;
@@ -556,7 +556,7 @@ registerSuite({
 			});
 		},
 
-		'takes precedence over <widget-projector data-state-from>'() {
+		'takes precedence over <app-projector data-state-from>'() {
 			let actual: { stateFrom: StoreLike } = null;
 			app.registerCustomElementFactory('foo-bar', (options) => {
 				actual = <any> options;
@@ -604,7 +604,7 @@ registerSuite({
 		}
 	},
 
-	'<widget-projector data-state-from> attribute': {
+	'<app-projector data-state-from> attribute': {
 		'is ignored if empty'() {
 			let actual: { stateFrom: StoreLike } = null;
 			app.registerCustomElementFactory('foo-bar', (options) => {
@@ -741,7 +741,7 @@ registerSuite({
 	'destroying the returned handle': {
 		'leaves the rendered elements in the DOM'() {
 			app.registerCustomElementFactory('foo-bar', () => createActualWidget({ tagName: 'mark' }));
-			root.innerHTML = '<widget-projector><foo-bar></foo-bar></widget-projector>';
+			root.innerHTML = '<app-projector><foo-bar></foo-bar></app-projector>';
 			return app.realize(root).then((handle) => {
 				handle.destroy();
 				return new Promise((resolve) => { setTimeout(resolve, 50); });
@@ -761,7 +761,7 @@ registerSuite({
 			let destroyedAttached = false;
 			attachedWidget.own({ destroy() { destroyedAttached = true; }});
 
-			projector.innerHTML = '<managed-widget></managed-widget><widget-instance id="attached></widget-instance>';
+			projector.innerHTML = '<managed-widget></managed-widget><app-widget id="attached></app-widget>';
 			return app.realize(root).then((handle) => {
 				handle.destroy();
 
@@ -786,7 +786,7 @@ registerSuite({
 
 		'a second time is a noop'() {
 			app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
-			projector.innerHTML = '<widget-instance id="foo"></widget-instance>';
+			projector.innerHTML = '<app-widget id="foo"></app-widget>';
 			return app.realize(root).then((handle) => {
 				handle.destroy();
 				handle.destroy();

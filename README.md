@@ -78,7 +78,7 @@ app.registerCustomElementFactory('tag-name', createWidget);
 
 A factory for a custom element should return a unique widget instance. It receives an `options` object with an optional `id` property and other options from the custom element.
 
-Tag names must be [valid according to the Custom Elements spec](https://www.w3.org/TR/custom-elements/#valid-custom-element-name). Additionally `widget-projector` and `widget-instance` names are reserved. Names are automatically lowercased before the factory is registered.
+Tag names must be [valid according to the Custom Elements spec](https://www.w3.org/TR/custom-elements/#valid-custom-element-name). Additionally `app-projector` and `app-widget` names are reserved. Names are automatically lowercased before the factory is registered.
 
 ### Registering stores
 
@@ -266,7 +266,7 @@ Note that if an action, store or widget instance is provided to the `instance` o
 
 The application factory must be loaded with [`dojo-loader`](https://github.com/dojo/loader) in order to resolve module identifiers. Both ES and UMD modules are supported. The default export is used as the `factory` or `instance` value.
 
-Custom element definitions must have a `name` property, which must be a [valid custom element name](https://www.w3.org/TR/custom-elements/#valid-custom-element-name) (and not `widget-projector` or `widget-instance`). They must also have the `factory` property, but *not* the `id` and `instance` properties
+Custom element definitions must have a `name` property, which must be a [valid custom element name](https://www.w3.org/TR/custom-elements/#valid-custom-element-name) (and not `app-projector` or `app-widget`). They must also have the `factory` property, but *not* the `id` and `instance` properties
 
 #### Action definitions
 
@@ -336,9 +336,9 @@ Each registry has `get()` and `identify()` methods. These behave the same as the
 
 Use the `App#realize(root: Element)` method to realize custom elements inside a DOM element.
 
-Widgets are rendered inside a projector. You can declare (multiple) projector slots in your DOM tree using the `widget-projector` custom element. These projectors must not be nested. Other custom elements can only occur within a `widget-projector`. You can pass a single `widget-projector` element as the `root` argument to `App#realize()`.
+Widgets are rendered inside a projector. You can declare (multiple) projector slots in your DOM tree using the `app-projector` custom element. These projectors must not be nested. Other custom elements can only occur within a `app-projector`. You can pass a single `app-projector` element as the `root` argument to `App#realize()`.
 
-All descending custom elements are replaced by rendered widgets. Widgets for nested elements are appended to their parent widget. Regular (non-custom) DOM nodes inside custom elements are not preserved, however regular DOM nodes within a `widget-projector` element are.
+All descending custom elements are replaced by rendered widgets. Widgets for nested elements are appended to their parent widget. Regular (non-custom) DOM nodes inside custom elements are not preserved, however regular DOM nodes within a `app-projector` element are.
 
 Custom elements are matched (case-insensitively) to registered factories. First the tag name is matched. If no factory is found, and the element has an `is` attribute, that value is used to find a factory. Unrecognized elements are left in the DOM where possible.
 
@@ -348,15 +348,15 @@ Widgets can be identified through the `id` property on the options object, a `da
 
 The `data-state-from` attribute may be used on custom elements to specify a store identifier. This will only take effect if a widget ID is also specified. The `stateFrom` property on the options object that is passed to the factory will be set to the referenced store. Any `stateFrom` property in the `data-options` object still takes precedence.
 
-A default store may be configured by setting the `data-state-from` attribute on the `widget-projector` custom element. It applies to all descendant elements that have IDs, though they can override it by setting their own `data-state-from` attribute or configuring `stateFrom` in their `data-options`.
+A default store may be configured by setting the `data-state-from` attribute on the `app-projector` custom element. It applies to all descendant elements that have IDs, though they can override it by setting their own `data-state-from` attribute or configuring `stateFrom` in their `data-options`.
 
 Custom elements that have widget IDs and a `stateFrom` store may set their `data-state` attribute to an initial state object, encoded as a JSON string. The store will be patched with the initial state and the widget ID before the widget is created.
 
-The special `widget-instance` custom element can be used to render a previously registered widget. The `data-widget-id` or `id` attribute is used to retrieve the widget. The `data-state`, `data-state-from` and `data-options` attributes are ignored. No default store is applied.
+The special `app-widget` custom element can be used to render a previously registered widget. The `data-widget-id` or `id` attribute is used to retrieve the widget. The `data-state`, `data-state-from` and `data-options` attributes are ignored. No default store is applied.
 
 A widget ID can only be used once within an application. Similarly a widget instance can only be rendered once. The `getWidget()`, `hasWidget()` and `identifyWidget()` methods will work with widgets created by custom element factories.
 
-`App#realize()` returns a promise. It is rejected when errors occur (e.g. bad `data-options` values, or a factory throws an error). Otherwise it is fulfilled with a `Handle` object. Use the `destroy()` method to destroy the created projectors and widgets. Widgets rendered through `widget-instance` are left as-is.
+`App#realize()` returns a promise. It is rejected when errors occur (e.g. bad `data-options` values, or a factory throws an error). Otherwise it is fulfilled with a `Handle` object. Use the `destroy()` method to destroy the created projectors and widgets. Widgets rendered through `app-widget` are left as-is.
 
 Given this application definition:
 
@@ -407,16 +407,16 @@ And this `<body>`:
 
 ```html
 <body>
-	<widget-projector>
+	<app-projector>
 		<div>
 			<dojo-container>
 				<a-widget data-options='{"id":"widget-1","tagName":"mark","stateFrom":"widget-state","listeners":{"click":"an-action"}}'></a-widget>
 				<div>
-					<div is="widget-instance" id="widget-2"></div>
+					<div is="app-widget" id="widget-2"></div>
 				</div>
 			</dojo-container>
 		</div>
-	</widget-projector>
+	</app-projector>
 </body>
 ```
 
@@ -424,14 +424,14 @@ The realized DOM will be:
 
 ```html
 <body>
-	<widget-projector>
+	<app-projector>
 		<div>
 			<dojo-container>
 				<mark class="awesome"></mark>
 				<strong></strong>
 			</dojo-container>
 		</div>
-	</widget-projector>
+	</app-projector>
 </body>
 ```
 

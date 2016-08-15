@@ -27,8 +27,8 @@ const reservedNames = new Set([
 	'font-face-name',
 	'missing-glyph',
 	// These are reserved by this module.
-	'widget-instance',
-	'widget-projector'
+	'app-projector',
+	'app-widget'
 ]);
 
 // According to <https://www.w3.org/TR/custom-elements/#valid-custom-element-name>.
@@ -72,7 +72,7 @@ interface CustomElement {
 }
 
 function isCustomElement(registry: CombinedRegistry, name: string): boolean {
-	return name === 'widget-projector' || name === 'widget-instance' || registry.hasCustomElementFactory(name);
+	return name === 'app-projector' || name === 'app-widget' || registry.hasCustomElementFactory(name);
 }
 
 function getCustomElementsByWidgetProjector(registry: CombinedRegistry, root: Element): CustomElement[] {
@@ -124,8 +124,8 @@ function getCustomElementsByWidgetProjector(registry: CombinedRegistry, root: El
 		// Start a new tree if the element is not contained in any existing node.
 		if (inverseStack.length === 0) {
 			// Don't costruct an invalid tree.
-			if (custom.name !== 'widget-projector') {
-				throw new Error('Custom tags must be rooted in a widget-projector');
+			if (custom.name !== 'app-projector') {
+				throw new Error('Custom tags must be rooted in a app-projector');
 			}
 
 			widgetProjectors.push(custom);
@@ -133,8 +133,8 @@ function getCustomElementsByWidgetProjector(registry: CombinedRegistry, root: El
 		// Add the element to the deepest node it is contained by.
 		else {
 			// Don't costruct an invalid tree.
-			if (custom.name === 'widget-projector') {
-				throw new Error('widget-projector cannot contain another widget-projector');
+			if (custom.name === 'app-projector') {
+				throw new Error('app-projector cannot contain another app-projector');
 			}
 
 			inverseStack[0].children.push(custom);
@@ -318,7 +318,7 @@ export default function realizeCustomElements(
 			let processing = [children];
 			while (processing.length > 0) {
 				for (const custom of processing.shift()) {
-					const isWidgetInstance = custom.name === 'widget-instance';
+					const isWidgetInstance = custom.name === 'app-widget';
 					let id = getIdFromAttributes(custom.element);
 
 					let promise: Promise<WidgetLike> = null;

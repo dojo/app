@@ -114,8 +114,8 @@ registerSuite({
 					'font-face-format',
 					'font-face-name',
 					'missing-glyph',
-					'widget-instance',
-					'widget-projector'
+					'app-projector',
+					'app-widget'
 				].forEach((name) => {
 					assert.throws(() => {
 						createApp().registerCustomElementFactory(name, createWidget);

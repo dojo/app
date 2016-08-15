@@ -402,9 +402,9 @@ export interface AppMixin {
 	loadDefinition(definitions: Definitions): Handle;
 
 	/**
-	 * Take a root element and replace <widget-instance> elements with widget instances.
+	 * Take a root element and replace <app-widget> elements with widget instances.
 	 *
-	 * @param root The root element that is searched for <widget-instance> elements
+	 * @param root The root element that is searched for <app-widget> elements
 	 * @return A handle to detach rendered widgets from the DOM and remove them from the widget registry
 	 */
 	realize(root: Element): Promise<Handle>;
