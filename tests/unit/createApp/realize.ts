@@ -864,22 +864,13 @@ registerSuite({
 			});
 		},
 
-		'IDs must be unique within the realization'() {
-			app.registerCustomElementFactory('foo-bar', () => createActualWidget());
-			projector.innerHTML = `
-				<foo-bar id="unique"></foo-bar>
-				<foo-bar id="unique"></foo-bar>
-			`;
-			return rejects(app.realize(root), Error, 'A widget with ID \'unique\' already exists');
-		},
-
 		'IDs must be unique within the application'() {
 			app.registerCustomElementFactory('foo-bar', () => createActualWidget());
-			app.registerWidget('unique', createWidget());
+			app.registerAction('unique', createAction());
 			projector.innerHTML = `
 				<foo-bar id="unique"></foo-bar>
 			`;
-			return rejects(app.realize(root), Error, 'A widget with ID \'unique\' already exists');
+			return rejects(app.realize(root), Error, '\'unique\' has already been used as an identifier');
 		},
 
 		'widgets without IDs can still be identified'() {
