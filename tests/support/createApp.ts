@@ -1,3 +1,4 @@
+import Promise from 'dojo-shim/Promise';
 import * as assert from 'intern/chai!assert';
 
 import {
