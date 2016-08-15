@@ -45,10 +45,12 @@ export type WidgetLike = Renderable;
  * Factory method to (asynchronously) create an action.
  *
  * @param registry The combined registries of the app
+ * @param store The store that was defined for this action. It's the factories responsibility to create an action that
+ *   observes the store
  * @return The action, or a promise for it
  */
 export interface ActionFactory {
-	(registry: CombinedRegistry): ActionLike | Promise<ActionLike>;
+	(registry: CombinedRegistry, store: StoreLike): ActionLike | Promise<ActionLike>;
 }
 
 /**
@@ -130,7 +132,8 @@ export interface ActionDefinition extends ItemDefinition<ActionFactory, ActionLi
 	 *
 	 * When the action is created it'll automatically observe this store.
 	 *
-	 * Note that the `DEFAULT_WIDGET_STORE` identifier is not supported.
+	 * Note that the `DEFAULT_ACTION_STORE` and `DEFAULT_WIDGET_STORE` identifiers are not supported. The default action
+	 * store is automatically used if stateFrom is not provided.
 	 */
 	stateFrom?: Identifier | StoreLike;
 }
@@ -175,8 +178,8 @@ export interface WidgetDefinition extends ItemDefinition<WidgetFactory, WidgetLi
 	 *
 	 * When the widget is created, the store is passed as the `stateFrom` option.
 	 *
-	 * Note that the `DEFAULT_WIDGET_STORE` identifier is not supported. The default widget store is automatically used
-	 * if stateFrom is not provided.
+	 * Note that the `DEFAULT_ACTION_STORE` and `DEFAULT_WIDGET_STORE` identifiers are not supported. The default widget
+	 * store is automatically used if stateFrom is not provided.
 	 */
 	stateFrom?: Identifier | StoreLike;
 
@@ -310,6 +313,11 @@ export interface CombinedRegistry {
 
 export interface AppMixin {
 	/**
+	 * A default store to be used as the `stateFrom` option to action factories, unless another store is specified.
+	 */
+	defaultActionStore?: StoreLike;
+
+	/**
 	 * A default store to be used as the `stateFrom` option to widget and custom element factories, unless another
 	 * store is specified.
 	 */
@@ -421,6 +429,11 @@ export type App = AppMixin & CombinedRegistry;
 
 export interface AppOptions {
 	/**
+	 * A default store to be used as the `stateFrom` option to action factories, unless another store is specified.
+	 */
+	defaultActionStore?: StoreLike;
+
+	/**
 	 * A default store to be used as the `stateFrom` option to widget and custom element factories, unless another
 	 * store is specified.
 	 */
@@ -434,6 +447,11 @@ export interface AppOptions {
 }
 
 export interface AppFactory extends ComposeFactory<App, AppOptions> {}
+
+/**
+ * Identifier for the default action store, if any.
+ */
+export const DEFAULT_ACTION_STORE = Symbol('Identifier for default action stores');
 
 /**
  * Identifier for the default widget store, if any.
@@ -487,6 +505,23 @@ function registerInstance(app: App, instance: WidgetLike, id: string): Handle {
 }
 
 const createApp = compose({
+	set defaultActionStore(store: StoreLike) {
+		const app: App = this;
+		instanceRegistries.get(app).addStore(store, DEFAULT_ACTION_STORE);
+		storeFactories.get(app).register(DEFAULT_ACTION_STORE, () => store);
+	},
+
+	get defaultActionStore() {
+		const app: App = this;
+		const factories = storeFactories.get(app);
+		if (factories.hasId(DEFAULT_ACTION_STORE)) {
+			return <StoreLike> factories.get(DEFAULT_ACTION_STORE)();
+		}
+		else {
+			return null;
+		}
+	},
+
 	set defaultWidgetStore(store: StoreLike) {
 		const app: App = this;
 		instanceRegistries.get(app).addStore(store, DEFAULT_WIDGET_STORE);
@@ -542,7 +577,8 @@ const createApp = compose({
 				.then(() => {
 					// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
 					// factory is registered through this method or loaded from a definition.
-					return factory(publicRegistries.get(app));
+
+					return factory(publicRegistries.get(app), app.defaultActionStore);
 				})
 				.then((action) => {
 					if (!destroyed) {
@@ -855,7 +891,14 @@ const createApp = compose({
 		}
 	},
 
-	initialize (instance: App, { defaultWidgetStore = null, toAbsMid = (moduleId: string) => moduleId }: AppOptions = {}) {
+	initialize (
+		instance: App,
+		{
+			defaultActionStore = null,
+			defaultWidgetStore = null,
+			toAbsMid = (moduleId: string) => moduleId
+		}: AppOptions = {}
+	) {
 		const publicRegistry = {
 			getAction: instance.getAction.bind(instance),
 			hasAction: instance.hasAction.bind(instance),
@@ -883,6 +926,9 @@ const createApp = compose({
 		registryProviders.set(instance, new RegistryProvider(publicRegistry));
 		widgetInstances.set(instance, new IdentityRegistry<WidgetLike>());
 
+		if (defaultActionStore) {
+			instance.defaultActionStore = defaultActionStore;
+		}
 		if (defaultWidgetStore) {
 			instance.defaultWidgetStore = defaultWidgetStore;
 		}

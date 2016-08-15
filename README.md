@@ -26,21 +26,23 @@ import createApp from 'dojo-app/createApp';
 const app = createApp();
 ```
 
-You can also define a default widget store at creation time:
+You can also define a default action and widget stores at creation time:
 
 ```ts
 import createMemoryStore from 'dojo-widgets/util/createMemoryStore';
 
+const defaultActionStore = createMemoryStore();
 const defaultWidgetStore = createMemoryStore();
-const app = createApp({ defaultWidgetStore });
+const app = createApp({ defaultActionStore, defaultWidgetStore });
 ```
 
-Or you can, *just once*, assign a default widget store:
+Or you can, *just once*, assign default stores:
 
 ```ts
 import createMemoryStore from 'dojo-widgets/util/createMemoryStore';
 
 const app = createApp();
+app.defaultActionStore = createMemoryStore();
 app.defaultWidgetStore = createMemoryStore();
 ```
 
@@ -75,6 +77,8 @@ app.registerActionFactory('my-lazy-action', () => {
 ```
 
 Note that an action instance may only be registered once. A factory is not allowed to return a previously registered instance.
+
+The factory is called with a registry object and potentially a default action store. The registry object contains the same `has*()` and `get*()` methods that are available on the application factory itself.
 
 ### Registering custom element factories
 
@@ -146,11 +150,12 @@ app.hasWidget('my-widget');
 
 Each method returns `true` if the respective item was registered, and `false` if not.
 
-Besides checking `app.defaultWidgetStore` you can use the `DEFAULT_WIDGET_STORE` symbol to see if a default widget store was provided:
+Besides checking `app.defaultActionStore` or `app.defaultWidgetStore` you can use the `DEFAULT_ACTION_STORE` and `DEFAULT_WIDGET_STORE` symbols to see if the respective default store was provided:
 
 ```ts
-import { DEFAULT_WIDGET_STORE } from 'dojo-app/createApp';
+import { DEFAULT_ACTION_STORE, DEFAULT_WIDGET_STORE } from 'dojo-app/createApp';
 
+app.hasStore(DEFAULT_ACTION_STORE);
 app.hasStore(DEFAULT_WIDGET_STORE);
 ```
 
@@ -166,7 +171,7 @@ app.identifyWidget(widget);
 
 Each method returns the ID string if the respective instance was registered, or throws an error if not.
 
-Note that the default widget store, if any, is registered under the `DEFAULT_WIDGET_STORE` symbol, *not* an ID string.
+Note that the default action store, if any, is registered under the `DEFAULT_ACTION_STORE` symbol, *not* an ID string. The same goes for the default widget store, which is registered under the `DEFAULT_WIDGET_STORE` symbol.
 
 ### Loading an action, store or widget
 
@@ -180,11 +185,12 @@ app.getWidget('my-widget');
 
 Each method returns a promise for the respective item. If the item was not registered or could not be loaded, the promise is rejected.
 
-Besides accessing `app.defaultWidgetStore` you can use the `DEFAULT_WIDGET_STORE` symbol to get the default widget store:
+Besides accessing `app.defaultActionStore` or `app.defaultWidgetStore` you can use the `DEFAULT_ACTION_STORE` and `DEFAULT_WIDGET_STORE` symbols to get the respective default store:
 
 ```ts
-import { DEFAULT_WIDGET_STORE } from 'dojo-app/createApp';
+import { DEFAULT_ACTION_STORE, DEFAULT_WIDGET_STORE } from 'dojo-app/createApp';
 
+app.getStore(DEFAULT_ACTION_STORE);
 app.getStore(DEFAULT_WIDGET_STORE);
 ```
 
@@ -298,11 +304,9 @@ Custom element definitions must have a `name` property, which must be a [valid c
 
 You might be tempted to specify `dojo-actions/createAction` as the `factory` in action definitions. However actions must be created with a `do()` implementation and this implementation cannot be specified in the definition object. You'll have to use your own factory method, like in the `registerActionFactory()` example above, or point directly at an action instance.
 
-However this means you miss out on one feature of the `dojo-actions/createAction` factory: automatically observing a store for the action's state. Ordinarily this is done by passing the store in the `stateFrom` option when creating the action.
+If you use your own factory method you can use the `stateFrom` option in the action definition. This can be an actual store or a string identifier for a store that is registered with the application factory. The store will be lazily loaded when the action is needed, and is then passed to the factory method as its second argument. You can now set up your action so it observes the store for its state.
 
-The application factory lets you specify a similar `stateFrom` option in the action definition itself. It can be an actual store or a string identifier for a store that is registered with the application factory.
-
-The store will be lazily loaded when the action is needed, and the appropriate methods will be called so the action can observe the store for its state.
+If the `stateFrom` option is not used, but a default action store is provided, that default action store will be passed to the factory.
 
 #### Store definitions
 

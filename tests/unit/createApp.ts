@@ -3,7 +3,7 @@ import Promise from 'dojo-shim/Promise';
 import * as registerSuite from 'intern!object';
 import * as assert from 'intern/chai!assert';
 
-import createApp, { DEFAULT_WIDGET_STORE } from 'src/createApp';
+import createApp, { DEFAULT_ACTION_STORE, DEFAULT_WIDGET_STORE } from 'src/createApp';
 
 import { stub as stubActionFactory } from '../fixtures/action-factory';
 import {
@@ -18,6 +18,38 @@ const { toAbsMid } = require;
 
 registerSuite({
 	name: 'createApp',
+
+	'#defaultActionStore': {
+		'defaults to null'() {
+			assert.isNull(createApp().defaultActionStore);
+		},
+		'can be set at creation time'() {
+			const store = createStore();
+			const app = createApp({ defaultActionStore: store });
+			assert.strictEqual(app.defaultActionStore, store);
+		},
+		'can be set after creation'() {
+			const store = createStore();
+			const app = createApp();
+			app.defaultActionStore = store;
+			assert.strictEqual(app.defaultActionStore, store);
+		},
+		'can only be set once'() {
+			const store = createStore();
+			const app = createApp({ defaultActionStore: store });
+			assert.throws(() => app.defaultActionStore = createStore(), Error);
+			assert.strictEqual(app.defaultActionStore, store);
+		},
+		'ends up in the registry'() {
+			const store = createStore();
+			const app = createApp({ defaultActionStore: store });
+			assert.strictEqual(app.identifyStore(store), DEFAULT_ACTION_STORE);
+			assert.isTrue(app.hasStore(DEFAULT_ACTION_STORE));
+			return app.getStore(DEFAULT_ACTION_STORE).then((actual) => {
+				assert.strictEqual(actual, store);
+			});
+		}
+	},
 
 	'#defaultWidgetStore': {
 		'defaults to null'() {

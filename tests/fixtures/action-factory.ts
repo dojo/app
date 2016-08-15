@@ -7,5 +7,5 @@ export function stub (stub: ActionFactory) {
 }
 
 export default function (registry: CombinedRegistry) {
-	return factory(registry);
+	return factory(registry, null);
 }

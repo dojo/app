@@ -111,24 +111,15 @@ export function makeActionFactory(definition: ActionDefinition, resolveMid: Reso
 		throw new TypeError('Cannot specify stateFrom option when action definition points directly at an instance');
 	}
 
-	return (registry: CombinedRegistry) => {
+	return (registry: CombinedRegistry, defaultActionStore: StoreLike) => {
 		return Promise.all<any>([
-			resolveFactory('action', definition, resolveMid).then((factory) => {
-				return factory(registry);
-			}),
+			resolveFactory('action', definition, resolveMid),
 			resolveStore(registry, definition)
-		]).then((values) => {
-			let action: ActionLike;
-			let store: StoreLike;
-			[action, store] = values;
+		]).then(([_factory, _store]) => {
+			const factory = <ActionFactory> _factory;
+			const store = <StoreLike> _store || defaultActionStore;
 
-			if (store) {
-				// No options are passed to the factory, since the do() implementation cannot be specified in
-				// action definitions. This means the state observation has to be done after the action is created.
-				action.own(action.observeState(definition.id, store));
-			}
-
-			return action;
+			return factory(registry, store);
 		});
 	};
 }
