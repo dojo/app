@@ -13,20 +13,12 @@ import {
 	createAction,
 	createStore,
 	invert,
+	isCombinedRegistry,
 	rejects,
 	strictEqual
 } from '../../support/createApp';
 
 const { toAbsMid } = require;
-
-function isCombinedRegistry(registry: CombinedRegistry): void {
-	assert.isFunction(registry.getAction);
-	assert.isFunction(registry.hasAction);
-	assert.isFunction(registry.getStore);
-	assert.isFunction(registry.hasStore);
-	assert.isFunction(registry.getWidget);
-	assert.isFunction(registry.hasWidget);
-}
 
 registerSuite({
 	name: 'createApp (actions)',

@@ -7,6 +7,7 @@ import { Handle } from 'dojo-core/interfaces';
 
 import {
 	ActionLike,
+	CombinedRegistry,
 	StoreLike,
 	WidgetLike
 } from 'src/createApp';
@@ -91,6 +92,18 @@ export function invert(promise: Promise<any>): Promise<any> {
 	}, (err) => {
 		return err;
 	});
+}
+
+export function isCombinedRegistry(registry: CombinedRegistry): void {
+	assert.isFunction(registry.getAction);
+	assert.isFunction(registry.hasAction);
+	assert.isFunction(registry.identifyAction);
+	assert.isFunction(registry.getStore);
+	assert.isFunction(registry.hasStore);
+	assert.isFunction(registry.identifyStore);
+	assert.isFunction(registry.getWidget);
+	assert.isFunction(registry.hasWidget);
+	assert.isFunction(registry.identifyWidget);
 }
 
 export function rejects(promise: Promise<any>, errType: Function, msg?: string): Promise<any> {
