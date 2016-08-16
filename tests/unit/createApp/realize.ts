@@ -65,7 +65,7 @@ registerSuite({
 
 	'tag name comparisons are case-insensitive'() {
 		app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
-		projector.innerHTML = '<app-widget id="foo"></app-widget>';
+		projector.innerHTML = '<aPp-WiDgEt id="foo"></aPp-WiDgEt>';
 		return app.realize(root).then(() => {
 			assert.equal(projector.firstChild.nodeName, 'MARK');
 		});
@@ -81,7 +81,7 @@ registerSuite({
 
 	'`is` attribute comparison is case-insensitive'() {
 		app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
-		projector.innerHTML = '<div is="app-widget" id="foo"></div>';
+		projector.innerHTML = '<div is="aPp-WiDgEt" id="foo"></div>';
 		return app.realize(root).then(() => {
 			assert.equal(projector.firstChild.nodeName, 'MARK');
 		});
