@@ -361,8 +361,9 @@ export interface AppMixin {
 	/**
 	 * Register an action factory with the app.
 	 *
-	 * The factory will be called the first time the action is needed. It'll be called with *one* argument:
-	 * the combined registries of the app.
+	 * The factory will be called the first time the action is needed. It'll be called with at least one argument:
+	 * the combined registries of the app. The second argument may be the store that was defined for this action. It's
+	 * the factories responsibility to create an action that observes the store.
 	 *
 	 * Note that the `createAction()` factory from `dojo-actions` cannot be used here since it requires you to define
 	 * the `do()` implementation, which the app factory does not allow.
@@ -419,7 +420,8 @@ export interface AppMixin {
 	 * Register a widget factory with the app.
 	 *
 	 * The factory will be called the first time the widget is needed. It'll be called with an options object
-	 * that has its `id` property set to the widget ID.
+	 * that has its `id` property set to the widget ID, and a `registryProvider` property containing a RegistryProvider
+	 * implementation for the app. If a default widget store is available it'll be passed as the `stateFrom` property.
 	 *
 	 * @param id How the widget is identified
 	 * @param factory A factory function that (asynchronously) creates a widget.
