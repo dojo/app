@@ -308,6 +308,8 @@ If you use your own factory method you can use the `stateFrom` option in the act
 
 If the `stateFrom` option is not used, but a default action store is provided, that default action store will be passed to the factory.
 
+Use the `state` property to define an initial state that is added to the actions's store before the action is created, if any. This will be done lazily once the action is needed. The store is assumed to reject the initial state if it already contains state for the action. This error will be ignored and the action will be created with whatever state was already in the store.
+
 #### Store definitions
 
 If you use `factory` in your store definition you can use the `options` property to specify an object that is passed when the factory is called.

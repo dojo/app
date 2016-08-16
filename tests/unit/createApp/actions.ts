@@ -662,6 +662,129 @@ registerSuite({
 			}
 		},
 
+		'with state option': {
+			'state is added to the defined store before factory is called'() {
+				let calls: string[] = [];
+				let addArgs: any[][] = [];
+
+				const store = createStore();
+				(<any> store).add = (...args: any[]) => {
+					calls.push('add');
+					addArgs.push(args);
+					return Promise.resolve();
+				};
+
+				const state = { foo: 'bar' };
+
+				const app = createApp();
+				app.loadDefinition({
+					actions: [
+						{
+							id: 'foo',
+							factory() {
+								calls.push('factory');
+								return createAction();
+							},
+							state,
+							stateFrom: store
+						}
+					]
+				});
+
+				return app.getAction('foo').then(() => {
+					assert.deepEqual(calls, ['add', 'factory']);
+					assert.deepEqual(addArgs, [[{ foo: 'bar' }, { id: 'foo' }]]);
+				});
+			},
+
+			'state is added to the default store before factory is called'() {
+				let calls: string[] = [];
+				let addArgs: any[][] = [];
+
+				const store = createStore();
+				(<any> store).add = (...args: any[]) => {
+					calls.push('add');
+					addArgs.push(args);
+					return Promise.resolve();
+				};
+
+				const state = { foo: 'bar' };
+
+				const app = createApp();
+				app.defaultActionStore = store;
+				app.loadDefinition({
+					actions: [
+						{
+							id: 'foo',
+							factory() {
+								calls.push('factory');
+								return createAction();
+							},
+							state
+						}
+					]
+				});
+
+				return app.getAction('foo').then(() => {
+					assert.deepEqual(calls, ['add', 'factory']);
+					assert.deepEqual(addArgs, [[{ foo: 'bar' }, { id: 'foo' }]]);
+				});
+			},
+
+			'the factory is called even if adding state fails'() {
+				let calls: string[] = [];
+
+				const store = createStore();
+				(<any> store).add = (...args: any[]) => {
+					calls.push('add');
+					return Promise.reject(new Error());
+				};
+
+				const state = { foo: 'bar' };
+
+				const app = createApp();
+				app.loadDefinition({
+					actions: [
+						{
+							id: 'foo',
+							factory() {
+								calls.push('factory');
+								return createAction();
+							},
+							state,
+							stateFrom: store
+						}
+					]
+				});
+
+				return app.getAction('foo').then(() => {
+					assert.deepEqual(calls, ['add', 'factory']);
+				});
+			},
+
+			'the factory is called even if there is no store to add state to'() {
+				let calls: string[] = [];
+
+				const app = createApp();
+				app.loadDefinition({
+					actions: [
+						{
+							id: 'foo',
+							factory() {
+								calls.push('factory');
+								return createAction();
+							},
+							state: { foo: 'bar' }
+						}
+					]
+				});
+
+				return app.getAction('foo').then(() => {
+					assert.deepEqual(calls, ['factory']);
+				});
+			}
+		},
+
 		'requires factory or instance option'() {
 			assert.throws(() => {
 				createApp().loadDefinition({
@@ -945,6 +1068,20 @@ registerSuite({
 						]
 					});
 				}, TypeError, 'Cannot specify stateFrom option when action definition points directly at an instance');
+			},
+
+			'state option is not allowed'() {
+				assert.throws(() => {
+					createApp().loadDefinition({
+						actions: [
+							{
+								id: 'foo',
+								instance: createAction(),
+								state: {}
+							}
+						]
+					});
+				}, TypeError, 'Cannot specify state option when action definition points directly at an instance');
 			},
 
 			'only configures action when getAction() is called'() {
