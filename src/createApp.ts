@@ -4,6 +4,7 @@ import { EventedListener } from 'dojo-compose/mixins/createEvented';
 import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
 import Promise from 'dojo-shim/Promise';
+import Set from 'dojo-shim/Set';
 import WeakMap from 'dojo-shim/WeakMap';
 import { Renderable } from 'dojo-widgets/mixins/createRenderable';
 
@@ -433,6 +434,7 @@ const noop = () => {};
 type RegisteredFactory<T> = () => Promise<T>;
 const actionFactories = new WeakMap<App, IdentityRegistry<RegisteredFactory<ActionLike>>>();
 const customElementFactories = new WeakMap<App, IdentityRegistry<WidgetFactory>>();
+const identifiers = new WeakMap<App, Set<Identifier>>();
 const storeFactories = new WeakMap<App, IdentityRegistry<RegisteredFactory<StoreLike>>>();
 const widgetFactories = new WeakMap<App, IdentityRegistry<RegisteredFactory<WidgetLike>>>();
 
@@ -440,6 +442,22 @@ const instanceRegistries = new WeakMap<App, InstanceRegistry>();
 const midResolvers = new WeakMap<App, ResolveMid>();
 const publicRegistries = new WeakMap<App, CombinedRegistry>();
 const widgetInstances = new WeakMap<App, IdentityRegistry<WidgetLike>>();
+
+function addIdentifier(app: App, id: Identifier) {
+	const set = identifiers.get(app);
+	if (set.has(id)) {
+		throw new Error(`'${id}' has already been used as an identifier`);
+	}
+
+	set.add(id);
+
+	return {
+		destroy() {
+			this.destroy = noop;
+			set.delete(id);
+		}
+	};
+}
 
 function registerInstance(app: App, instance: WidgetLike, id: string): Handle {
 	// Maps the instance to its ID
@@ -459,6 +477,8 @@ function registerInstance(app: App, instance: WidgetLike, id: string): Handle {
 const createApp = compose({
 	registerAction(id: Identifier, action: ActionLike): Handle {
 		const app: App = this;
+
+		const idHandle = addIdentifier(app, id);
 		const instanceHandle = instanceRegistries.get(app).addAction(action, id);
 
 		const promise = new Promise<void>((resolve) => {
@@ -469,6 +489,7 @@ const createApp = compose({
 		return {
 			destroy() {
 				this.destroy = noop;
+				idHandle.destroy();
 				instanceHandle.destroy();
 				registryHandle.destroy();
 			}
@@ -477,6 +498,9 @@ const createApp = compose({
 
 	registerActionFactory(id: Identifier, factory: ActionFactory): Handle {
 		const app: App = this;
+
+		const idHandle = addIdentifier(app, id);
+
 		let destroyed = false;
 		let instanceHandle: Handle;
 		let registryHandle = actionFactories.get(app).register(id, () => {
@@ -508,6 +532,7 @@ const createApp = compose({
 			destroy() {
 				this.destroy = noop;
 				destroyed = true;
+				idHandle.destroy();
 				registryHandle.destroy();
 				if (instanceHandle) {
 					instanceHandle.destroy();
@@ -542,6 +567,7 @@ const createApp = compose({
 	registerStore(id: Identifier, store: StoreLike): Handle {
 		const app: App = this;
 
+		const idHandle = addIdentifier(app, id);
 		const instanceHandle = instanceRegistries.get(app).addStore(store, id);
 
 		const promise = Promise.resolve(store);
@@ -550,6 +576,7 @@ const createApp = compose({
 		return {
 			destroy() {
 				this.destroy = noop;
+				idHandle.destroy();
 				instanceHandle.destroy();
 				registryHandle.destroy();
 			}
@@ -558,6 +585,9 @@ const createApp = compose({
 
 	registerStoreFactory(id: Identifier, factory: StoreFactory): Handle {
 		const app: App = this;
+
+		const idHandle = addIdentifier(app, id);
+
 		let destroyed = false;
 		let instanceHandle: Handle;
 		let registryHandle = storeFactories.get(app).register(id, () => {
@@ -582,6 +612,7 @@ const createApp = compose({
 			destroy() {
 				this.destroy = noop;
 				destroyed = true;
+				idHandle.destroy();
 				registryHandle.destroy();
 				if (instanceHandle) {
 					instanceHandle.destroy();
@@ -593,6 +624,7 @@ const createApp = compose({
 	registerWidget(id: Identifier, widget: WidgetLike): Handle {
 		const app: App = this;
 
+		const idHandle = addIdentifier(app, id);
 		const instanceHandle = instanceRegistries.get(app).addWidget(widget, id);
 
 		const promise = Promise.resolve(widget);
@@ -601,6 +633,7 @@ const createApp = compose({
 		return {
 			destroy() {
 				this.destroy = noop;
+				idHandle.destroy();
 				instanceHandle.destroy();
 				registryHandle.destroy();
 			}
@@ -609,6 +642,9 @@ const createApp = compose({
 
 	registerWidgetFactory(id: Identifier, factory: WidgetFactory): Handle {
 		const app: App = this;
+
+		const idHandle = addIdentifier(app, id);
+
 		let destroyed = false;
 		let instanceHandle: Handle;
 		let registryHandle = widgetFactories.get(app).register(id, () => {
@@ -644,6 +680,7 @@ const createApp = compose({
 			destroy() {
 				this.destroy = noop;
 				destroyed = true;
+				idHandle.destroy();
 				registryHandle.destroy();
 				if (instanceHandle) {
 					instanceHandle.destroy();
@@ -703,6 +740,7 @@ const createApp = compose({
 
 		return realizeCustomElements(
 			defaultStore,
+			(id) => addIdentifier(app, id),
 			(instance: WidgetLike, id: string) => registerInstance(app, instance, id),
 			publicRegistries.get(app),
 			registryProvider,
@@ -821,6 +859,7 @@ const createApp = compose({
 
 		actionFactories.set(instance, new IdentityRegistry<RegisteredFactory<ActionLike>>());
 		customElementFactories.set(instance, new IdentityRegistry<RegisteredFactory<WidgetLike>>());
+		identifiers.set(instance, new Set<Identifier>());
 		storeFactories.set(instance, new IdentityRegistry<RegisteredFactory<StoreLike>>());
 		widgetFactories.set(instance, new IdentityRegistry<RegisteredFactory<WidgetLike>>());
 

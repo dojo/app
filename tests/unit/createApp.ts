@@ -52,13 +52,13 @@ registerSuite({
 					],
 					stores: [
 						{
-							id: 'foo',
+							id: 'bar',
 							factory: createStore
 						}
 					],
 					widgets: [
 						{
-							id: 'foo',
+							id: 'baz',
 							factory: createWidget
 						}
 					]
@@ -67,8 +67,8 @@ registerSuite({
 				handle.destroy();
 				assert.isTrue(app.hasAction('remains'));
 				assert.isFalse(app.hasAction('foo'));
-				assert.isFalse(app.hasStore('foo'));
-				assert.isFalse(app.hasWidget('foo'));
+				assert.isFalse(app.hasStore('bar'));
+				assert.isFalse(app.hasWidget('baz'));
 			}
 		},
 
@@ -119,69 +119,28 @@ registerSuite({
 		const app = createApp({ toAbsMid });
 
 		app.registerAction('action', createAction());
-		assert.throws(() => {
-			app.registerAction('action', createAction());
-		}, Error);
-		assert.throws(() => {
-			app.registerActionFactory('action', createAction);
-		}, Error);
-		assert.throws(() => {
-			app.loadDefinition({
-				actions: [
-					{
-						id: 'action',
-						factory: createAction
-					}
-				]
-			});
-		}, Error);
-		assert.doesNotThrow(() => {
-			app.registerStore('action', createStore());
-			app.registerWidget('action', createWidget());
-		});
-
 		app.registerStore('store', createStore());
-		assert.throws(() => {
-			app.registerStore('store', createStore());
-		}, Error);
-		assert.throws(() => {
-			app.registerStoreFactory('store', createStore);
-		}, Error);
-		assert.throws(() => {
-			app.loadDefinition({
-				stores: [
-					{
-						id: 'store',
-						factory: createStore
-					}
-				]
-			});
-		}, Error);
-		assert.doesNotThrow(() => {
-			app.registerAction('store', createAction());
-			app.registerWidget('store', createWidget());
-		});
-
 		app.registerWidget('widget', createWidget());
-		assert.throws(() => {
-			app.registerWidget('widget', createWidget());
-		}, Error);
-		assert.throws(() => {
-			app.registerWidgetFactory('widget', createWidget);
-		}, Error);
-		assert.throws(() => {
-			app.loadDefinition({
-				widgets: [
-					{
-						id: 'widget',
-						factory: createWidget
-					}
-				]
-			});
-		}, Error);
-		assert.doesNotThrow(() => {
-			app.registerAction('widget', createAction());
-			app.registerStore('widget', createStore());
+
+		[
+			(id: string) => app.registerAction(id, createAction()),
+			(id: string) => app.registerActionFactory(id, createAction),
+			(id: string) => {
+				app.loadDefinition({
+					actions: [
+						{
+							id: id,
+							factory: createAction
+						}
+					]
+				});
+			},
+			(id: string) => app.registerStore(id, createStore()),
+			(id: string) => app.registerWidget(id, createWidget())
+		].forEach((fn) => {
+			for (const id of ['action', 'store', 'widget']) {
+				assert.throws(() => fn(id), Error);
+			}
 		});
 	},
 
@@ -236,7 +195,7 @@ registerSuite({
 		const handles: Handle[] = [];
 		handles.push(
 			app.registerActionFactory('foo', () => action),
-			app.registerStoreFactory('foo', () => <any> action)
+			app.registerStoreFactory('bar', () => <any> action)
 		);
 
 		rejects(

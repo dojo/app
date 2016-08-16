@@ -282,6 +282,7 @@ const noop = () => {};
  */
 export default function realizeCustomElements(
 	defaultStore: StoreLike,
+	addIdentifier: (id: string) => Handle,
 	registerInstance: (widget: WidgetLike, id: string) => Handle,
 	registry: CombinedRegistry,
 	registryProvider: RegistryProvider,
@@ -371,15 +372,18 @@ export default function realizeCustomElements(
 						if (!isWidgetInstance) {
 							managedWidgets.push(widget);
 
-							// Belatedly ensure no other widget with this ID exists.
-							if (id && registry.hasWidget(id)) {
-								throw new Error(`A widget with ID '${id}' already exists`);
+							// Assign a presumably unique ID if necessary. It's OK for the widget to not be aware of its
+							// generated ID.
+							if (!id) {
+								id = generateId();
 							}
 
-							// Add the instance to the various registries the app may maintain. This requires an ID, so
-							// generate one if necessary. It's OK for the widget to not be aware of its generated ID.
+							// Belatedly ensure no other widget with this ID exists.
+							handles.push(addIdentifier(id));
+
+							// Add the instance to the various registries the app may maintain.
 							try {
-								handles.push(registerInstance(widget, id || generateId()));
+								handles.push(registerInstance(widget, id));
 							} catch (_) {
 								// registerInstance() will throw if the widget has already been registered. Throw a
 								// friendlier error message.

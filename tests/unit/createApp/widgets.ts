@@ -733,7 +733,7 @@ registerSuite({
 					app.loadDefinition({
 						widgets: [
 							{
-								id: 'foo',
+								id: 'baz',
 								factory(options: any) {
 									actual = options.listeners;
 									return createWidget();
@@ -746,7 +746,7 @@ registerSuite({
 						]
 					});
 
-					return app.getWidget('foo').then(() => {
+					return app.getWidget('baz').then(() => {
 						assert.strictEqual(actual['foo'], expected.foo);
 						assert.strictEqual(actual['bar'], expected.bar);
 					});
@@ -764,7 +764,7 @@ registerSuite({
 					app.loadDefinition({
 						widgets: [
 							{
-								id: 'foo',
+								id: 'bar',
 								factory(options: any) {
 									actual = options.listeners;
 									return createWidget();
@@ -777,7 +777,7 @@ registerSuite({
 						]
 					});
 
-					return app.getWidget('foo').then(() => {
+					return app.getWidget('bar').then(() => {
 						assert.strictEqual(actual['foo'], expected.foo);
 						assert.strictEqual(actual['bar'], expected.bar);
 					});
@@ -792,7 +792,7 @@ registerSuite({
 					app.loadDefinition({
 						widgets: [
 							{
-								id: 'foo',
+								id: 'bar',
 								factory(options: any) {
 									actual = options.listeners;
 									return createWidget();
@@ -805,7 +805,7 @@ registerSuite({
 						]
 					});
 
-					return app.getWidget('foo').then(() => {
+					return app.getWidget('bar').then(() => {
 						const foo = <EventedListener<any>[]> actual['foo'];
 						assert.strictEqual(foo[0], expected[0]);
 						assert.strictEqual(foo[1], expected[1]);
