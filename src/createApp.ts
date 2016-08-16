@@ -133,6 +133,11 @@ export interface ItemDefinition<Factory, Instance> {
  */
 export interface ActionDefinition extends ItemDefinition<ActionFactory, ActionLike> {
 	/**
+	 * Initial state, to be added to the action's store, if any.
+	 */
+	state?: any;
+
+	/**
 	 * Identifier of a store which the action should observe for its state.
 	 *
 	 * When the action is created it'll automatically observe this store.

@@ -111,10 +111,16 @@ export function makeActionFactory(definition: ActionDefinition, resolveMid: Reso
 	if (!('factory' in definition || 'instance' in definition)) {
 		throw new TypeError('Action definitions must specify either the factory or instance option');
 	}
-	if ('instance' in definition && 'stateFrom' in definition) {
-		throw new TypeError('Cannot specify stateFrom option when action definition points directly at an instance');
+	if ('instance' in definition) {
+		if ('state' in definition) {
+			throw new TypeError('Cannot specify state option when action definition points directly at an instance');
+		}
+		if ('stateFrom' in definition) {
+			throw new TypeError('Cannot specify stateFrom option when action definition points directly at an instance');
+		}
 	}
 
+	const { id, state: initialState } = definition;
 	return (registry: CombinedRegistry, defaultActionStore: StoreLike) => {
 		return Promise.all<any>([
 			resolveFactory('action', definition, resolveMid),
@@ -122,6 +128,13 @@ export function makeActionFactory(definition: ActionDefinition, resolveMid: Reso
 		]).then(([_factory, _store]) => {
 			const factory = <ActionFactory> _factory;
 			const store = <StoreLike> _store || defaultActionStore;
+
+			if (store && initialState) {
+				return store.add(initialState, { id })
+					// Ignore error, assume store already contains state for this widget.
+					.catch(() => {})
+					.then(() => factory(registry, store));
+			}
 
 			return factory(registry, store);
 		});
