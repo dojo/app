@@ -587,10 +587,18 @@ const createApp = compose({
 		const idHandle = addIdentifier(this, id);
 		const instanceHandle = instanceRegistries.get(this).addAction(action, id);
 
-		const promise = new Promise<void>((resolve) => {
-			resolve(action.configure(publicRegistries.get(this)));
-		}).then(() => action);
-		const registryHandle = actionFactories.get(this).register(id, () => promise);
+		let registryHandle = actionFactories.get(this).register(id, () => {
+			const promise = new Promise<void>((resolve) => {
+				resolve(action.configure(publicRegistries.get(this)));
+			})
+			.then(() => action);
+
+			// Replace the registered factory to ensure the action is not configured twice.
+			registryHandle.destroy();
+			registryHandle = actionFactories.get(this).register(id, () => promise);
+
+			return promise;
+		});
 
 		return {
 			destroy(this: Handle) {
