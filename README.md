@@ -378,6 +378,7 @@ The following custom elements are recognized:
 
 * `<app-action>`
 * `<app-actions>`
+* `<app-element>`
 * `<app-store>`
 * `<app-projector>`
 * `<app-widget>`
@@ -418,7 +419,13 @@ Alternatively use the `data-from` attribute to import an existing widget, again 
 
 Modules are only loaded when the widget is needed.
 
-The `data-listeners`, `data-options`, `data-state` and `data-state-from` attributes may be used together with `data-factory`. See the next section for details.
+The `data-listeners`, `data-options`, `data-state` and `data-state-from` attributes may be used together with `data-factory`. See the section on [rendering widgets](#rendering-widgets) for details.
+
+#### Defining custom elements
+
+Use `<app-element>` to define a custom element. Specify its name using the `data-name` attribute. Use the `data-factory` attribute to specify the module ID for a factory function which can create the widget when it's needed. The function must be the default export of the module.
+
+Modules are only loaded when the widget is needed.
 
 #### Rendering widgets
 

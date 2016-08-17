@@ -1,4 +1,5 @@
 import { Handle } from 'dojo-core/interfaces';
+import Promise from 'dojo-shim/Promise';
 import createWidget from 'dojo-widgets/createWidget';
 import * as registerSuite from 'intern!object';
 import * as assert from 'intern/chai!assert';
@@ -486,6 +487,123 @@ registerSuite({
 
 		'is removed from the DOM'() {
 			root.innerHTML = '<app-actions data-from="tests/fixtures/action-exports"></app-actions>';
+			return app.realize(root).then(() => {
+				assert.isFalse(root.hasChildNodes());
+			});
+		}
+	},
+
+	'<app-element>': {
+		'requires data-name'() {
+			root.innerHTML = '<app-element data-factory="tests/fixtures/widget-factory"></app-element>';
+			return rejects(app.realize(root), Error, 'app-element requires data-name');
+		},
+
+		'requires data-factory'() {
+			root.innerHTML = '<app-element data-name="valid-name"></app-element>';
+			return rejects(app.realize(root), Error, 'app-element requires data-factory');
+		},
+
+		'validates data-name': {
+			'must not be empty'() {
+				root.innerHTML = '<app-element data-name="" data-factory="tests/fixtures/widget-factory"></app-element>';
+				return rejects(app.realize(root), Error, 'app-element requires data-name');
+			},
+
+			'must start with a lowercase ASCII letter'() {
+				root.innerHTML = '<app-element data-name="💩-" data-factory="tests/fixtures/widget-factory"></app-element>';
+				return rejects(app.realize(root), SyntaxError, '\'💩-\' is not a valid custom element name');
+			},
+
+			'must contain a hyphen'() {
+				root.innerHTML = '<app-element data-name="a" data-factory="tests/fixtures/widget-factory"></app-element>';
+				return rejects(app.realize(root), SyntaxError, '\'a\' is not a valid custom element name');
+			},
+
+			'must not include uppercase ASCII letters'() {
+				root.innerHTML = '<app-element data-name="a-A" data-factory="tests/fixtures/widget-factory"></app-element>';
+				return rejects(app.realize(root), SyntaxError, '\'a-A\' is not a valid custom element name');
+			},
+
+			'must not be a reserved name'() {
+				return Promise.all([
+					'annotation-xml',
+					'color-profile',
+					'font-face',
+					'font-face-src',
+					'font-face-uri',
+					'font-face-format',
+					'font-face-name',
+					'missing-glyph',
+					'app-action',
+					'app-actions',
+					'app-element',
+					'app-projector',
+					'app-store',
+					'app-widget'
+				].map((name) => {
+					root.innerHTML = `<app-element data-name="${name}" data-factory="tests/fixtures/widget-factory"></app-element>`;
+					return rejects(app.realize(root), Error, `'${name}' is not a valid custom element name`);
+				}));
+			}
+		},
+
+		'data-name must not case-insensitively match a previously registered element'() {
+			app.registerCustomElementFactory('a-Ø', () => createWidget());
+			root.innerHTML = '<app-element data-name="a-ø" data-factory="tests/fixtures/widget-factory"></app-element>';
+			return rejects(app.realize(root), Error);
+		},
+
+		'is added to the registry under the data-name value'() {
+			root.innerHTML = '<app-element data-name="foo-bar" data-factory="tests/fixtures/widget-factory"></app-element>';
+			return app.realize(root).then(() => {
+				assert.isTrue(app.hasCustomElementFactory('foo-bar'));
+			});
+		},
+
+		'lazily resolves the factory when widgets are created': {
+			'pointed at an ES module'() {
+				let called = false;
+				const widget = createWidget();
+				stubWidgetFactory(() => {
+					called = true;
+					return widget;
+				});
+
+				root.innerHTML = '<app-element data-name="foo-bar" data-factory="tests/fixtures/widget-factory"></app-element>';
+				return app.realize(root).then(() => {
+					assert.isFalse(called);
+					return strictEqual(Promise.resolve(app.getCustomElementFactory('foo-bar')()), widget).then(() => {
+						assert.isTrue(called);
+					});
+				});
+			},
+
+			'pointed at an AMD module'() {
+				let called = false;
+				const widget = createWidget();
+				return new Promise((resolve) => {
+					require(['tests/fixtures/generic-amd-factory'], (factory) => {
+						factory.stub(() => {
+							called = true;
+							return widget;
+						});
+						resolve();
+					});
+				}).then(() => {
+					root.innerHTML = '<app-element data-name="foo-bar" data-factory="tests/fixtures/generic-amd-factory"></app-element>';
+					return app.realize(root);
+				}).then(() => {
+					assert.isFalse(called);
+					return strictEqual(Promise.resolve(app.getCustomElementFactory('foo-bar')()), widget).then(() => {
+						assert.isTrue(called);
+					});
+				});
+			}
+		},
+
+		'is removed from the DOM'() {
+			root.innerHTML = '<app-element data-name="foo-bar" data-factory="tests/fixtures/widget-factory"></app-element>';
 			return app.realize(root).then(() => {
 				assert.isFalse(root.hasChildNodes());
 			});
