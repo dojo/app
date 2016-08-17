@@ -1,6 +1,6 @@
 import { Action } from 'dojo-actions/createAction';
 import compose, { ComposeFactory } from 'dojo-compose/compose';
-import { EventedListener } from 'dojo-compose/mixins/createEvented';
+import { EventedListener, EventedListenersMap } from 'dojo-compose/mixins/createEvented';
 import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
 import { assign } from 'dojo-core/lang';
@@ -64,6 +64,38 @@ export interface ActionFactoryOptions {
 }
 
 /**
+ * Options passed to widget factories.
+ */
+export interface WidgetFactoryOptions {
+	/**
+	 * The ID for the widget to be created by the factory.
+	 */
+	id?: string;
+
+	/**
+	 * Listeners that should be attached when the widget is created.
+	 */
+	listeners?: EventedListenersMap;
+
+	/**
+	 * Provides access to read-only registries for actions, stores and widgets.
+	 */
+	registryProvider: RegistryProvider;
+
+	/**
+	 * State that should be set while the widget is being created.
+	 */
+	state?: any;
+
+	/**
+	 * The store that was defined for this widget.
+	 *
+	 * It's the factories responsibility to create a widget that observes the store.
+	 */
+	stateFrom?: StoreLike;
+}
+
+/**
  * Factory method to (asynchronously) create an action.
  *
  * @return The action, or a promise for it
@@ -87,7 +119,7 @@ export interface StoreFactory {
  * @return The widget, or a promise for it
  */
 export interface WidgetFactory {
-	(options?: Object): WidgetLike | Promise<WidgetLike>;
+	(options?: WidgetFactoryOptions): WidgetLike | Promise<WidgetLike>;
 }
 
 /**
@@ -539,7 +571,7 @@ function createCustomWidget(app: App, id: string) {
 	const { registryProvider, defaultWidgetStore: stateFrom } = app;
 
 	return app.defaultWidgetStore.get(id).then((state: any) => {
-		const options: any = { id, stateFrom, registryProvider, state };
+		const options: WidgetFactoryOptions = { id, stateFrom, registryProvider, state };
 		const customFactory = customFactories.get(state.type);
 		return customFactory(options);
 	}).then((widget) => {
@@ -677,7 +709,7 @@ const createApp = compose({
 
 		// Wrap the factory since the registry cannot store frozen factories, and dojo-compose creates
 		// frozen factories…
-		const wrapped = (options: Object) => factory(options);
+		const wrapped = (options: WidgetFactoryOptions) => factory(options);
 
 		// Note that each custom element requires a new widget, so there's no need to replace the
 		// registered factory.
@@ -768,12 +800,7 @@ const createApp = compose({
 				// factory is registered through this method or loaded from a definition.
 
 				const { registryProvider, defaultWidgetStore } = this;
-				interface Options {
-					id: string;
-					registryProvider: RegistryProvider;
-					stateFrom?: StoreLike;
-				}
-				const options: Options = { id, registryProvider };
+				const options: WidgetFactoryOptions = { id, registryProvider };
 				if (defaultWidgetStore) {
 					options.stateFrom = defaultWidgetStore;
 				}
@@ -897,7 +924,11 @@ const createApp = compose({
 			return instanceRegistries.get(this).identifyStore(store);
 		},
 
-		createWidget<U extends Child, O>(this: App, factory: ComposeFactory<U, O>, options: any = {}): Promise<[ string, U ]> {
+		createWidget<U extends Child, O extends WidgetFactoryOptions>(
+			this: App,
+			factory: ComposeFactory<U, O>,
+			options: any = {}
+		): Promise<[ string, U ]> {
 			const app = this;
 			const { defaultWidgetStore, registryProvider } = this;
 			const { id = generateWidgetId() } = options;

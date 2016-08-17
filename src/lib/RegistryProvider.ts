@@ -7,6 +7,7 @@ import {
 	Identifier,
 	ReadOnlyRegistry,
 	StoreLike,
+	WidgetFactoryOptions,
 	WidgetLike
 } from '../createApp';
 
@@ -38,7 +39,10 @@ interface UnderlyingRegistry {
 	identifyAction(action: ActionLike): Identifier;
 	getStore(id: Identifier | symbol): Promise<StoreLike>;
 	identifyStore(store: StoreLike): Identifier | symbol;
-	createWidget<U extends Child, O>(factory: ComposeFactory<U, O>, options?: O): Promise<[string, U]>;
+	createWidget<
+		U extends Child,
+		O extends WidgetFactoryOptions
+	>(factory: ComposeFactory<U, O>, options?: O): Promise<[string, U]>;
 	getWidget(id: Identifier): Promise<WidgetLike>;
 	identifyWidget(widget: WidgetLike): Identifier;
 }

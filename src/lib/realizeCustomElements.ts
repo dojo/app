@@ -12,6 +12,7 @@ import {
 	RegistryProvider,
 	StoreLike,
 	WidgetFactory,
+	WidgetFactoryOptions,
 	WidgetLike
 } from '../createApp';
 import makeIdGenerator from './makeIdGenerator';
@@ -330,7 +331,7 @@ export default function realizeCustomElements(
 							projectorStateFrom
 						]).then(([_factory, _options, _store, projectorStore]) => {
 							const factory: WidgetFactory = _factory;
-							const options: Options = _options;
+							const options: WidgetFactoryOptions = _options;
 							// `data-state-from` store of the element takes precedence, then of the projector, then
 							// the application's default widget store.
 							const store: StoreLike = _store || projectorStore || defaultWidgetStore;
