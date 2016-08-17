@@ -8,7 +8,7 @@ import { place, Position } from 'dojo-dom/dom';
 import { createProjector, Projector } from 'dojo-widgets/projector';
 
 import {
-	CombinedRegistry,
+	ReadOnlyRegistry,
 	RegistryProvider,
 	StoreLike,
 	WidgetFactory,
@@ -74,11 +74,11 @@ interface CustomElement {
 	widget?: WidgetLike;
 }
 
-function isCustomElement(registry: CombinedRegistry, name: string): boolean {
+function isCustomElement(registry: ReadOnlyRegistry, name: string): boolean {
 	return name === 'app-projector' || name === 'app-widget' || registry.hasCustomElementFactory(name);
 }
 
-function getCustomElementsByWidgetProjector(registry: CombinedRegistry, root: Element): CustomElement[] {
+function getCustomElementsByWidgetProjector(registry: ReadOnlyRegistry, root: Element): CustomElement[] {
 	const allElements: Element[] = arrayFrom(root.getElementsByTagName('*'));
 	allElements.unshift(root); // Be inclusive!
 
@@ -167,7 +167,7 @@ interface Options {
 	stateFrom?: StoreLike;
 }
 
-function resolveOptions(registry: CombinedRegistry, registryProvider: RegistryProvider, element: Element, idFromAttributes: string): Options | Promise<Options> {
+function resolveOptions(registry: ReadOnlyRegistry, registryProvider: RegistryProvider, element: Element, idFromAttributes: string): Options | Promise<Options> {
 	const str = element.getAttribute('data-options') || '';
 	if (!str) {
 		return idFromAttributes ? { id: idFromAttributes, registryProvider } : { registryProvider };
@@ -244,7 +244,7 @@ function resolveOptions(registry: CombinedRegistry, registryProvider: RegistryPr
 	return options;
 }
 
-function resolveStateFromAttribute(registry: CombinedRegistry, element: Element): Promise<StoreLike> {
+function resolveStateFromAttribute(registry: ReadOnlyRegistry, element: Element): Promise<StoreLike> {
 	const stateFrom = element.getAttribute('data-state-from');
 	return stateFrom ? registry.getStore(stateFrom) : null;
 }
@@ -275,7 +275,7 @@ export default function realizeCustomElements(
 	defaultWidgetStore: StoreLike,
 	addIdentifier: (id: string) => Handle,
 	registerInstance: (widget: WidgetLike, id: string) => Handle,
-	registry: CombinedRegistry,
+	registry: ReadOnlyRegistry,
 	registryProvider: RegistryProvider,
 	root: Element
 ): Promise<Handle> {
