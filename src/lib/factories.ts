@@ -103,7 +103,7 @@ function resolveFactory(type: FactoryTypes, definition: CustomElementDefinition 
 	}
 }
 
-export function makeActionFactory(definition: ActionDefinition, resolveMid: ResolveMid): ActionFactory {
+export function makeActionFactory(definition: ActionDefinition, resolveMid: ResolveMid, registry: CombinedRegistry): ActionFactory {
 	if (!('factory' in definition || 'instance' in definition)) {
 		throw new TypeError('Action definitions must specify either the factory or instance option');
 	}
@@ -117,7 +117,7 @@ export function makeActionFactory(definition: ActionDefinition, resolveMid: Reso
 	}
 
 	const { id, state: initialState } = definition;
-	return (registry: CombinedRegistry, defaultActionStore: StoreLike) => {
+	return ({ registryProvider, stateFrom: defaultActionStore }) => {
 		return Promise.all<any>([
 			resolveFactory('action', definition, resolveMid),
 			resolveStore(registry, definition)
@@ -125,14 +125,16 @@ export function makeActionFactory(definition: ActionDefinition, resolveMid: Reso
 			const factory = <ActionFactory> _factory;
 			const store = <StoreLike> _store || defaultActionStore;
 
+			const options = { registryProvider, stateFrom: store };
+
 			if (store && initialState) {
 				return store.add(initialState, { id })
 					// Ignore error, assume store already contains state for this widget.
 					.catch(() => undefined)
-					.then(() => factory(registry, store));
+					.then(() => factory(options));
 			}
 
-			return factory(registry, store);
+			return factory(options);
 		});
 	};
 }

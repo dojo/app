@@ -3,7 +3,9 @@ import * as registerSuite from 'intern!object';
 import * as assert from 'intern/chai!assert';
 
 import createApp, {
-	App
+	ActionFactoryOptions,
+	App,
+	StoreLike
 } from 'src/createApp';
 
 import actionFixture from 'tests/fixtures/action-instance';
@@ -15,7 +17,6 @@ import { stub as stubStoreFactory } from 'tests/fixtures/store-factory';
 import {
 	createAction,
 	createStore,
-	isCombinedRegistry,
 	rejects,
 	strictEqual
 } from 'tests/support/createApp';
@@ -188,9 +189,9 @@ registerSuite({
 				app.registerStore('store', store);
 
 				const action = createAction();
-				let factoryArgs: any[] = null;
-				stubActionFactory((...args: any[]) => {
-					factoryArgs = args;
+				let received: StoreLike = null;
+				stubActionFactory(({ stateFrom }) => {
+					received = stateFrom;
 					return action;
 				});
 
@@ -198,7 +199,7 @@ registerSuite({
 				return app.realize(root).then(() => {
 					return strictEqual(app.getAction('foo'), action);
 				}).then(() => {
-					assert.strictEqual(factoryArgs[1], store);
+					assert.strictEqual(received, store);
 				});
 			},
 
@@ -209,9 +210,9 @@ registerSuite({
 				app.defaultActionStore = createStore();
 
 				const action = createAction();
-				let factoryArgs: any[] = null;
-				stubActionFactory((...args: any[]) => {
-					factoryArgs = args;
+				let received: StoreLike = null;
+				stubActionFactory(({ stateFrom }) => {
+					received = stateFrom;
 					return action;
 				});
 
@@ -219,7 +220,7 @@ registerSuite({
 				return app.realize(root).then(() => {
 					return strictEqual(app.getAction('foo'), action);
 				}).then(() => {
-					assert.strictEqual(factoryArgs[1], store);
+					assert.strictEqual(received, store);
 				});
 			}
 		},
@@ -372,19 +373,19 @@ registerSuite({
 				app.defaultActionStore = createStore();
 
 				const action = createAction();
-				let factoryArgs: any[] = null;
-				stubActionFactory((...args: any[]) => {
-					factoryArgs = args;
+				let options: ActionFactoryOptions = null;
+				stubActionFactory((actual) => {
+					options = actual;
 					return action;
 				});
 
 				root.innerHTML = '<app-action id="foo" data-factory="tests/fixtures/action-factory"></app-action>';
 				return app.realize(root).then(() => {
-					assert.isNull(factoryArgs);
+					assert.isNull(options);
 					return strictEqual(app.getAction('foo'), action);
 				}).then(() => {
-					isCombinedRegistry(factoryArgs[0]);
-					assert.strictEqual(factoryArgs[1], app.defaultActionStore);
+					assert.strictEqual(options.registryProvider, app.registryProvider);
+					assert.strictEqual(options.stateFrom, app.defaultActionStore);
 				});
 			},
 
@@ -392,11 +393,11 @@ registerSuite({
 				app.defaultActionStore = createStore();
 
 				const action = createAction();
-				let factoryArgs: any[] = null;
+				let options: ActionFactoryOptions = null;
 				return new Promise((resolve) => {
 					require(['tests/fixtures/generic-amd-factory'], (factory) => {
-						factory.stub((...args: any[]) => {
-							factoryArgs = args;
+						factory.stub((actual: ActionFactoryOptions) => {
+							options = actual;
 							return action;
 						});
 						resolve();
@@ -404,11 +405,11 @@ registerSuite({
 				}).then(() => {
 					root.innerHTML = '<app-action id="foo" data-factory="tests/fixtures/generic-amd-factory"></app-action>';
 					return app.realize(root).then(() => {
-						assert.isNull(factoryArgs);
+						assert.isNull(options);
 						return strictEqual(app.getAction('foo'), action);
 					}).then(() => {
-						isCombinedRegistry(factoryArgs[0]);
-						assert.strictEqual(factoryArgs[1], app.defaultActionStore);
+						assert.strictEqual(options.registryProvider, app.registryProvider);
+						assert.strictEqual(options.stateFrom, app.defaultActionStore);
 					});
 				});
 			}

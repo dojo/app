@@ -6,7 +6,6 @@ import {
 	ActionDefinition,
 	ActionFactory,
 	ActionLike,
-	CombinedRegistry,
 	StoreDefinition,
 	StoreFactory,
 	StoreLike
@@ -209,10 +208,10 @@ function createActionDefinition(
 ): ActionDefinition {
 	return {
 		id,
-		factory(registry: CombinedRegistry, store: StoreLike) {
+		factory(options) {
 			if (factory) {
 				return resolveMid<ActionFactory>(factory).then((factory) => {
-					return factory(registry, store);
+					return factory(options);
 				});
 			}
 			else {

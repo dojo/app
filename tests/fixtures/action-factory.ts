@@ -1,4 +1,4 @@
-import { ActionFactory, CombinedRegistry, StoreLike } from 'src/createApp';
+import { ActionFactory } from 'src/createApp';
 
 let factory: ActionFactory = null;
 
@@ -6,6 +6,6 @@ export function stub (stub: ActionFactory) {
 	factory = stub;
 }
 
-export default function (registry: CombinedRegistry, store: StoreLike) {
-	return factory(registry, store);
-}
+export default (function (options) {
+	return factory(options);
+} as ActionFactory);

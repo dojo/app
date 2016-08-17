@@ -69,7 +69,7 @@ app.registerAction('my-action', action);
 You can also register a factory method which creates the action only when needed:
 
 ```ts
-app.registerActionFactory('my-lazy-action', () => {
+app.registerActionFactory('my-lazy-action', (options) => {
 	return createAction({
 		do() {
 			// something else
@@ -80,7 +80,7 @@ app.registerActionFactory('my-lazy-action', () => {
 
 Note that an action instance may only be registered once. A factory is not allowed to return a previously registered instance.
 
-The factory is called with a registry object and potentially a default action store. The registry object contains the same `has*()` and `get*()` methods that are available on the application factory itself.
+The `options` object may have a `stateFrom` property, set to the default action store. A [registry provider](#registry-providers) is available under the `registryProvider` property.
 
 #### Registering custom element factories
 
@@ -221,14 +221,14 @@ app.registerAction('my-action', myAction);
 
 However if the action needs to access a store that is lazily loaded you'd then need a reference to the application factory in order to access the store.
 
-To make this easier the application factory calls `configure()` on actions after they've been loaded. The configuration object contains the same `has*()` and `get*()` methods that are available on the application factory itself.
+To make this easier the application factory calls `configure()` on actions after they've been loaded. The configuration object is the [registry provider](#registry-providers).
 
 For example, to store a reference to a particular store, you could do:
 
 ```ts
 // my-action.ts
 import createAction from 'dojo-actions/createAction';
-import { CombinedRegistry } from 'dojo-app/createApp';
+import { RegistryProvider } from 'dojo-app/createApp';
 import { MemoryStore } from 'dojo-widgets/util/createMemoryStore';
 
 interface MyAction {
@@ -236,8 +236,8 @@ interface MyAction {
 }
 
 export default createAction.extend<MyAction>({})({
-	configure(registry: CombinedRegistry) {
-		return registry.getStore('my-store').then((store) => {
+	configure(registryProvider: RegistryProvider) {
+		return registryProvider.get('stores').get('my-store').then((store) => {
 			(<MyAction> this).store = store;
 		});
 	},
@@ -254,18 +254,18 @@ If you registered an action factory you can do something similar, without having
 ```ts
 // my-action-factory.ts
 import createAction from 'dojo-actions/createAction';
-import { CombinedRegistry } from 'dojo-app/createApp';
+import { ActionFactory } from 'dojo-app/createApp';
 import { MemoryStore } from 'dojo-widgets/util/createMemoryStore';
 
-export default function(registry: CombinedRegistry) {
-	return registry.getStore('my-store').then((store) => {
+export default (function({ registryProvider }) {
+	return registryProvider.get('stores').get('my-store').then((store) => {
 		return createAction({
 			do() {
 				return (<MemoryStore<Object>> store).patch({ id: 'some-object', value: 'some-value' });
 			}
 		});
 	});
-}
+} as ActionFactory);
 ```
 
 #### Describing applications
@@ -362,7 +362,7 @@ Note that destroying handles will not destroy any action, store or widget instan
 
 #### Registry providers
 
-The registry provider can provide read-only registries for actions, stores and widgets. It's available under `app.registryProvider` and passed to widget factories as the `registryProvider` option.
+The registry provider can provide read-only registries for actions, stores and widgets. It's available under `app.registryProvider`, passed to action and widget factories as the `registryProvider` option, and used when configuring actions.
 
 Use `registryProvider.get('actions')` to get an action registry. `registryProvider.get('stores')` gives you a store registry, and `registryProvider.get('widgets')` a widget registry.
 

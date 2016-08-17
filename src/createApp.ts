@@ -48,15 +48,29 @@ export type StoreLike = ObservableState<State> & {
 export type WidgetLike = Child;
 
 /**
+ * Options passed to action factories.
+ */
+export interface ActionFactoryOptions {
+	/**
+	 * Provides access to read-only registries for actions, stores and widgets.
+	 */
+	registryProvider: RegistryProvider;
+
+	/**
+	 * The store that was defined for this action.
+	 *
+	 * It's the factories responsibility to create an action that observes the store.
+	 */
+	stateFrom?: StoreLike;
+}
+
+/**
  * Factory method to (asynchronously) create an action.
  *
- * @param registry The combined registries of the app
- * @param store The store that was defined for this action. It's the factories responsibility to create an action that
- *   observes the store
  * @return The action, or a promise for it
  */
 export interface ActionFactory {
-	(registry: CombinedRegistry, store: StoreLike): ActionLike | Promise<ActionLike>;
+	(options: ActionFactoryOptions): ActionLike | Promise<ActionLike>;
 }
 
 /**
@@ -367,9 +381,10 @@ export interface AppMixin {
 	/**
 	 * Register an action factory with the app.
 	 *
-	 * The factory will be called the first time the action is needed. It'll be called with at least one argument:
-	 * the combined registries of the app. The second argument may be the store that was defined for this action. It's
-	 * the factories responsibility to create an action that observes the store.
+	 * The factory will be called the first time the action is needed. It'll be called with an options object that has
+	 * a `registryProvider` property containing a RegistryProvider implementation for the app. If a default action store
+	 * is available it'll be passed as the `stateFrom` property. It's the factories responsibility to create an action
+	 * that observes the store.
 	 *
 	 * Note that the `createAction()` factory from `dojo-actions` cannot be used here since it requires you to define
 	 * the `do()` implementation, which the app factory does not allow.
@@ -438,8 +453,7 @@ export interface AppMixin {
 	/**
 	 * Load a POJO definition containing actions, stores and widgets that need to be registered.
 	 *
-	 * Action factories will be called with one argument: the combined registries of the app.
-	 * Store and widget factories will also be called with one argument: an options object.
+	 * All factories will be called with an options object.
 	 *
 	 * @return A handle to deregister *all* actions, stores and widgets that were registered.
 	 */
@@ -590,7 +604,7 @@ const createApp = compose({
 
 		let registryHandle = actionFactories.get(this).register(id, () => {
 			const promise = new Promise<void>((resolve) => {
-				resolve(action.configure(publicRegistries.get(this)));
+				resolve(action.configure(this.registryProvider));
 			}).then(() => action);
 
 			// Replace the registered factory to ensure the action is not configured twice.
@@ -621,7 +635,8 @@ const createApp = compose({
 					// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
 					// factory is registered through this method or loaded from a definition.
 
-					return factory(publicRegistries.get(this), this.defaultActionStore);
+					const { defaultActionStore: stateFrom, registryProvider } = this;
+					return factory({ registryProvider, stateFrom });
 				})
 				.then((action) => {
 					if (!destroyed) {
@@ -629,7 +644,7 @@ const createApp = compose({
 					}
 
 					// Configure the action, allow for a promise to be returned.
-					return Promise.resolve(action.configure(publicRegistries.get(this))).then(() => {
+					return Promise.resolve(action.configure(this.registryProvider)).then(() => {
 						return action;
 					});
 				});
@@ -793,7 +808,7 @@ const createApp = compose({
 
 		if (actions) {
 			for (const definition of actions) {
-				const factory = makeActionFactory(definition, midResolvers.get(this));
+				const factory = makeActionFactory(definition, midResolvers.get(this), this);
 				const handle = this.registerActionFactory(definition.id, factory);
 				handles.push(handle);
 			}
