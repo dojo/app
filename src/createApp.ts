@@ -643,7 +643,7 @@ const createApp = compose({
 
 	registerCustomElementFactory(this: App, name: string, factory: WidgetFactory): Handle {
 		if (!isValidName(name)) {
-			throw new SyntaxError(`'${name}' is not a valid custom element name'`);
+			throw new SyntaxError(`'${name}' is not a valid custom element name`);
 		}
 
 		// Wrap the factory since the registry cannot store frozen factories, and dojo-compose creates
