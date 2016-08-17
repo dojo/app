@@ -168,11 +168,6 @@ registerSuite({
 			});
 		},
 
-		'an ID is required'() {
-			projector.innerHTML = '<app-widget></app-widget>';
-			return rejects(app.realize(root), Error, 'Cannot resolve widget for a custom element without \'data-uid\' or \'id\' attributes');
-		},
-
 		'the ID must resolve to a widget instance'() {
 			projector.innerHTML = '<app-widget id="foo"></app-widget>';
 			return rejects(app.realize(root), Error, 'Could not find a value for identity \'foo\'');

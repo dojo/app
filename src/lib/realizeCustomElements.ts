@@ -305,9 +305,6 @@ export default function realizeCustomElements(
 
 					let promise: Promise<WidgetLike> = null;
 					if (isWidgetInstance) {
-						if (!id) {
-							throw new Error('Cannot resolve widget for a custom element without \'data-uid\' or \'id\' attributes');
-						}
 						promise = registry.getWidget(id);
 					}
 					else {

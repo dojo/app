@@ -1,19 +1,24 @@
 import { Handle } from 'dojo-core/interfaces';
+import createWidget from 'dojo-widgets/createWidget';
 import * as registerSuite from 'intern!object';
 import * as assert from 'intern/chai!assert';
 
 import createApp, {
 	ActionFactoryOptions,
 	App,
-	StoreLike
+	StoreLike,
+	WidgetFactoryOptions
 } from 'src/createApp';
 
 import actionFixture from 'tests/fixtures/action-instance';
 import storeFixture from 'tests/fixtures/store-instance';
+import widgetFixture from 'tests/fixtures/widget-instance';
 import * as actionExports from 'tests/fixtures/action-exports';
 import * as storeExports from 'tests/fixtures/store-exports';
+import * as widgetExports from 'tests/fixtures/widget-exports';
 import { stub as stubActionFactory } from 'tests/fixtures/action-factory';
 import { stub as stubStoreFactory } from 'tests/fixtures/store-factory';
+import { stub as stubWidgetFactory } from 'tests/fixtures/widget-factory';
 import {
 	createAction,
 	createStore,
@@ -707,6 +712,355 @@ registerSuite({
 			return app.realize(root).then(() => {
 				assert.isFalse(root.hasChildNodes());
 			});
+		}
+	},
+
+	'<app-widget>': {
+		beforeEach() {
+			// The widgets are actually rendered. Hackily clean up so tests pass.
+			delete widgetFixture.parent;
+			delete widgetExports.member1.parent;
+			delete widgetExports.member2.parent;
+		},
+
+		'requires data-uid or id if data-factory is given'() {
+			root.innerHTML = '<app-projector><app-widget data-factory="tests/fixtures/widget-factory"></app-widget></app-projector>';
+			return rejects(app.realize(root), Error, 'app-widget requires data-uid or id attribute if data-factory is given');
+		},
+
+		'requires data-factory if data-state-from is given'() {
+			root.innerHTML = '<app-projector><app-widget data-state-from="store" data-from="tests/fixtures/widget-instance"></app-widget></app-projector>';
+			return rejects(app.realize(root), Error, 'app-widget requires data-factory attribute if data-state-from is given');
+		},
+
+		'requires data-factory if data-state is given'() {
+			root.innerHTML = '<app-projector><app-widget data-state="{}" data-from="tests/fixtures/widget-instance"></app-widget></app-projector>';
+			return rejects(app.realize(root), Error, 'app-widget requires data-factory attribute if data-state is given');
+		},
+
+		'without data-uid, id or data-import, the data-from must not end in a slash'() {
+			root.innerHTML = '<app-projector><app-widget data-from="tests/fixtures/widget-instance/"></app-widget></app-projector>';
+			return rejects(app.realize(root), Error, 'Could not determine ID for app-widget (from=tests/fixtures/widget-instance/ and import=null)');
+		},
+
+		'is added to the registry under the data-uid value'() {
+			root.innerHTML = '<app-projector><app-widget data-uid="foo" data-from="tests/fixtures/widget-instance"></app-widget></app-projector>';
+			return app.realize(root).then(() => {
+				assert.isTrue(app.hasWidget('foo'));
+			});
+		},
+
+		'is added to the registry under the id value'() {
+			root.innerHTML = '<app-projector><app-widget id="foo" data-from="tests/fixtures/widget-instance"></app-widget></app-projector>';
+			return app.realize(root).then(() => {
+				assert.isTrue(app.hasWidget('foo'));
+			});
+		},
+
+		'data-uid takes precedence over id'() {
+			root.innerHTML = '<app-projector><app-widget data-uid="foo" id="bar" data-from="tests/fixtures/widget-instance"></app-widget></app-projector>';
+			return app.realize(root).then(() => {
+				assert.isTrue(app.hasWidget('foo'));
+			});
+		},
+
+		'is added to the registry under the data-import value (if no data-uid or id)'() {
+			root.innerHTML = '<app-projector><app-widget data-import="member1" data-from="tests/fixtures/widget-exports"></app-widget></app-projector>';
+			return app.realize(root).then(() => {
+				assert.isTrue(app.hasWidget('member1'));
+			});
+		},
+
+		'is added to the registry under file part of the data-from MID (if no data-uid, id or data-import)'() {
+			root.innerHTML = '<app-projector><app-widget data-from="tests/fixtures/widget-instance"></app-widget></app-projector>';
+			return app.realize(root).then(() => {
+				assert.isTrue(app.hasWidget('widget-instance'));
+			});
+		},
+
+		'data-state-from': {
+			'resolves store, passes to factory'() {
+				const store = createStore();
+				app.registerStore('store', store);
+
+				const widget = createWidget();
+				let received: StoreLike = null;
+				stubWidgetFactory(({ stateFrom }) => {
+					received = stateFrom;
+					return widget;
+				});
+
+				root.innerHTML = '<app-projector><app-widget id="foo" data-state-from="store" data-factory="tests/fixtures/widget-factory"></app-widget></app-projector>';
+				return app.realize(root).then(() => {
+					assert.strictEqual(received, store);
+					return strictEqual(app.getWidget('foo'), widget);
+				});
+			},
+
+			'takes precedence over default widget store'() {
+				const store = createStore();
+				app.registerStore('store', store);
+
+				app.defaultWidgetStore = createStore();
+
+				const widget = createWidget();
+				let received: StoreLike = null;
+				stubWidgetFactory(({ stateFrom }) => {
+					received = stateFrom;
+					return widget;
+				});
+
+				root.innerHTML = '<app-projector><app-widget id="foo" data-state-from="store" data-factory="tests/fixtures/widget-factory"></app-widget></app-projector>';
+				return app.realize(root).then(() => {
+					assert.strictEqual(received, store);
+					return strictEqual(app.getWidget('foo'), widget);
+				});
+			}
+		},
+
+		'data-listeners': {
+			'must be valid JSON'() {
+				root.innerHTML = '<app-projector><app-widget data-listeners="{" id="foo" data-factory="tests/fixtures/widget-factory"></app-widget></app-projector>';
+				return rejects(app.realize(root), SyntaxError);
+			},
+
+			'must be an object'() {
+				root.innerHTML = '<app-projector><app-widget data-listeners="42" id="foo" data-factory="tests/fixtures/widget-factory"></app-widget></app-projector>';
+				return rejects(app.realize(root), TypeError, 'Expected object from data-listeners (in "42")');
+			},
+
+			'requires data-factory'() {
+				root.innerHTML = '<app-projector><app-widget data-listeners="{}" data-from="tests/fixtures/widget-instance"></app-widget></app-projector>';
+				return rejects(app.realize(root), Error, 'app-widget requires data-factory attribute if data-listeners is given');
+			},
+
+			'is passed to the factory'() {
+				const widget = createWidget();
+				let received: any = null;
+				stubWidgetFactory((options: any) => {
+					delete options.id;
+					delete options.registryProvider;
+					received = options;
+					return widget;
+				});
+
+				const action = createAction();
+				app.registerAction('action', action);
+
+				root.innerHTML = '<app-projector><app-widget data-listeners="{&quot;foo&quot;:&quot;action&quot;}" id="foo" data-factory="tests/fixtures/widget-factory"></app-widget></app-projector>';
+				return app.realize(root).then(() => {
+					assert.strictEqual(received.listeners.foo, action);
+					return strictEqual(app.getWidget('foo'), widget);
+				});
+			}
+		},
+
+		'data-options': {
+			'must be valid JSON'() {
+				root.innerHTML = '<app-projector><app-widget data-options="{" id="foo" data-factory="tests/fixtures/widget-factory"></app-widget></app-projector>';
+				return rejects(app.realize(root), SyntaxError);
+			},
+
+			'must be an object'() {
+				root.innerHTML = '<app-projector><app-widget data-options="42" id="foo" data-factory="tests/fixtures/widget-factory"></app-widget></app-projector>';
+				return rejects(app.realize(root), TypeError, 'Expected object from data-options (in "42")');
+			},
+
+			'requires data-factory'() {
+				root.innerHTML = '<app-projector><app-widget data-options="{}" data-from="tests/fixtures/widget-instance"></app-widget></app-projector>';
+				return rejects(app.realize(root), Error, 'app-widget requires data-factory attribute if data-options is given');
+			},
+
+			'is passed to the factory'() {
+				const widget = createWidget();
+				let received: any = null;
+				stubWidgetFactory((options: any) => {
+					delete options.id;
+					delete options.registryProvider;
+					received = options;
+					return widget;
+				});
+
+				root.innerHTML = '<app-projector><app-widget data-options="{&quot;foo&quot;:42}" id="foo" data-factory="tests/fixtures/widget-factory"></app-widget></app-projector>';
+				return app.realize(root).then(() => {
+					assert.deepEqual(received, { foo: 42 });
+					return strictEqual(app.getWidget('foo'), widget);
+				});
+			}
+		},
+
+		'data-state': {
+			'must be valid JSON'() {
+				root.innerHTML = '<app-projector><app-widget data-state="{" id="foo" data-factory="tests/fixtures/widget-factory"></app-widget></app-projector>';
+				return rejects(app.realize(root), SyntaxError);
+			},
+
+			'must be an object'() {
+				root.innerHTML = '<app-projector><app-widget data-state="42" id="foo" data-factory="tests/fixtures/widget-factory"></app-widget></app-projector>';
+				return rejects(app.realize(root), TypeError, 'Expected object from data-state (in "42")');
+			},
+
+			'is lazily added to the defined store before the widget itself is resolved'() {
+				let calls: string[] = [];
+				let addArgs: any[][] = [];
+
+				const store = createStore();
+				(<any> store).add = (...args: any[]) => {
+					calls.push('add');
+					addArgs.push(args);
+					return Promise.resolve();
+				};
+
+				stubWidgetFactory(() => {
+					calls.push('factory');
+					return createWidget();
+				});
+
+				root.innerHTML = '<app-projector><app-widget data-state="{&quot;foo&quot;:42}" data-state-from="store" id="foo" data-factory="tests/fixtures/widget-factory"></app-widget></app-projector>';
+				app.registerStore('store', store);
+				return app.realize(root).then(() => {
+					assert.deepEqual(calls, ['add', 'factory']);
+					assert.deepEqual(addArgs, [[{ foo: 42 }, { id: 'foo' }]]);
+				});
+			},
+
+			'is lazily added to the default store before the widget itself is resolved'() {
+				let calls: string[] = [];
+				let addArgs: any[][] = [];
+
+				const store = createStore();
+				(<any> store).add = (...args: any[]) => {
+					calls.push('add');
+					addArgs.push(args);
+					return Promise.resolve();
+				};
+
+				stubWidgetFactory(() => {
+					calls.push('factory');
+					return createWidget();
+				});
+
+				root.innerHTML = '<app-projector><app-widget data-state="{&quot;foo&quot;:42}" id="foo" data-factory="tests/fixtures/widget-factory"></app-widget></app-projector>';
+				app.defaultWidgetStore = store;
+				return app.realize(root).then(() => {
+					assert.deepEqual(calls, ['add', 'factory']);
+					assert.deepEqual(addArgs, [[{ foo: 42 }, { id: 'foo' }]]);
+				});
+			},
+
+			'the widget is resolved even if adding state fails'() {
+				let calls: string[] = [];
+
+				const store = createStore();
+				(<any> store).add = (...args: any[]) => {
+					calls.push('add');
+					return Promise.reject(new Error());
+				};
+
+				stubWidgetFactory(() => {
+					calls.push('factory');
+					return createWidget();
+				});
+
+				root.innerHTML = '<app-projector><app-widget data-state="{&quot;foo&quot;:42}" id="foo" data-factory="tests/fixtures/widget-factory"></app-widget></app-projector>';
+				app.defaultWidgetStore = store;
+				return app.realize(root).then(() => {
+					assert.deepEqual(calls, ['add', 'factory']);
+				});
+			},
+
+			'the widget is resolved even if there is no store to add state to'() {
+				let calls: string[] = [];
+
+				stubWidgetFactory(() => {
+					calls.push('factory');
+					return createWidget();
+				});
+
+				root.innerHTML = '<app-projector><app-widget data-state="{&quot;foo&quot;:42}" id="foo" data-factory="tests/fixtures/widget-factory"></app-widget></app-projector>';
+				return app.realize(root).then(() => {
+					assert.deepEqual(calls, ['factory']);
+				});
+			}
+		},
+
+		'lazily resolves widget instances': {
+			'declared with data-from'() {
+				root.innerHTML = '<app-projector><app-widget id="foo" data-from="tests/fixtures/widget-instance"></app-widget></app-projector>';
+				return app.realize(root).then(() => {
+					return strictEqual(app.getWidget('foo'), widgetFixture);
+				});
+			},
+
+			'declared with data-from, pointing at an AMD module'() {
+				root.innerHTML = '<app-projector><app-widget id="foo" data-from="tests/fixtures/widget-instance-amd"></app-widget></app-projector>';
+				return app.realize(root).then(() => {
+					return new Promise((resolve) => {
+						require(['tests/fixtures/widget-instance-amd'], resolve);
+					}).then((expected) => {
+						return strictEqual(app.getWidget('foo'), expected);
+					});
+				});
+			},
+
+			'declared with data-import and data-from'() {
+				root.innerHTML = '<app-projector><app-widget id="foo" data-import="member1" data-from="tests/fixtures/widget-exports"></app-widget></app-projector>';
+				return app.realize(root).then(() => {
+					return strictEqual(app.getWidget('foo'), widgetExports['member1']);
+				});
+			},
+
+			'declared with data-import and data-from, pointing at an AMD module'() {
+				root.innerHTML = '<app-projector><app-widget id="foo" data-import="member1" data-from="tests/fixtures/widget-exports-amd"></app-widget></app-projector>';
+				return app.realize(root).then(() => {
+					return new Promise((resolve) => {
+						require(['tests/fixtures/widget-exports-amd'], resolve);
+					}).then((exports: any) => {
+						return strictEqual(app.getWidget('foo'), exports['member1']);
+					});
+				});
+			},
+
+			'declared with data-factory'() {
+				app.defaultWidgetStore = createStore();
+
+				const widget = createWidget();
+				let options: WidgetFactoryOptions = null;
+				stubWidgetFactory((actual) => {
+					options = actual;
+					return widget;
+				});
+
+				root.innerHTML = '<app-projector><app-widget id="foo" data-factory="tests/fixtures/widget-factory"></app-widget></app-projector>';
+				return app.realize(root).then(() => {
+					assert.strictEqual(options.registryProvider, app.registryProvider);
+					assert.strictEqual(options.stateFrom, app.defaultWidgetStore);
+					return strictEqual(app.getWidget('foo'), widget);
+				});
+			},
+
+			'declared with data-factory, pointing at an AMD module'() {
+				app.defaultWidgetStore = createStore();
+
+				const widget = createWidget();
+				let options: WidgetFactoryOptions = null;
+				return new Promise((resolve) => {
+					require(['tests/fixtures/generic-amd-factory'], (factory) => {
+						factory.stub((actual: WidgetFactoryOptions) => {
+							options = actual;
+							return widget;
+						});
+						resolve();
+					});
+				}).then(() => {
+					root.innerHTML = '<app-projector><app-widget id="foo" data-factory="tests/fixtures/generic-amd-factory"></app-widget></app-projector>';
+					return app.realize(root).then(() => {
+						assert.strictEqual(options.registryProvider, app.registryProvider);
+						assert.strictEqual(options.stateFrom, app.defaultWidgetStore);
+						return strictEqual(app.getWidget('foo'), widget);
+					});
+				});
+			}
 		}
 	}
 });
