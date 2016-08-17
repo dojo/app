@@ -9,12 +9,12 @@ import {
 	CustomElementDefinition,
 	ItemDefinition,
 	ReadOnlyRegistry,
-	RegistryProvider,
 	StoreDefinition,
 	StoreFactory,
 	StoreLike,
 	WidgetDefinition,
 	WidgetFactory,
+	WidgetFactoryOptions,
 	WidgetLike
 } from '../createApp';
 import { ResolveMid } from './moduleResolver';
@@ -142,7 +142,7 @@ export function makeActionFactory(definition: ActionDefinition, resolveMid: Reso
 export function makeCustomElementFactory(definition: CustomElementDefinition, resolveMid: ResolveMid): WidgetFactory {
 	let promise: Promise<void>;
 	let factory: WidgetFactory;
-	return (options: Object) => {
+	return (options: WidgetFactoryOptions) => {
 		if (factory) {
 			return factory(options);
 		}
@@ -207,19 +207,9 @@ export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: Reso
 		}
 	}
 
-	interface BaseOptions {
-		registryProvider: RegistryProvider;
-		stateFrom?: StoreLike;
-	}
-
-	return ({ registryProvider, stateFrom: defaultWidgetStore }: BaseOptions) => {
-		interface Options extends BaseOptions {
-			id: string;
-			listeners?: EventedListenersMap;
-		}
-
+	return ({ registryProvider, stateFrom: defaultWidgetStore }: WidgetFactoryOptions) => {
 		const { id, state: initialState } = definition;
-		const options: Options = assign({
+		const options: WidgetFactoryOptions = assign({
 			id,
 			registryProvider
 		}, rawOptions);
