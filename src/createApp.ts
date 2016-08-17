@@ -514,7 +514,6 @@ const widgetFactories = new WeakMap<App, IdentityRegistry<RegisteredFactory<Widg
 
 const instanceRegistries = new WeakMap<App, InstanceRegistry>();
 const midResolvers = new WeakMap<App, ResolveMid>();
-const publicRegistries = new WeakMap<App, CombinedRegistry>();
 const registryProviders = new WeakMap<App, RegistryProvider>();
 const widgetInstances = new WeakMap<App, IdentityRegistry<WidgetLike>>();
 
@@ -871,7 +870,7 @@ const createApp = compose({
 				this.defaultWidgetStore,
 				(id) => addIdentifier(this, id),
 				(instance: WidgetLike, id: string) => registerInstance(this, instance, id),
-				publicRegistries.get(this),
+				this,
 				this.registryProvider,
 				root
 			).then((realizationHandle) => {
@@ -932,7 +931,7 @@ const createApp = compose({
 
 			function configureWidget(): Promise<any> | void {
 				// Ensure no other widget with this ID exists.
-				if (publicRegistries.get(app).hasWidget(id)) {
+				if (app.hasWidget(id)) {
 					return Promise.reject(new Error(`A widget with ID '${id}' already exists`));
 				}
 
@@ -1021,22 +1020,6 @@ const createApp = compose({
 			toAbsMid = (moduleId: string) => moduleId
 		}: AppOptions = {}
 	) {
-		const publicRegistry = {
-			getAction: instance.getAction.bind(instance),
-			hasAction: instance.hasAction.bind(instance),
-			identifyAction: instance.identifyAction.bind(instance),
-			getCustomElementFactory: instance.getCustomElementFactory.bind(instance),
-			hasCustomElementFactory: instance.hasCustomElementFactory.bind(instance),
-			getStore: instance.getStore.bind(instance),
-			hasStore: instance.hasStore.bind(instance),
-			identifyStore: instance.identifyStore.bind(instance),
-			createWidget: instance.createWidget.bind(instance),
-			getWidget: instance.getWidget.bind(instance),
-			hasWidget: instance.hasWidget.bind(instance),
-			identifyWidget: instance.identifyWidget.bind(instance)
-		};
-		Object.freeze(publicRegistry);
-
 		actionFactories.set(instance, new IdentityRegistry<RegisteredFactory<ActionLike>>());
 		customElementFactories.set(instance, new IdentityRegistry<RegisteredFactory<WidgetLike>>());
 		identifiers.set(instance, new Set<Identifier>());
@@ -1045,8 +1028,7 @@ const createApp = compose({
 
 		instanceRegistries.set(instance, new InstanceRegistry());
 		midResolvers.set(instance, makeMidResolver(toAbsMid));
-		publicRegistries.set(instance, publicRegistry);
-		registryProviders.set(instance, new RegistryProvider(publicRegistry));
+		registryProviders.set(instance, new RegistryProvider(instance));
 		widgetInstances.set(instance, new IdentityRegistry<WidgetLike>());
 
 		if (defaultActionStore) {
