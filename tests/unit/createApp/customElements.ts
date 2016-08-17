@@ -116,6 +116,7 @@ registerSuite({
 					'missing-glyph',
 					'app-action',
 					'app-actions',
+					'app-element',
 					'app-projector',
 					'app-store',
 					'app-widget'

@@ -6,6 +6,7 @@ import {
 	ActionDefinition,
 	ActionFactory,
 	ActionLike,
+	CustomElementDefinition,
 	StoreDefinition,
 	StoreFactory,
 	StoreLike,
@@ -32,6 +33,12 @@ interface ActionTask extends BaseTask {
 	state?: JsonObject;
 	stateFrom?: string;
 	type: 'action';
+}
+
+interface ElementTask extends BaseTask {
+	factory: string;
+	name: string;
+	type: 'element';
 }
 
 interface MultipleActionsTask extends BaseTask {
@@ -61,7 +68,7 @@ interface WidgetTask extends BaseTask {
 	type: 'widget';
 }
 
-type Task = ActionTask | MultipleActionsTask | StoreTask | WidgetTask;
+type Task = ActionTask | ElementTask | MultipleActionsTask | StoreTask | WidgetTask;
 
 const parsers = Object.create(null, {
 	'app-action': {
@@ -125,6 +132,27 @@ const parsers = Object.create(null, {
 				element,
 				from,
 				type: 'multiple-actions'
+			};
+		}
+	},
+
+	'app-element': {
+		value(element: Element): ElementTask {
+			const factory = element.getAttribute('data-factory');
+			const name = element.getAttribute('data-name');
+
+			if (!factory) {
+				throw new Error('app-element requires data-factory');
+			}
+			if (!name) {
+				throw new Error('app-element requires data-name');
+			}
+
+			return {
+				element,
+				factory,
+				name,
+				type: 'element'
 			};
 		}
 	},
@@ -320,6 +348,23 @@ function loadMultipleActions(
 	});
 }
 
+function createCustomElementDefinition(
+	resolveMid: ResolveMid,
+	{
+		factory,
+		name
+	}: ElementTask
+): CustomElementDefinition {
+	return {
+		factory(options) {
+			return resolveMid<WidgetFactory>(factory).then((factory) => {
+				return factory(options);
+			});
+		},
+		name
+	};
+}
+
 function createStoreDefinition(
 	resolveMid: ResolveMid,
 	{
@@ -380,6 +425,7 @@ function createWidgetDefinition(
 
 export interface Result {
 	actions: ActionDefinition[];
+	customElements: CustomElementDefinition[];
 	defaultStores: { type: 'action' | 'widget', definition: StoreDefinition }[];
 	stores: StoreDefinition[];
 	widgets: WidgetDefinition[];
@@ -389,6 +435,7 @@ export default function extractRegistrationElements(resolveMid: ResolveMid, root
 	return new Promise((resolve, reject) => {
 		const result: Result = {
 			actions: [],
+			customElements: [],
 			defaultStores: [],
 			stores: [],
 			widgets: []
@@ -399,6 +446,10 @@ export default function extractRegistrationElements(resolveMid: ResolveMid, root
 			switch (task.type) {
 				case 'action':
 					result.actions.push(createActionDefinition(resolveMid, <ActionTask> task));
+					break;
+
+				case 'element':
+					result.customElements.push(createCustomElementDefinition(resolveMid, <ElementTask> task));
 					break;
 
 				case 'multiple-actions': {

@@ -877,41 +877,42 @@ const createApp = compose({
 
 	realize(this: App, root: Element) {
 		const resolveMid = midResolvers.get(this);
-		return extractRegistrationElements(resolveMid, root).then(({ actions, defaultStores, stores, widgets }) => {
-			const definitionHandle = this.loadDefinition({ actions, stores, widgets });
-			if (defaultStores.length === 0) {
-				return definitionHandle;
-			}
+		return extractRegistrationElements(resolveMid, root)
+			.then(({ actions, customElements, defaultStores, stores, widgets }) => {
+				const definitionHandle = this.loadDefinition({ actions, customElements, stores, widgets });
+				if (defaultStores.length === 0) {
+					return definitionHandle;
+				}
 
-			return Promise.all(defaultStores.map(({ type, definition }) => {
-				const factory = makeStoreFactory(definition, resolveMid);
-				return Promise.resolve(factory()).then((store) => {
-					if (type === 'action') {
-						this.defaultActionStore = store;
-					}
-					else {
-						this.defaultWidgetStore = store;
-					}
+				return Promise.all(defaultStores.map(({ type, definition }) => {
+					const factory = makeStoreFactory(definition, resolveMid);
+					return Promise.resolve(factory()).then((store) => {
+						if (type === 'action') {
+							this.defaultActionStore = store;
+						}
+						else {
+							this.defaultWidgetStore = store;
+						}
+					});
+				})).then(() => definitionHandle);
+			}).then((definitionHandle) => {
+				return realizeCustomElements(
+					this.defaultWidgetStore,
+					(id) => addIdentifier(this, id),
+					(instance: WidgetLike, id: string) => registerInstance(this, instance, id),
+					this,
+					this.registryProvider,
+					root
+				).then((realizationHandle) => {
+					return {
+						destroy(this: Handle) {
+							this.destroy = noop;
+							definitionHandle.destroy();
+							realizationHandle.destroy();
+						}
+					};
 				});
-			})).then(() => definitionHandle);
-		}).then((definitionHandle) => {
-			return realizeCustomElements(
-				this.defaultWidgetStore,
-				(id) => addIdentifier(this, id),
-				(instance: WidgetLike, id: string) => registerInstance(this, instance, id),
-				this,
-				this.registryProvider,
-				root
-			).then((realizationHandle) => {
-				return {
-					destroy(this: Handle) {
-						this.destroy = noop;
-						definitionHandle.destroy();
-						realizationHandle.destroy();
-					}
-				};
 			});
-		});
 	}
 })
 .mixin({
