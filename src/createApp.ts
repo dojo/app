@@ -879,8 +879,8 @@ const createApp = compose({
 	realize(this: App, root: Element) {
 		const resolveMid = midResolvers.get(this);
 		return extractRegistrationElements(resolveMid, root)
-			.then(({ actions, defaultStores, stores }) => {
-				const definitionHandle = this.loadDefinition({ actions, stores });
+			.then(({ actions, defaultStores, stores, widgets }) => {
+				const definitionHandle = this.loadDefinition({ actions, stores, widgets });
 				if (defaultStores.length === 0) {
 					return definitionHandle;
 				}

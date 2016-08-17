@@ -170,7 +170,7 @@ registerSuite({
 
 		'an ID is required'() {
 			projector.innerHTML = '<app-widget></app-widget>';
-			return rejects(app.realize(root), Error, 'Cannot resolve widget for a custom element without \'data-uid\' or \'id\' attributes');
+			return rejects(app.realize(root), Error, 'app-widget requires data-uid or id attribute');
 		},
 
 		'the ID must resolve to a widget instance'() {

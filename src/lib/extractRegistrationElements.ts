@@ -8,7 +8,10 @@ import {
 	ActionLike,
 	StoreDefinition,
 	StoreFactory,
-	StoreLike
+	StoreLike,
+	WidgetDefinition,
+	WidgetFactory,
+	WidgetLike
 } from '../createApp';
 import { RESOLVE_CONTENTS, ResolveMid } from './moduleResolver';
 import parseJsonAttribute from './parseJsonAttribute';
@@ -46,7 +49,19 @@ interface StoreTask extends BaseTask {
 	type: 'store';
 }
 
-type Task = ActionTask | MultipleActionsTask | StoreTask;
+interface WidgetTask extends BaseTask {
+	factory?: string;
+	from?: string;
+	id: string;
+	importName: string;
+	listeners?: JsonObject;
+	options?: JsonObject;
+	state?: JsonObject;
+	stateFrom?: string;
+	type: 'widget';
+}
+
+type Task = ActionTask | MultipleActionsTask | StoreTask | WidgetTask;
 
 const parsers = Object.create(null, {
 	'app-action': {
@@ -165,6 +180,71 @@ const parsers = Object.create(null, {
 				type: 'store'
 			};
 		}
+	},
+
+	'app-widget': {
+		value(element: Element): WidgetTask {
+			let id = element.getAttribute('data-uid') || element.getAttribute('id');
+			const factory = element.getAttribute('data-factory');
+			const from = element.getAttribute('data-from');
+			const importName = element.getAttribute('data-import');
+			const listenersJson = element.getAttribute('data-listeners');
+			const optionsJson = element.getAttribute('data-options');
+			const stateFrom = element.getAttribute('data-state-from');
+			const stateJson = element.getAttribute('data-state');
+
+			if (stateFrom && !factory) {
+				throw new Error('app-widget requires data-factory attribute if data-state-from is given');
+			}
+			if (listenersJson && !factory) {
+				throw new Error('app-widget requires data-factory attribute if data-listeners is given');
+			}
+			if (optionsJson && !factory) {
+				throw new Error('app-widget requires data-factory attribute if data-options is given');
+			}
+			if (stateJson && !factory) {
+				throw new Error('app-widget requires data-factory attribute if data-state is given');
+			}
+
+			// Without factory or from, assume the widget has already been defined elsewhere.
+			if (!factory && !from) {
+				return null;
+			}
+
+			if (factory && !id) {
+				throw new Error('app-widget requires data-uid or id attribute if data-factory is given');
+			}
+
+			if (from && !id) {
+				if (importName) {
+					id = importName;
+				}
+				else {
+					id = from.split('/').pop();
+				}
+			}
+
+			if (!id) {
+				throw new Error(`Could not determine ID for app-widget (from=${from} and import=${importName})`);
+			}
+
+			const listeners = listenersJson ? parseJsonAttribute<JsonObject>('data-listeners', listenersJson) : null;
+			const options = optionsJson ? parseJsonAttribute<JsonObject>('data-options', optionsJson) : null;
+			const state = stateJson ? parseJsonAttribute<JsonObject>('data-state', stateJson) : null;
+
+			return {
+				element,
+				factory,
+				from,
+				id,
+				importName,
+				listeners,
+				options,
+				state,
+				stateFrom,
+				type: 'widget'
+			};
+		}
 	}
 });
 
@@ -188,7 +268,10 @@ function getRegistrationTasks(root: Element): Task[] {
 		}
 
 		if (name) {
-			tasks.push(parsers[name](element));
+			const task = parsers[name](element);
+			if (task) {
+				tasks.push(task);
+			}
 		}
 	}
 
@@ -262,6 +345,37 @@ function createStoreDefinition(
 	};
 }
 
+function createWidgetDefinition(
+	resolveMid: ResolveMid,
+	{
+		factory,
+		from,
+		id,
+		importName,
+		listeners,
+		options,
+		state,
+		stateFrom
+	}: WidgetTask
+): WidgetDefinition {
+	return {
+		id,
+		factory(options) {
+			if (factory) {
+				return resolveMid<WidgetFactory>(factory)
+					.then((factory) => factory(options));
+			}
+			else {
+				return resolveMid<WidgetLike>(from, importName || 'default');
+			}
+		},
+		listeners,
+		options,
+		state,
+		stateFrom
+	};
+}
+
 /**
  * Provides resulting definition objects that were extracted from the root element.
  */
@@ -280,10 +394,15 @@ export interface Result {
 	 * Stores that should be loaded into the app.
 	 */
 	stores: StoreDefinition[];
+
+	/**
+	 * Widgets that should be loaded into the app.
+	 */
+	widgets: WidgetDefinition[];
 }
 
 /**
- * Extract action and store definitions that should be loaded into the app.
+ * Extract action, store and widget definitions that should be loaded into the app.
  *
  * @param resolveMid Function to asynchronously resolve a module identifier
  * @param root The element within which registration elements can be found
@@ -294,7 +413,8 @@ export default function extractRegistrationElements(resolveMid: ResolveMid, root
 		const result: Result = {
 			actions: [],
 			defaultStores: [],
-			stores: []
+			stores: [],
+			widgets: []
 		};
 		const promises: Promise<void>[] = [];
 
@@ -324,9 +444,17 @@ export default function extractRegistrationElements(resolveMid: ResolveMid, root
 					}
 					break;
 				}
+
+				case 'widget':
+					result.widgets.push(createWidgetDefinition(resolveMid, <WidgetTask> task));
+					// Forcibly add the possibly derived ID to the element, so the <app-widget> can be realized.
+					task.element.setAttribute('data-uid', (<WidgetTask> task).id);
+					break;
 			}
 
-			remove(task.element);
+			if (task.type !== 'widget') {
+				remove(task.element);
+			}
 		}
 
 		if (promises.length > 0) {

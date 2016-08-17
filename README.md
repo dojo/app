@@ -410,6 +410,16 @@ The optional `data-options` attribute can be used to specify an options object, 
 
 Modules are only loaded when the store is needed.
 
+#### Defining widgets
+
+Use `<app-widget>` to define a widget. Specify its ID using the `data-uid` or `id` attribute (`data-uid` takes precedence). Use the `data-factory` attribute to specify the module ID for a factory function which can create the widget when it's needed. The function must be the default export of the module.
+
+Alternatively use the `data-from` attribute to import an existing widget, again by specifying its module ID. To import a specific member, use the `data-import` attribute. When using `data-from` it's not necessary to specify `data-uid` or `id`. If used, the `data-import` value will be used as the widget ID. Otherwise the filename portion of the `data-from` module ID is used.
+
+Modules are only loaded when the widget is needed.
+
+The `data-listeners`, `data-options`, `data-state` and `data-state-from` attributes may be used together with `data-factory`. See the next section for details.
+
 #### Rendering widgets
 
 Widgets are rendered inside a projector. You can declare (multiple) projector slots in your DOM tree using the `app-projector` custom element. These projectors must not be nested. Other custom elements can only occur within a `app-projector`. You can pass a single `app-projector` element as the `root` argument to `App#realize()`.
@@ -430,7 +440,7 @@ A default widget store may be configured by setting the `data-state-from` attrib
 
 Custom elements that have widget IDs and a `stateFrom` store may set their `data-state` attribute to an initial state object, encoded as a JSON string. This initial state will be added to the store before the widget is created. The store is assumed to reject the initial state if it already contains state for the widget. This error will be ignored and the widget will be created with whatever state was already in the store.
 
-The special `app-widget` custom element can be used to render a previously registered widget. The `data-uid` or `id` attribute is used to retrieve the widget. The `data-state`, `data-state-from` and `data-options` attributes are ignored. No default widget store is applied.
+The previously mentioned `app-widget` custom element can be used to render a specific widget. It can be declared using the `data-factory` or `data-from` attributes. Alternatively use the `data-uid` or `id` attribute to reference a widget that was registered using the functional API.
 
 A widget ID can only be used once within an application. Similarly a widget instance can only be rendered once. The `getWidget()`, `hasWidget()` and `identifyWidget()` methods will work with widgets created by custom element factories.
 
