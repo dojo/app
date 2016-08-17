@@ -4,8 +4,8 @@ import { Child } from 'dojo-widgets/mixins/interfaces';
 
 import {
 	ActionLike,
-	CombinedRegistry,
 	Identifier,
+	ReadOnlyRegistry,
 	StoreLike,
 	WidgetLike
 } from '../createApp';
@@ -68,15 +68,15 @@ export default class RegistryProvider {
 	private widgetRegistry: WidgetRegistry<Identifier, WidgetLike>;
 
 	private underlyingRegistry: UnderlyingRegistry;
-	constructor(combinedRegistry: CombinedRegistry) {
+	constructor(registry: ReadOnlyRegistry) {
 		this.underlyingRegistry = Object.freeze({
-			getAction: combinedRegistry.getAction.bind(combinedRegistry),
-			identifyAction: combinedRegistry.identifyAction.bind(combinedRegistry),
-			getStore: combinedRegistry.getStore.bind(combinedRegistry),
-			identifyStore: combinedRegistry.identifyStore.bind(combinedRegistry),
-			createWidget: combinedRegistry.createWidget.bind(combinedRegistry),
-			getWidget: combinedRegistry.getWidget.bind(combinedRegistry),
-			identifyWidget: combinedRegistry.identifyWidget.bind(combinedRegistry)
+			getAction: registry.getAction.bind(registry),
+			identifyAction: registry.identifyAction.bind(registry),
+			getStore: registry.getStore.bind(registry),
+			identifyStore: registry.identifyStore.bind(registry),
+			createWidget: registry.createWidget.bind(registry),
+			getWidget: registry.getWidget.bind(registry),
+			identifyWidget: registry.identifyWidget.bind(registry)
 		});
 	}
 

@@ -6,9 +6,9 @@ import {
 	ActionDefinition,
 	ActionFactory,
 	ActionLike,
-	CombinedRegistry,
 	CustomElementDefinition,
 	ItemDefinition,
+	ReadOnlyRegistry,
 	RegistryProvider,
 	StoreDefinition,
 	StoreFactory,
@@ -20,7 +20,7 @@ import {
 import { ResolveMid } from './moduleResolver';
 import resolveListenersMap from './resolveListenersMap';
 
-function resolveStore(registry: CombinedRegistry, definition: ActionDefinition | WidgetDefinition): void | StoreLike | Promise<StoreLike> {
+function resolveStore(registry: ReadOnlyRegistry, definition: ActionDefinition | WidgetDefinition): void | StoreLike | Promise<StoreLike> {
 	const { stateFrom } = definition;
 	if (!stateFrom) {
 		return null;
@@ -107,7 +107,7 @@ function resolveFactory(type: FactoryTypes, definition: CustomElementDefinition 
 	}
 }
 
-export function makeActionFactory(definition: ActionDefinition, resolveMid: ResolveMid, registry: CombinedRegistry): ActionFactory {
+export function makeActionFactory(definition: ActionDefinition, resolveMid: ResolveMid, registry: ReadOnlyRegistry): ActionFactory {
 	if (!('factory' in definition || 'instance' in definition)) {
 		throw new TypeError('Action definitions must specify either the factory or instance option');
 	}
@@ -182,7 +182,7 @@ export function makeStoreFactory(definition: StoreDefinition, resolveMid: Resolv
 	};
 }
 
-export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: ResolveMid, registry: CombinedRegistry): WidgetFactory {
+export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: ResolveMid, registry: ReadOnlyRegistry): WidgetFactory {
 	if (!('factory' in definition || 'instance' in definition)) {
 		throw new TypeError('Widget definitions must specify either the factory or instance option');
 	}

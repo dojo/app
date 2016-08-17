@@ -234,9 +234,11 @@ export interface WidgetListenersMap {
 }
 
 /**
- * Read-only interface for the combined registries of the app factory.
+ * Read-only interface to access actions, custom element factories, stores and widgets.
+ *
+ * Used in helper modules which shouldn't write to the app registry.
  */
-export interface CombinedRegistry {
+export interface ReadOnlyRegistry {
 	/**
 	 * Get the action with the given identifier.
 	 *
@@ -467,7 +469,7 @@ export interface AppMixin {
 	realize(root: Element): Promise<Handle>;
 }
 
-export type App = AppMixin & CombinedRegistry;
+export type App = AppMixin & ReadOnlyRegistry;
 
 export interface AppOptions {
 	/**
