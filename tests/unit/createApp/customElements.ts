@@ -2,7 +2,7 @@ import Promise from 'dojo-shim/Promise';
 import * as registerSuite from 'intern!object';
 import * as assert from 'intern/chai!assert';
 
-import createApp from 'src/createApp';
+import createApp, { WidgetFactoryOptions } from 'src/createApp';
 
 import { stub as stubWidgetFactory } from '../../fixtures/widget-factory';
 import {
@@ -32,7 +32,7 @@ registerSuite({
 			});
 
 			const wrapper = app.getCustomElementFactory('foo-bar');
-			const expectedOptions = {};
+			const expectedOptions = <WidgetFactoryOptions> {};
 			const receivedReturnValue = wrapper(expectedOptions);
 			assert.strictEqual(receivedOptions, expectedOptions);
 			assert.strictEqual(receivedReturnValue, expectedReturnValue);
