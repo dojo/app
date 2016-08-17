@@ -88,7 +88,7 @@ registerSuite({
 			);
 		},
 
-		'immediately calls configure() on the action'() {
+		'calls configure() on the action when it is needed'() {
 			let called = false;
 			const action = createAction();
 			action.configure = () => { called = true; };
@@ -96,7 +96,26 @@ registerSuite({
 			const app = createApp();
 			app.registerAction('foo', action);
 
-			assert.isTrue(called);
+			assert.isFalse(called);
+			return app.getAction('foo').then(() => {
+				assert.isTrue(called);
+			});
+		},
+
+		'action is only configured once'() {
+			let count = 0;
+			const action = createAction();
+			action.configure = () => { count++; };
+
+			const app = createApp();
+			app.registerAction('foo', action);
+
+			return Promise.all([
+				app.getAction('foo'),
+				app.getAction('foo')
+			]).then(() => {
+				assert.equal(count, 1);
+			});
 		},
 
 		'action.configure() is passed a combined registry'() {
@@ -107,16 +126,8 @@ registerSuite({
 			const app = createApp();
 			app.registerAction('foo', action);
 
-			isCombinedRegistry(registry);
-		},
-
-		'registerAction() does not throw if action.configure() throws'() {
-			const action = createAction();
-			action.configure = () => { throw new Error(); };
-
-			const app = createApp();
-			assert.doesNotThrow(() => {
-				app.registerAction('foo', action);
+			return app.getAction('foo').then(() => {
+				isCombinedRegistry(registry);
 			});
 		},
 
