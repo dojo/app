@@ -418,11 +418,13 @@ All descending custom elements are replaced by rendered widgets. Widgets for nes
 
 Custom elements are matched (case-insensitively) to registered factories. First the tag name is matched. If no factory is found, and the element has an `is` attribute, that value is used to find a factory. Unrecognized elements are left in the DOM where possible.
 
-A factory options object can be provided in the DOM by setting the `data-options` attribute to a JSON string. The options object may have a `stateFrom` property containing a store identifier. It may also have a `listeners` property containing a widget listener map. Values for each event type can be action identifiers or arrays thereof. These properties are resolved to the actual store and action instances before the factory is called. Additional properties are passed to the factory as-is.
+A factory options object can be provided in the DOM by setting the `data-options` attribute to a JSON string. The options object must not have an `id` property, instead the `data-uid` or `id` attribute should be used. It also must not have a `stateFrom` property, the `data-state-from` should be used instead. Similarly use the `data-listeners` attribute instead of the `listeners` property, and the `data-state` attribute instead of the `state` property.
 
-Widgets can be identified through the `id` property on the options object, a `data-uid` attribute, or an `id` attribute. The options object takes precedence over the `data-uid` attribute, which takes precedence over the `id` attribute. It's valid to use the different attributes, but only the most specific ID will be passed to the factory (in the `options` object).
+Widgets can be identified through a `data-uid` or `id` attribute. The `data-uid` attribute takes precedence over the `id` attribute. It's valid to use the different attributes, but only the most specific ID will be passed to the factory (in its `options` object).
 
-The `data-state-from` attribute may be used on custom elements to specify a store identifier. This will only take effect if a widget ID is also specified. The `stateFrom` property on the options object that is passed to the factory will be set to the referenced store. Any `stateFrom` property in the `data-options` object still takes precedence.
+The `data-listeners` attribute may be used to specify a widget listener map. Values for each event type can be action identifiers or arrays thereof. These properties are resolved to the actual store and action instances before the factory is called. Additional properties are passed to the factory as-is.
+
+The `data-state-from` attribute may be used on custom elements to specify a store identifier. This will only take effect if a widget ID is also specified. The `stateFrom` property on the options object that is passed to the factory will be set to the referenced store.
 
 A default widget store may be configured by setting the `data-state-from` attribute on the `app-projector` custom element. It applies to all descendant elements that have IDs, though they can override it by setting their own `data-state-from` attribute or configuring `stateFrom` in their `data-options`.
 
@@ -486,7 +488,7 @@ And this `<body>`:
 	<app-projector>
 		<div>
 			<dojo-container>
-				<a-widget data-options='{"id":"widget-1","tagName":"mark","stateFrom":"widget-state","listeners":{"click":"an-action"}}'></a-widget>
+				<a-widget data-uid="widget-1" data-options='{"tagName":"mark"}' data-listeners='{"click":"an-action"}' data-state-from="widget-state"></a-widget>
 				<div>
 					<div is="app-widget" id="widget-2"></div>
 				</div>
