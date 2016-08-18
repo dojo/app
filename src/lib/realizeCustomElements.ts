@@ -460,7 +460,7 @@ export default function realizeCustomElements(
 		return Promise.all(attachedProjectors);
 	}).then(() => {
 		return {
-			destroy() {
+			destroy(this: Handle) {
 				this.destroy = noop;
 				for (const p of projectors) {
 					p.destroy();

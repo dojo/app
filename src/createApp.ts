@@ -490,7 +490,7 @@ function addIdentifier(app: App, id: Identifier) {
 	set.add(id);
 
 	return {
-		destroy() {
+		destroy(this: Handle) {
 			this.destroy = noop;
 			set.delete(id);
 		}
@@ -504,7 +504,7 @@ function registerInstance(app: App, instance: WidgetLike, id: string): Handle {
 	const idHandle = widgetInstances.get(app).register(id, instance);
 
 	return {
-		destroy() {
+		destroy(this: Handle) {
 			this.destroy = noop;
 			instanceHandle.destroy();
 			idHandle.destroy();
@@ -514,14 +514,12 @@ function registerInstance(app: App, instance: WidgetLike, id: string): Handle {
 
 const createApp = compose({
 	set defaultActionStore(store: StoreLike) {
-		const app: App = this;
-		instanceRegistries.get(app).addStore(store, DEFAULT_ACTION_STORE);
-		storeFactories.get(app).register(DEFAULT_ACTION_STORE, () => store);
+		instanceRegistries.get(this).addStore(store, DEFAULT_ACTION_STORE);
+		storeFactories.get(this).register(DEFAULT_ACTION_STORE, () => store);
 	},
 
-	get defaultActionStore() {
-		const app: App = this;
-		const factories = storeFactories.get(app);
+	get defaultActionStore(this: App) {
+		const factories = storeFactories.get(this);
 		if (factories.hasId(DEFAULT_ACTION_STORE)) {
 			return <StoreLike> factories.get(DEFAULT_ACTION_STORE)();
 		}
@@ -531,14 +529,12 @@ const createApp = compose({
 	},
 
 	set defaultWidgetStore(store: StoreLike) {
-		const app: App = this;
-		instanceRegistries.get(app).addStore(store, DEFAULT_WIDGET_STORE);
-		storeFactories.get(app).register(DEFAULT_WIDGET_STORE, () => store);
+		instanceRegistries.get(this).addStore(store, DEFAULT_WIDGET_STORE);
+		storeFactories.get(this).register(DEFAULT_WIDGET_STORE, () => store);
 	},
 
-	get defaultWidgetStore() {
-		const app: App = this;
-		const factories = storeFactories.get(app);
+	get defaultWidgetStore(this: App) {
+		const factories = storeFactories.get(this);
 		if (factories.hasId(DEFAULT_WIDGET_STORE)) {
 			return <StoreLike> factories.get(DEFAULT_WIDGET_STORE)();
 		}
@@ -547,24 +543,21 @@ const createApp = compose({
 		}
 	},
 
-	get registryProvider() {
-		const app: App = this;
-		return registryProviders.get(app);
+	get registryProvider(this: App) {
+		return registryProviders.get(this);
 	},
 
-	registerAction(id: Identifier, action: ActionLike): Handle {
-		const app: App = this;
-
-		const idHandle = addIdentifier(app, id);
-		const instanceHandle = instanceRegistries.get(app).addAction(action, id);
+	registerAction(this: App, id: Identifier, action: ActionLike): Handle {
+		const idHandle = addIdentifier(this, id);
+		const instanceHandle = instanceRegistries.get(this).addAction(action, id);
 
 		const promise = new Promise<void>((resolve) => {
-			resolve(action.configure(publicRegistries.get(app)));
+			resolve(action.configure(publicRegistries.get(this)));
 		}).then(() => action);
-		const registryHandle = actionFactories.get(app).register(id, () => promise);
+		const registryHandle = actionFactories.get(this).register(id, () => promise);
 
 		return {
-			destroy() {
+			destroy(this: Handle) {
 				this.destroy = noop;
 				idHandle.destroy();
 				instanceHandle.destroy();
@@ -573,41 +566,39 @@ const createApp = compose({
 		};
 	},
 
-	registerActionFactory(id: Identifier, factory: ActionFactory): Handle {
-		const app: App = this;
-
-		const idHandle = addIdentifier(app, id);
+	registerActionFactory(this: App, id: Identifier, factory: ActionFactory): Handle {
+		const idHandle = addIdentifier(this, id);
 
 		let destroyed = false;
 		let instanceHandle: Handle;
-		let registryHandle = actionFactories.get(app).register(id, () => {
+		let registryHandle = actionFactories.get(this).register(id, () => {
 			const promise = Promise.resolve()
 				.then(() => {
 					// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
 					// factory is registered through this method or loaded from a definition.
 
-					return factory(publicRegistries.get(app), app.defaultActionStore);
+					return factory(publicRegistries.get(this), this.defaultActionStore);
 				})
 				.then((action) => {
 					if (!destroyed) {
-						instanceHandle = instanceRegistries.get(app).addAction(action, id);
+						instanceHandle = instanceRegistries.get(this).addAction(action, id);
 					}
 
 					// Configure the action, allow for a promise to be returned.
-					return Promise.resolve(action.configure(publicRegistries.get(app))).then(() => {
+					return Promise.resolve(action.configure(publicRegistries.get(this))).then(() => {
 						return action;
 					});
 				});
 
 			// Replace the registered factory to ensure next time this action is needed, the same action is returned.
 			registryHandle.destroy();
-			registryHandle = actionFactories.get(app).register(id, () => promise);
+			registryHandle = actionFactories.get(this).register(id, () => promise);
 
 			return promise;
 		});
 
 		return {
-			destroy() {
+			destroy(this: Handle) {
 				this.destroy = noop;
 				destroyed = true;
 				idHandle.destroy();
@@ -619,12 +610,10 @@ const createApp = compose({
 		};
 	},
 
-	registerCustomElementFactory(name: string, factory: WidgetFactory): Handle {
+	registerCustomElementFactory(this: App, name: string, factory: WidgetFactory): Handle {
 		if (!isValidName(name)) {
 			throw new SyntaxError(`'${name}' is not a valid custom element name'`);
 		}
-
-		const app: App = this;
 
 		// Wrap the factory since the registry cannot store frozen factories, and dojo-compose creates
 		// frozen factories…
@@ -632,25 +621,23 @@ const createApp = compose({
 
 		// Note that each custom element requires a new widget, so there's no need to replace the
 		// registered factory.
-		const registryHandle = customElementFactories.get(app).register(normalizeName(name), wrapped);
+		const registryHandle = customElementFactories.get(this).register(normalizeName(name), wrapped);
 
 		return {
-			destroy() {
+			destroy(this: Handle) {
 				this.destroy = noop;
 				registryHandle.destroy();
 			}
 		};
 	},
 
-	registerStore(id: Identifier, store: StoreLike): Handle {
-		const app: App = this;
-
-		const idHandle = addIdentifier(app, id);
-		const instanceHandle = instanceRegistries.get(app).addStore(store, id);
-		const registryHandle = storeFactories.get(app).register(id, () => store);
+	registerStore(this: App, id: Identifier, store: StoreLike): Handle {
+		const idHandle = addIdentifier(this, id);
+		const instanceHandle = instanceRegistries.get(this).addStore(store, id);
+		const registryHandle = storeFactories.get(this).register(id, () => store);
 
 		return {
-			destroy() {
+			destroy(this: Handle) {
 				this.destroy = noop;
 				idHandle.destroy();
 				instanceHandle.destroy();
@@ -659,33 +646,31 @@ const createApp = compose({
 		};
 	},
 
-	registerStoreFactory(id: Identifier, factory: StoreFactory): Handle {
-		const app: App = this;
-
-		const idHandle = addIdentifier(app, id);
+	registerStoreFactory(this: App, id: Identifier, factory: StoreFactory): Handle {
+		const idHandle = addIdentifier(this, id);
 
 		let destroyed = false;
 		let instanceHandle: Handle;
-		let registryHandle = storeFactories.get(app).register(id, () => {
+		let registryHandle = storeFactories.get(this).register(id, () => {
 			const promise = Promise.resolve().then(() => {
 				// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
 				// factory is registered through this method or loaded from a definition.
 				return factory();
 			}).then((store) => {
 				if (!destroyed) {
-					instanceHandle = instanceRegistries.get(app).addStore(store, id);
+					instanceHandle = instanceRegistries.get(this).addStore(store, id);
 				}
 
 				return store;
 			});
 			// Replace the registered factory to ensure next time this store is needed, the same store is returned.
 			registryHandle.destroy();
-			registryHandle = storeFactories.get(app).register(id, () => promise);
+			registryHandle = storeFactories.get(this).register(id, () => promise);
 			return promise;
 		});
 
 		return {
-			destroy() {
+			destroy(this: Handle) {
 				this.destroy = noop;
 				destroyed = true;
 				idHandle.destroy();
@@ -697,15 +682,13 @@ const createApp = compose({
 		};
 	},
 
-	registerWidget(id: Identifier, widget: WidgetLike): Handle {
-		const app: App = this;
-
-		const idHandle = addIdentifier(app, id);
-		const instanceHandle = instanceRegistries.get(app).addWidget(widget, id);
-		const registryHandle = widgetFactories.get(app).register(id, () => widget);
+	registerWidget(this: App, id: Identifier, widget: WidgetLike): Handle {
+		const idHandle = addIdentifier(this, id);
+		const instanceHandle = instanceRegistries.get(this).addWidget(widget, id);
+		const registryHandle = widgetFactories.get(this).register(id, () => widget);
 
 		return {
-			destroy() {
+			destroy(this: Handle) {
 				this.destroy = noop;
 				idHandle.destroy();
 				instanceHandle.destroy();
@@ -714,19 +697,17 @@ const createApp = compose({
 		};
 	},
 
-	registerWidgetFactory(id: Identifier, factory: WidgetFactory): Handle {
-		const app: App = this;
-
-		const idHandle = addIdentifier(app, id);
+	registerWidgetFactory(this: App, id: Identifier, factory: WidgetFactory): Handle {
+		const idHandle = addIdentifier(this, id);
 
 		let destroyed = false;
 		let instanceHandle: Handle;
-		let registryHandle = widgetFactories.get(app).register(id, () => {
+		let registryHandle = widgetFactories.get(this).register(id, () => {
 			const promise = Promise.resolve().then(() => {
 				// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
 				// factory is registered through this method or loaded from a definition.
 
-				const { registryProvider, defaultWidgetStore } = app;
+				const { registryProvider, defaultWidgetStore } = this;
 				interface Options {
 					id: string;
 					registryProvider: RegistryProvider;
@@ -739,19 +720,19 @@ const createApp = compose({
 				return factory(options);
 			}).then((widget) => {
 				if (!destroyed) {
-					instanceHandle = instanceRegistries.get(app).addWidget(widget, id);
+					instanceHandle = instanceRegistries.get(this).addWidget(widget, id);
 				}
 
 				return widget;
 			});
 			// Replace the registered factory to ensure next time this widget is needed, the same widget is returned.
 			registryHandle.destroy();
-			registryHandle = widgetFactories.get(app).register(id, () => promise);
+			registryHandle = widgetFactories.get(this).register(id, () => promise);
 			return promise;
 		});
 
 		return {
-			destroy() {
+			destroy(this: Handle) {
 				this.destroy = noop;
 				destroyed = true;
 				idHandle.destroy();
@@ -763,38 +744,37 @@ const createApp = compose({
 		};
 	},
 
-	loadDefinition({ actions, customElements, stores, widgets }: Definitions): Handle {
-		const app: App = this;
+	loadDefinition(this: App, { actions, customElements, stores, widgets }: Definitions): Handle {
 		const handles: Handle[] = [];
 
 		if (actions) {
 			for (const definition of actions) {
-				const factory = makeActionFactory(definition, midResolvers.get(app));
-				const handle = app.registerActionFactory(definition.id, factory);
+				const factory = makeActionFactory(definition, midResolvers.get(this));
+				const handle = this.registerActionFactory(definition.id, factory);
 				handles.push(handle);
 			}
 		}
 
 		if (customElements) {
 			for (const definition of customElements) {
-				const factory = makeCustomElementFactory(definition, midResolvers.get(app));
-				const handle = app.registerCustomElementFactory(definition.name, factory);
+				const factory = makeCustomElementFactory(definition, midResolvers.get(this));
+				const handle = this.registerCustomElementFactory(definition.name, factory);
 				handles.push(handle);
 			}
 		}
 
 		if (stores) {
 			for (const definition of stores) {
-				const factory = makeStoreFactory(definition, midResolvers.get(app));
-				const handle = app.registerStoreFactory(definition.id, factory);
+				const factory = makeStoreFactory(definition, midResolvers.get(this));
+				const handle = this.registerStoreFactory(definition.id, factory);
 				handles.push(handle);
 			}
 		}
 
 		if (widgets) {
 			for (const definition of widgets) {
-				const factory = makeWidgetFactory(definition, midResolvers.get(app), app);
-				const handle = app.registerWidgetFactory(definition.id, factory);
+				const factory = makeWidgetFactory(definition, midResolvers.get(this), this);
+				const handle = this.registerWidgetFactory(definition.id, factory);
 				handles.push(handle);
 			}
 		}
@@ -808,59 +788,56 @@ const createApp = compose({
 		};
 	},
 
-	realize(root: Element) {
-		const app: App = this;
+	realize(this: App, root: Element) {
 		return realizeCustomElements(
-			app.defaultWidgetStore,
-			(id) => addIdentifier(app, id),
-			(instance: WidgetLike, id: string) => registerInstance(app, instance, id),
-			publicRegistries.get(app),
-			app.registryProvider,
+			this.defaultWidgetStore,
+			(id) => addIdentifier(this, id),
+			(instance: WidgetLike, id: string) => registerInstance(this, instance, id),
+			publicRegistries.get(this),
+			this.registryProvider,
 			root
 		);
 	}
 })
 .mixin({
 	mixin: {
-		getAction(id: Identifier): Promise<ActionLike> {
+		getAction(this: App, id: Identifier): Promise<ActionLike> {
 			return new Promise((resolve) => {
 				resolve(actionFactories.get(this).get(id)());
 			});
 		},
 
-		hasAction(id: Identifier): boolean {
+		hasAction(this: App, id: Identifier): boolean {
 			return actionFactories.get(this).hasId(id);
 		},
 
-		identifyAction(action: ActionLike): string {
-			const app: App = this;
-			return instanceRegistries.get(app).identifyAction(action);
+		identifyAction(this: App, action: ActionLike): string {
+			return instanceRegistries.get(this).identifyAction(action);
 		},
 
-		getCustomElementFactory(name: string): WidgetFactory {
+		getCustomElementFactory(this: App, name: string): WidgetFactory {
 			return customElementFactories.get(this).get(name);
 		},
 
-		hasCustomElementFactory(name: string) {
+		hasCustomElementFactory(this: App, name: string) {
 			return customElementFactories.get(this).hasId(name);
 		},
 
-		getStore(id: Identifier | symbol): Promise<StoreLike> {
+		getStore(this: App, id: Identifier | symbol): Promise<StoreLike> {
 			return new Promise((resolve) => {
 				resolve(storeFactories.get(this).get(id)());
 			});
 		},
 
-		hasStore(id: Identifier | symbol): boolean {
+		hasStore(this: App, id: Identifier | symbol): boolean {
 			return storeFactories.get(this).hasId(id);
 		},
 
-		identifyStore(store: StoreLike): Identifier | symbol {
-			const app: App = this;
-			return instanceRegistries.get(app).identifyStore(store);
+		identifyStore(this: App, store: StoreLike): Identifier | symbol {
+			return instanceRegistries.get(this).identifyStore(store);
 		},
 
-		getWidget(id: Identifier): Promise<WidgetLike> {
+		getWidget(this: App, id: Identifier): Promise<WidgetLike> {
 			// Widgets either need to be resolved from a factory, or have been created when realizing
 			// custom elements.
 			const factories = widgetFactories.get(this);
@@ -888,14 +865,13 @@ const createApp = compose({
 			});
 		},
 
-		hasWidget(id: Identifier): boolean {
+		hasWidget(this: App, id: Identifier): boolean {
 			// See if there is a widget factory, or else an existing custom element instance.
 			return widgetFactories.get(this).hasId(id) || widgetInstances.get(this).hasId(id);
 		},
 
-		identifyWidget(widget: WidgetLike): string {
-			const app: App = this;
-			return instanceRegistries.get(app).identifyWidget(widget);
+		identifyWidget(this: App, widget: WidgetLike): string {
+			return instanceRegistries.get(this).identifyWidget(widget);
 		}
 	},
 
