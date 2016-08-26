@@ -3,6 +3,7 @@ import compose, { ComposeFactory } from 'dojo-compose/compose';
 import { EventedListener } from 'dojo-compose/mixins/createEvented';
 import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
+import { assign } from 'dojo-core/lang';
 import Promise from 'dojo-shim/Promise';
 import Set from 'dojo-shim/Set';
 import Symbol from 'dojo-shim/Symbol';
@@ -851,37 +852,49 @@ const createApp = compose({
 			return instanceRegistries.get(this).identifyStore(store);
 		},
 
-		createWidget<U extends Child, O>(this: App, factory: ComposeFactory<U, O>, options: any = {}): Promise<[string, U]> {
+		createWidget<U extends Child, O>(this: App, factory: ComposeFactory<U, O>, options: any = {}): Promise<[ string, U ]> {
+			const app = this;
 			const { defaultWidgetStore, registryProvider } = this;
+			const { id = generateWidgetId() } = options;
+			// Like for custom elements, don't add the generated ID to the options.
 
-			return new Promise((resolve) => {
-				const { id = generateWidgetId() } = options;
-				// Like for custom elements, don't add the generated ID to the options.
-
+			function configureWidget(): Promise<any> | void {
 				// Ensure no other widget with this ID exists.
-				if (publicRegistries.get(this).hasWidget(id)) {
+				if (publicRegistries.get(app).hasWidget(id)) {
 					throw new Error(`A widget with ID '${id}' already exists`);
 				}
 
 				if (!options.registryProvider) {
 					options.registryProvider = registryProvider;
 				}
+
 				if (options.id && !options.stateFrom && defaultWidgetStore) {
 					options.stateFrom = defaultWidgetStore;
-				}
 
-				const widget = factory(options);
-				// Add the instance to the various registries the app may maintain.
-				try {
-					widget.own(registerInstance(this, widget, id));
-				} catch (_) {
-					// app._registerInstance() will throw if the widget has already been registered.
-					// Throw a friendlier error message.
-					throw new Error('Cannot attach a widget multiple times');
+					// We will attempt to create an initial state, if it isn't present in the store
+					const state = { id };
+					if (options.state) {
+						assign(state, options.state);
+					}
+					// TODO: What happens if the store rejects?
+					return defaultWidgetStore.add(state);
 				}
+			}
 
-				resolve([id, widget]);
-			});
+			return Promise
+				.resolve(configureWidget())
+				.then(() => {
+					const widget = factory(options);
+					// Add the instance to the various registries the app may maintain.
+					try {
+						widget.own(registerInstance(app, widget, id));
+					} catch (_) {
+						// app._registerInstance() will throw if the widget has already been registered.
+						// Throw a friendlier error message.
+						throw new Error('Cannot attach a widget multiple times');
+					}
+					return [ id, widget ];
+				});
 		},
 
 		getWidget(this: App, id: Identifier): Promise<WidgetLike> {
