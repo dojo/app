@@ -16,6 +16,8 @@ import {
 	createAction,
 	createStore,
 	createWidget,
+	createSpyStore,
+	createSpyWidget,
 	invert,
 	rejects,
 	strictEqual
@@ -38,6 +40,90 @@ registerSuite({
 			app.registerWidget('foo', expected);
 
 			return strictEqual(app.getWidget('foo'), expected);
+		}
+	},
+
+	'#createWidget': {
+		'creation with no options'() {
+			return createApp()
+				.createWidget(createSpyWidget)
+				.then(([ id, widget ]) => {
+					assert.include(id, 'app-widget-');
+					const { _options, _own, _destroyed } = widget;
+					assert.strictEqual(_own.length, 1);
+					assert(_options.registryProvider);
+					assert.strictEqual(Object.keys(_options).length, 1);
+					assert.isFalse(_destroyed);
+				});
+		},
+
+		'creation with empty options'() {
+			return createApp()
+				.createWidget(createSpyWidget, {})
+				.then(([ id, widget ]) => {
+					assert.include(id, 'app-widget-');
+					const { _options, _own, _destroyed } = widget;
+					assert.strictEqual(_own.length, 1);
+					assert(_options.registryProvider);
+					assert.strictEqual(Object.keys(_options).length, 1);
+					assert.isFalse(_destroyed);
+				});
+		},
+
+		'supply registry provider'() {
+			const registryProvider = {};
+			return createApp()
+				.createWidget(createSpyWidget, <any> { registryProvider })
+				.then(([ id, widget ]) => {
+					assert.include(id, 'app-widget-');
+					const { _options, _own, _destroyed } = widget;
+					assert.strictEqual(_own.length, 1);
+					assert.strictEqual(_options.registryProvider, registryProvider);
+					assert.strictEqual(Object.keys(_options).length, 1);
+					assert.isFalse(_destroyed);
+				});
+		},
+
+		'rejects when ID already registered'() {
+			const app = createApp();
+			const widget = createSpyWidget();
+			app.registerWidget('foo', widget);
+			return rejects(app.createWidget(createSpyWidget, <any> { id: 'foo' }), Error);
+		},
+
+		'create with ID and default widget store'() {
+			const defaultWidgetStore = createSpyStore();
+			return createApp({ defaultWidgetStore })
+				.createWidget(createSpyWidget, <any> { id: 'foo' })
+				.then(([ id, widget ]) => {
+					assert.strictEqual(id, 'foo');
+					const { _options } = widget;
+					assert.strictEqual(_options.stateFrom, defaultWidgetStore);
+					assert.strictEqual(_options.id, 'foo');
+					assert(_options.registryProvider);
+					assert.strictEqual(Object.keys(_options).length, 3);
+					assert.strictEqual(defaultWidgetStore._add.length, 1);
+					assert.strictEqual(defaultWidgetStore._add[0].length, 1);
+					assert.deepEqual(defaultWidgetStore._add[0][0], { id: 'foo' });
+				});
+		},
+
+		'create with ID, default widget store and initial state'() {
+			const defaultWidgetStore = createSpyStore();
+			return createApp({ defaultWidgetStore })
+				.createWidget(createSpyWidget, <any> { id: 'foo', state: { foo: 'bar' } })
+				.then(([ id, widget ]) => {
+					assert.strictEqual(id, 'foo');
+					const { _options } = widget;
+					assert.strictEqual(_options.stateFrom, defaultWidgetStore);
+					assert.strictEqual(_options.id, 'foo');
+					assert(_options.registryProvider);
+					assert.deepEqual(_options.state, { foo: 'bar' });
+					assert.strictEqual(Object.keys(_options).length, 4);
+					assert.strictEqual(defaultWidgetStore._add.length, 1);
+					assert.strictEqual(defaultWidgetStore._add[0].length, 1);
+					assert.deepEqual(defaultWidgetStore._add[0][0], { id: 'foo', foo: 'bar' });
+				});
 		}
 	},
 

@@ -861,7 +861,7 @@ const createApp = compose({
 			function configureWidget(): Promise<any> | void {
 				// Ensure no other widget with this ID exists.
 				if (publicRegistries.get(app).hasWidget(id)) {
-					throw new Error(`A widget with ID '${id}' already exists`);
+					return Promise.reject(new Error(`A widget with ID '${id}' already exists`));
 				}
 
 				if (!options.registryProvider) {
@@ -886,13 +886,10 @@ const createApp = compose({
 				.then(() => {
 					const widget = factory(options);
 					// Add the instance to the various registries the app may maintain.
-					try {
-						widget.own(registerInstance(app, widget, id));
-					} catch (_) {
-						// app._registerInstance() will throw if the widget has already been registered.
-						// Throw a friendlier error message.
-						throw new Error('Cannot attach a widget multiple times');
-					}
+					//
+					// No need to trap registerInstance for duplicates, because we are creating new
+					// in this function
+					widget.own(registerInstance(app, widget, id));
 					return [ id, widget ];
 				});
 		},
