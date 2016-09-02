@@ -868,8 +868,8 @@ const createApp = compose({
 					options.registryProvider = registryProvider;
 				}
 
-				if (options.id && !options.stateFrom && defaultWidgetStore) {
-					options.stateFrom = defaultWidgetStore;
+				if (options.id && (options.stateFrom || defaultWidgetStore)) {
+					const store: StoreLike = options.stateFrom = options.stateFrom || defaultWidgetStore;
 
 					// We will attempt to create an initial state, if it isn't present in the store
 					const state = { id };
@@ -877,7 +877,7 @@ const createApp = compose({
 						assign(state, options.state);
 					}
 					// TODO: What happens if the store rejects?
-					return defaultWidgetStore.add(state);
+					return store.add(state);
 				}
 			}
 
