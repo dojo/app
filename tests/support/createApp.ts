@@ -1,7 +1,7 @@
 import Promise from 'dojo-shim/Promise';
 import * as assert from 'intern/chai!assert';
 import compose from 'dojo-compose/compose';
-import { h } from 'maquette/maquette';
+import { h } from 'maquette';
 import { Handle } from 'dojo-core/interfaces';
 
 import {
