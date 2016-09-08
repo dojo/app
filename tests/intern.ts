@@ -54,14 +54,14 @@ export const loaderOptions = {
 		{ name: 'src', location: '_build/src' },
 		{ name: 'tests', location: '_build/tests' },
 		{ name: 'dojo', location: 'node_modules/intern/node_modules/dojo' },
-		{ name: 'dojo-compose', location: 'node_modules/dojo-compose/dist/umd' },
-		{ name: 'dojo-core', location: 'node_modules/dojo-core/dist/umd' },
-		{ name: 'dojo-dom', location: 'node_modules/dojo-dom/dist/umd' },
-		{ name: 'dojo-has', location: 'node_modules/dojo-has/dist/umd' },
-		{ name: 'dojo-shim', location: 'node_modules/dojo-shim/dist/umd' },
-		{ name: 'dojo-widgets', location: 'node_modules/dojo-widgets/dist/umd' },
-		{ name: 'maquette', location: 'node_modules/maquette/dist' },
-		{ name: 'immutable', location: 'node_modules/immutable/dist' }
+		{ name: 'dojo-compose', location: 'node_modules/dojo-compose' },
+		{ name: 'dojo-core', location: 'node_modules/dojo-core' },
+		{ name: 'dojo-dom', location: 'node_modules/dojo-dom' },
+		{ name: 'dojo-has', location: 'node_modules/dojo-has' },
+		{ name: 'dojo-shim', location: 'node_modules/dojo-shim' },
+		{ name: 'dojo-widgets', location: 'node_modules/dojo-widgets' },
+		{ name: 'maquette', location: 'node_modules/maquette/dist', main: 'maquette' },
+		{ name: 'immutable', location: 'node_modules/immutable/dist', main: 'immutable' }
 	]
 };
 
