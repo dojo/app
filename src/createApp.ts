@@ -3,11 +3,13 @@ import compose, { ComposeFactory } from 'dojo-compose/compose';
 import { EventedListener } from 'dojo-compose/mixins/createEvented';
 import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
+import { assign } from 'dojo-core/lang';
 import Promise from 'dojo-shim/Promise';
 import Set from 'dojo-shim/Set';
 import Symbol from 'dojo-shim/Symbol';
 import WeakMap from 'dojo-shim/WeakMap';
 import { Renderable } from 'dojo-widgets/mixins/createRenderable';
+import { Child } from 'dojo-widgets/mixins/interfaces';
 
 import IdentityRegistry from './IdentityRegistry';
 import {
@@ -17,6 +19,7 @@ import {
 	makeWidgetFactory
 } from './lib/factories';
 import InstanceRegistry from './lib/InstanceRegistry';
+import makeIdGenerator from './lib/makeIdGenerator';
 import makeMidResolver, { ToAbsMid, ResolveMid } from './lib/moduleResolver';
 import realizeCustomElements, {
 	isValidName,
@@ -290,6 +293,16 @@ export interface CombinedRegistry {
 	identifyStore(store: StoreLike): Identifier | symbol;
 
 	/**
+	 * Create a new widget and add it to the registry.
+	 *
+	 * @param factory Factory to create the widget
+	 * @param options Options to be passed to the factory. Automatically extended with the `registryProvider` option,
+	 *   and the `stateFrom` option if an `id` was present and the application factory has a default store.
+	 * @return A promise for a tuple containing the ID of the created widget, and the widget instance itself.
+	 */
+	createWidget<U extends Child, O>(factory: ComposeFactory<U, O>, options?: O): Promise<[string, U]>;
+
+	/**
 	 * Get the widget with the given identifier.
 	 *
 	 * Note that the widget may still need to be loaded when this method is called.
@@ -465,6 +478,8 @@ export const DEFAULT_ACTION_STORE = Symbol('Identifier for default action stores
  * Identifier for the default widget store, if any.
  */
 export const DEFAULT_WIDGET_STORE = Symbol('Identifier for default widget stores');
+
+const generateWidgetId = makeIdGenerator('app-widget-');
 
 const noop = () => {};
 
@@ -837,6 +852,48 @@ const createApp = compose({
 			return instanceRegistries.get(this).identifyStore(store);
 		},
 
+		createWidget<U extends Child, O>(this: App, factory: ComposeFactory<U, O>, options: any = {}): Promise<[ string, U ]> {
+			const app = this;
+			const { defaultWidgetStore, registryProvider } = this;
+			const { id = generateWidgetId() } = options;
+			// Like for custom elements, don't add the generated ID to the options.
+
+			function configureWidget(): Promise<any> | void {
+				// Ensure no other widget with this ID exists.
+				if (publicRegistries.get(app).hasWidget(id)) {
+					return Promise.reject(new Error(`A widget with ID '${id}' already exists`));
+				}
+
+				if (!options.registryProvider) {
+					options.registryProvider = registryProvider;
+				}
+
+				if (options.id && (options.stateFrom || defaultWidgetStore)) {
+					const store: StoreLike = options.stateFrom = options.stateFrom || defaultWidgetStore;
+
+					// We will attempt to create an initial state, if it isn't present in the store
+					const state = { id };
+					if (options.state) {
+						assign(state, options.state);
+					}
+					// TODO: What happens if the store rejects?
+					return store.add(state);
+				}
+			}
+
+			return Promise
+				.resolve(configureWidget())
+				.then(() => {
+					const widget = factory(options);
+					// Add the instance to the various registries the app may maintain.
+					//
+					// No need to trap registerInstance for duplicates, because we are creating new
+					// in this function
+					widget.own(registerInstance(app, widget, id));
+					return [ id, widget ];
+				});
+		},
+
 		getWidget(this: App, id: Identifier): Promise<WidgetLike> {
 			// Widgets either need to be resolved from a factory, or have been created when realizing
 			// custom elements.
@@ -892,6 +949,7 @@ const createApp = compose({
 			getStore: instance.getStore.bind(instance),
 			hasStore: instance.hasStore.bind(instance),
 			identifyStore: instance.identifyStore.bind(instance),
+			createWidget: instance.createWidget.bind(instance),
 			getWidget: instance.getWidget.bind(instance),
 			hasWidget: instance.hasWidget.bind(instance),
 			identifyWidget: instance.identifyWidget.bind(instance)
