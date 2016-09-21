@@ -59,6 +59,8 @@ export const createSpyWidget = compose({
 		return Promise.resolve(this._destroyed = true);
 	},
 	tagName: 'div',
+	id: '',
+	parent: null,
 	_options: <any> null,
 	_own: <any[]> null,
 	_destroyed: false
