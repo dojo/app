@@ -915,25 +915,20 @@ const createApp = compose({
 			const factories = widgetFactories.get(this);
 			const instances = widgetInstances.get(this);
 
-			return new Promise((resolve) => {
-				// First see if a factory exists for the widget.
-				let factory: WidgetFactory;
-				try {
-					factory = factories.get(id);
-					resolve(factory());
-				} catch (missingFactory) {
-					try {
-						// Otherwise try and get an existing instance.
-						const instance = instances.get(id);
-						resolve(instance);
-					} catch (_) {
-						if (!this.defaultWidgetStore) {
-							throw missingFactory;
-						}
-						const widget = createCustomWidget(this, id).catch((e) => { throw missingFactory; });
-						resolve(widget);
-					}
-				}
+			let missingFactory: any;
+			return Promise.resolve().then(() => {
+				const factory = factories.get(id);
+				return factory();
+			})
+			.catch((e) => {
+				missingFactory = e;
+				return instances.get(id);
+			})
+			.catch((e) => {
+				return createCustomWidget(this, id);
+			})
+			.catch((e) => {
+				throw missingFactory;
 			});
 		},
 
