@@ -515,10 +515,12 @@ function addIdentifier(app: App, id: Identifier) {
 
 function createCustomWidget(app: App, id: string) {
 	const customFactories = customElementFactories.get(app);
+	const { registryProvider, defaultActionStore: stateFrom } = app;
 
 	return app.defaultWidgetStore.get(id).then((state: any) => {
+		const options: any = { id, stateFrom, registryProvider, state };
 		const customFactory = customFactories.get(state.type);
-		const widgetOrPromise = customFactory( { state } );
+		const widgetOrPromise = customFactory(options);
 
 		return Promise.resolve(widgetOrPromise).then((widget) => {
 			widget.own(registerInstance(app, widget, id));
