@@ -56,15 +56,6 @@ registerSuite({
 			});
 		},
 
-		'no registered factory for the widget state type'() {
-			const defaultWidgetStore = createSpyStore();
-			const app = createApp({ defaultWidgetStore });
-
-			return defaultWidgetStore.add({id: 'foo', type: 'custom-element'}).then(() => {
-				return rejects(app.getWidget('foo'), Error);
-			});
-		},
-
 		'creates (async) and provides widget using factory registered for the states custom type'() {
 			const defaultWidgetStore = createSpyStore();
 			const app = createApp({ defaultWidgetStore });
@@ -75,6 +66,37 @@ registerSuite({
 				return app.getWidget('foo').then((widget) => {
 					assert.isObject(widget);
 				});
+			});
+		},
+
+		'no registered factory for the widget state type'() {
+			const defaultWidgetStore = createSpyStore();
+			const app = createApp({ defaultWidgetStore });
+
+			return defaultWidgetStore.add({id: 'foo', type: 'custom-element'}).then(() => {
+				return rejects(app.getWidget('foo'), Error);
+			});
+		},
+
+		'no default widget store'() {
+			const app = createApp();
+
+			return rejects(app.getWidget('foo'), Error);
+		},
+
+		'no state record for id'() {
+			const defaultWidgetStore = createSpyStore();
+			const app = createApp({ defaultWidgetStore });
+
+			return rejects(app.getWidget('foo'), Error);
+		},
+
+		'no type on state record'() {
+			const defaultWidgetStore = createSpyStore();
+			const app = createApp({ defaultWidgetStore });
+
+			return defaultWidgetStore.add({id: 'foo'}).then(() => {
+				return rejects(app.getWidget('foo'), Error);
 			});
 		}
 	},
