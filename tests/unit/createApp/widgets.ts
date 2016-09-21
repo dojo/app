@@ -16,6 +16,7 @@ import {
 	createAction,
 	createStore,
 	createWidget,
+	createAsyncSpyWidget,
 	createSpyStore,
 	createSpyWidget,
 	invert,
@@ -40,6 +41,41 @@ registerSuite({
 			app.registerWidget('foo', expected);
 
 			return strictEqual(app.getWidget('foo'), expected);
+		},
+
+		'creates and provides widget using factory registered for the states custom type'() {
+			const defaultWidgetStore = createSpyStore();
+			const app = createApp({ defaultWidgetStore });
+
+			app.registerCustomElementFactory('custom-element', createSpyWidget);
+
+			return defaultWidgetStore.add({id: 'foo', type: 'custom-element'}).then(() => {
+				return app.getWidget('foo').then((widget) => {
+					assert.isObject(widget);
+				});
+			});
+		},
+
+		'no registered factory for the widget state type'() {
+			const defaultWidgetStore = createSpyStore();
+			const app = createApp({ defaultWidgetStore });
+
+			return defaultWidgetStore.add({id: 'foo', type: 'custom-element'}).then(() => {
+				return rejects(app.getWidget('foo'), Error);
+			});
+		},
+
+		'creates (async) and provides widget using factory registered for the states custom type'() {
+			const defaultWidgetStore = createSpyStore();
+			const app = createApp({ defaultWidgetStore });
+
+			app.registerCustomElementFactory('custom-element', createAsyncSpyWidget);
+
+			return defaultWidgetStore.add({id: 'foo', type: 'custom-element'}).then(() => {
+				return app.getWidget('foo').then((widget) => {
+					assert.isObject(widget);
+				});
+			});
 		}
 	},
 

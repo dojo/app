@@ -1,6 +1,7 @@
 import Promise from 'dojo-shim/Promise';
 import * as assert from 'intern/chai!assert';
 import compose from 'dojo-compose/compose';
+import Map from 'dojo-shim/Map';
 import { h } from 'maquette';
 import { Handle } from 'dojo-core/interfaces';
 
@@ -23,9 +24,17 @@ export function createStore(): StoreLike {
 export const createSpyStore = compose({
 	add(this: any, ...args: any[]): Promise<any> {
 		this._add.push(args);
+		const id = args ? args[0].id : null;
+		if (id) {
+			this._map.set(id, args[0]);
+		}
 		return Promise.resolve({});
 	},
+	get(this: any, id: string): Promise<any> {
+		return Promise.resolve(this._map.get(id));
+	},
 	_add: <any[][]> null,
+	_map: <Map<string, any>> null,
 	observe(...args: any[]): any {},
 	_observe: <any[][]> null,
 	patch(this: any, ...args: any[]): Promise<any> {
@@ -37,6 +46,7 @@ export const createSpyStore = compose({
 }, (instance, options) => {
 	instance._options = options;
 	instance._add = [];
+	instance._map = new Map<string, any>();
 	instance._observe = [];
 	instance._patch = [];
 });
@@ -66,6 +76,12 @@ export const createSpyWidget = compose({
 	instance._options = options;
 	instance._own = [];
 });
+
+export function createAsyncSpyWidget(): Promise<WidgetLike> {
+	return new Promise<WidgetLike>((resolve) => {
+		resolve(createSpyWidget());
+	});
+}
 
 export function invert(promise: Promise<any>): Promise<any> {
 	return promise.then((value) => {

@@ -39,6 +39,7 @@ export type ActionLike = Action<any, any, any>;
  */
 export type StoreLike = ObservableState<State> & {
 	add<T>(item: T, options?: any): Promise<T>;
+	get<T>(id: string): Promise<T>;
 }
 
 /**
@@ -512,6 +513,20 @@ function addIdentifier(app: App, id: Identifier) {
 	};
 }
 
+function createCustomWidget(app: App, id: string) {
+	const customFactories = customElementFactories.get(app);
+
+	return app.defaultWidgetStore.get(id).then((state: any) => {
+		const customFactory = customFactories.get(state.type);
+		const widgetOrPromise = customFactory( { state } );
+
+		return Promise.resolve(widgetOrPromise).then((widget) => {
+			widget.own(registerInstance(app, widget, id));
+			return widget;
+		});
+	});
+}
+
 function registerInstance(app: App, instance: WidgetLike, id: string): Handle {
 	// Maps the instance to its ID
 	const instanceHandle = instanceRegistries.get(app).addWidget(instance, id);
@@ -899,26 +914,26 @@ const createApp = compose({
 			// custom elements.
 			const factories = widgetFactories.get(this);
 			const instances = widgetInstances.get(this);
+
 			return new Promise((resolve) => {
 				// First see if a factory exists for the widget.
 				let factory: WidgetFactory;
 				try {
 					factory = factories.get(id);
+					resolve(factory());
 				} catch (missingFactory) {
 					try {
 						// Otherwise try and get an existing instance.
 						const instance = instances.get(id);
 						resolve(instance);
-						return; // Make sure to return!
 					} catch (_) {
-						// Don't confuse people by complaining about missing instances, rethrow the
-						// original error.
-						throw missingFactory;
+						if (!this.defaultWidgetStore) {
+							throw missingFactory;
+						}
+						const widget = createCustomWidget(this, id).catch((e) => { throw missingFactory; });
+						resolve(widget);
 					}
 				}
-				// This is only reached when a factory exists. Call it and resolve with the result.
-				// If it throws that's fine, it'll reject the promise.
-				resolve(factory());
 			});
 		},
 
