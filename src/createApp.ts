@@ -8,7 +8,6 @@ import Promise from 'dojo-shim/Promise';
 import Set from 'dojo-shim/Set';
 import Symbol from 'dojo-shim/Symbol';
 import WeakMap from 'dojo-shim/WeakMap';
-import { Renderable } from 'dojo-widgets/mixins/createRenderable';
 import { Child } from 'dojo-widgets/mixins/interfaces';
 
 import IdentityRegistry from './IdentityRegistry';
@@ -45,7 +44,7 @@ export type StoreLike = ObservableState<State> & {
 /**
  * Any kind of widget.
  */
-export type WidgetLike = Renderable;
+export type WidgetLike = Child;
 
 /**
  * Factory method to (asynchronously) create an action.
