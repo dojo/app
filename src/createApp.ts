@@ -519,12 +519,10 @@ function createCustomWidget(app: App, id: string) {
 	return app.defaultWidgetStore.get(id).then((state: any) => {
 		const options: any = { id, stateFrom, registryProvider, state };
 		const customFactory = customFactories.get(state.type);
-		const widgetOrPromise = customFactory(options);
-
-		return Promise.resolve(widgetOrPromise).then((widget) => {
-			widget.own(registerInstance(app, widget, id));
-			return widget;
-		});
+		return customFactory(options);
+	}).then((widget) => {
+		widget.own(registerInstance(app, widget, id));
+		return widget;
 	});
 }
 
@@ -916,20 +914,34 @@ const createApp = compose({
 			const factories = widgetFactories.get(this);
 			const instances = widgetInstances.get(this);
 
-			let missingFactory: any;
-			return Promise.resolve().then(() => {
-				const factory = factories.get(id);
-				return factory();
-			})
-			.catch((e) => {
-				missingFactory = e;
-				return instances.get(id);
-			})
-			.catch((e) => {
-				return createCustomWidget(this, id);
-			})
-			.catch((e) => {
-				throw missingFactory;
+			return new Promise((resolve) => {
+				// First see if a factory exists for the widget.
+				let factory: WidgetFactory;
+				let result: WidgetLike | Promise<WidgetLike>;
+				try {
+					factory = factories.get(id);
+				} catch (missingFactory) {
+					try {
+						// Otherwise try and get an existing instance.
+						result = instances.get(id);
+					} catch (_) {
+						// Try creating a custom widget, but only if there is a default widget store. The default
+						// widget store should contain details on how to create the widget.
+						if (this.defaultWidgetStore) {
+							result = createCustomWidget(this, id)
+								// Rethrow the original error since it's probably the least confusing one.
+								.catch(() => { throw missingFactory; });
+						}
+						else {
+							// Reject with the original error since it's probably the least confusing one.
+							result = Promise.reject(missingFactory);
+						}
+					}
+				}
+
+				// Resolve with the result, or call the factory and resolve with its result. If the factory throws
+				// that's fine, the returned promise will reject with an appropriate error.
+				resolve(result || factory());
 			});
 		},
 
