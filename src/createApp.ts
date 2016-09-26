@@ -519,12 +519,10 @@ function createCustomWidget(app: App, id: string) {
 	return app.defaultWidgetStore.get(id).then((state: any) => {
 		const options: any = { id, stateFrom, registryProvider, state };
 		const customFactory = customFactories.get(state.type);
-		const widgetOrPromise = customFactory(options);
-
-		return Promise.resolve(widgetOrPromise).then((widget) => {
-			widget.own(registerInstance(app, widget, id));
-			return widget;
-		});
+		return customFactory(options);
+	}).then((widget) => {
+		widget.own(registerInstance(app, widget, id));
+		return widget;
 	});
 }
 
