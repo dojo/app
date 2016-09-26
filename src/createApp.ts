@@ -914,34 +914,39 @@ const createApp = compose({
 			const factories = widgetFactories.get(this);
 			const instances = widgetInstances.get(this);
 
-			return new Promise((resolve) => {
-				// First see if a factory exists for the widget.
+			let missingFactory: any;
+			return new Promise((resolve, reject) => {
 				let factory: WidgetFactory;
-				let result: WidgetLike | Promise<WidgetLike>;
 				try {
 					factory = factories.get(id);
-				} catch (missingFactory) {
-					try {
-						// Otherwise try and get an existing instance.
-						result = instances.get(id);
-					} catch (_) {
-						// Try creating a custom widget, but only if there is a default widget store. The default
-						// widget store should contain details on how to create the widget.
-						if (this.defaultWidgetStore) {
-							result = createCustomWidget(this, id)
-								// Rethrow the original error since it's probably the least confusing one.
-								.catch(() => { throw missingFactory; });
-						}
-						else {
-							// Reject with the original error since it's probably the least confusing one.
-							result = Promise.reject(missingFactory);
-						}
-					}
+					// Don't call the factory yet. Errors thrown during its execution should be differentiated from
+					// errors thrown when getting the factory.
+				}
+				catch (err) {
+					missingFactory = err;
+					reject();
+					return;
 				}
 
-				// Resolve with the result, or call the factory and resolve with its result. If the factory throws
-				// that's fine, the returned promise will reject with an appropriate error.
-				resolve(result || factory());
+				// Be sure to call the factory synchronously.
+				resolve(factory());
+			}).catch((err) => {
+				if (missingFactory) {
+					return instances.get(id);
+				}
+				else {
+					throw err;
+				}
+			}).catch((err) => {
+				if (missingFactory && this.defaultWidgetStore) {
+					// Note that errors thrown by the createCustomWidget are masked by the missingFactory error.
+					return createCustomWidget(this, id);
+				}
+				else {
+					throw err;
+				}
+			}).catch((err) => {
+				throw missingFactory || err;
 			});
 		},
 
