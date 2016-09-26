@@ -87,6 +87,19 @@ registerSuite({
 			});
 		},
 
+		'is rejected with the error thrown by the widget factory'() {
+			const expected = new Error();
+			const defaultWidgetStore = createSpyStore();
+			const app = createApp({ defaultWidgetStore });
+
+			app.registerCustomElementFactory('custom-element', createSpyWidget);
+			app.registerWidgetFactory('foo', () => { throw expected; });
+
+			return defaultWidgetStore.add({id: 'foo', type: 'custom-element'}).then(() => {
+				return strictEqual(rejects(app.getWidget('foo'), Error), expected);
+			});
+		},
+
 		'no registered factory for the widget state type'() {
 			const defaultWidgetStore = createSpyStore();
 			const app = createApp({ defaultWidgetStore });
