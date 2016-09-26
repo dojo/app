@@ -5,5 +5,4 @@ import './createApp/extractRegistrationElements';
 import './createApp/realizeCustomElements';
 import './createApp/stores';
 import './createApp/widgets';
-import './IdentityRegistry';
 import './main';
