@@ -3,6 +3,7 @@ import compose, { ComposeFactory } from 'dojo-compose/compose';
 import { EventedListener, EventedListenersMap } from 'dojo-compose/mixins/createEvented';
 import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
+import IdentityRegistry from 'dojo-core/IdentityRegistry';
 import { assign } from 'dojo-core/lang';
 import Promise from 'dojo-shim/Promise';
 import Set from 'dojo-shim/Set';
@@ -10,7 +11,6 @@ import Symbol from 'dojo-shim/Symbol';
 import WeakMap from 'dojo-shim/WeakMap';
 import { Child } from 'dojo-widgets/mixins/interfaces';
 
-import IdentityRegistry from './IdentityRegistry';
 import extractRegistrationElements from './lib/extractRegistrationElements';
 import {
 	makeActionFactory,
@@ -604,7 +604,7 @@ const createApp = compose({
 
 	get defaultActionStore(this: App) {
 		const factories = storeFactories.get(this);
-		if (factories.hasId(DEFAULT_ACTION_STORE)) {
+		if (factories.has(DEFAULT_ACTION_STORE)) {
 			return <StoreLike> factories.get(DEFAULT_ACTION_STORE)();
 		}
 		else {
@@ -619,7 +619,7 @@ const createApp = compose({
 
 	get defaultWidgetStore(this: App) {
 		const factories = storeFactories.get(this);
-		if (factories.hasId(DEFAULT_WIDGET_STORE)) {
+		if (factories.has(DEFAULT_WIDGET_STORE)) {
 			return <StoreLike> factories.get(DEFAULT_WIDGET_STORE)();
 		}
 		else {
@@ -931,7 +931,7 @@ const createApp = compose({
 		},
 
 		hasAction(this: App, id: Identifier): boolean {
-			return actionFactories.get(this).hasId(id);
+			return actionFactories.get(this).has(id);
 		},
 
 		identifyAction(this: App, action: ActionLike): string {
@@ -943,7 +943,7 @@ const createApp = compose({
 		},
 
 		hasCustomElementFactory(this: App, name: string) {
-			return customElementFactories.get(this).hasId(name);
+			return customElementFactories.get(this).has(name);
 		},
 
 		getStore(this: App, id: Identifier | symbol): Promise<StoreLike> {
@@ -953,7 +953,7 @@ const createApp = compose({
 		},
 
 		hasStore(this: App, id: Identifier | symbol): boolean {
-			return storeFactories.get(this).hasId(id);
+			return storeFactories.get(this).has(id);
 		},
 
 		identifyStore(this: App, store: StoreLike): Identifier | symbol {
@@ -1049,7 +1049,7 @@ const createApp = compose({
 
 		hasWidget(this: App, id: Identifier): boolean {
 			// See if there is a widget factory, or else an existing custom element instance.
-			return widgetFactories.get(this).hasId(id) || widgetInstances.get(this).hasId(id);
+			return widgetFactories.get(this).has(id) || widgetInstances.get(this).has(id);
 		},
 
 		identifyWidget(this: App, widget: WidgetLike): string {
