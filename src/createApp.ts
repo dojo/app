@@ -514,7 +514,7 @@ function addIdentifier(app: App, id: Identifier) {
 
 function createCustomWidget(app: App, id: string) {
 	const customFactories = customElementFactories.get(app);
-	const { registryProvider, defaultActionStore: stateFrom } = app;
+	const { registryProvider, defaultWidgetStore: stateFrom } = app;
 
 	return app.defaultWidgetStore.get(id).then((state: any) => {
 		const options: any = { id, stateFrom, registryProvider, state };
