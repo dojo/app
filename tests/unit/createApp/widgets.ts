@@ -1,5 +1,7 @@
 import { EventedListener, EventedListenersMap } from 'dojo-compose/mixins/createEvented';
+import createMemoryStore from 'dojo-stores/createMemoryStore';
 import Promise from 'dojo-shim/Promise';
+import createActualWidget, { Widget as ActualWidget } from 'dojo-widgets/createWidget';
 import * as registerSuite from 'intern!object';
 import * as assert from 'intern/chai!assert';
 
@@ -65,6 +67,22 @@ registerSuite({
 			return defaultWidgetStore.add({id: 'foo', type: 'custom-element'}).then(() => {
 				return app.getWidget('foo').then((widget) => {
 					assert.isObject(widget);
+				});
+			});
+		},
+
+		'widget created for custom type observes state'() {
+			const defaultWidgetStore = createMemoryStore();
+			const app = createApp({ defaultWidgetStore });
+
+			app.registerCustomElementFactory('custom-element', createActualWidget);
+
+			return defaultWidgetStore.add({id: 'foo', type: 'custom-element', value: 1}).then(() => {
+				return app.getWidget('foo').then((widget: ActualWidget<any>) => {
+					assert.equal(widget.state.value, 1);
+					return defaultWidgetStore.patch({id: 'foo', value: 2}).then(() => {
+						assert.equal(widget.state.value, 2);
+					});
 				});
 			});
 		},
