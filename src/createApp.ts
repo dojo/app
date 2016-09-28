@@ -1,6 +1,6 @@
 import { Action } from 'dojo-actions/createAction';
 import compose, { ComposeFactory } from 'dojo-compose/compose';
-import { EventedListener } from 'dojo-compose/mixins/createEvented';
+import { EventedListener, EventedListenersMap } from 'dojo-compose/mixins/createEvented';
 import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
 import { assign } from 'dojo-core/lang';
@@ -11,6 +11,7 @@ import WeakMap from 'dojo-shim/WeakMap';
 import { Child } from 'dojo-widgets/mixins/interfaces';
 
 import IdentityRegistry from './IdentityRegistry';
+import extractRegistrationElements from './lib/extractRegistrationElements';
 import {
 	makeActionFactory,
 	makeCustomElementFactory,
@@ -47,15 +48,61 @@ export type StoreLike = ObservableState<State> & {
 export type WidgetLike = Child;
 
 /**
+ * Options passed to action factories.
+ */
+export interface ActionFactoryOptions {
+	/**
+	 * Provides access to read-only registries for actions, stores and widgets.
+	 */
+	registryProvider: RegistryProvider;
+
+	/**
+	 * The store that was defined for this action.
+	 *
+	 * It's the factories responsibility to create an action that observes the store.
+	 */
+	stateFrom?: StoreLike;
+}
+
+/**
+ * Options passed to widget factories.
+ */
+export interface WidgetFactoryOptions {
+	/**
+	 * The ID for the widget to be created by the factory.
+	 */
+	id?: string;
+
+	/**
+	 * Listeners that should be attached when the widget is created.
+	 */
+	listeners?: EventedListenersMap;
+
+	/**
+	 * Provides access to read-only registries for actions, stores and widgets.
+	 */
+	registryProvider: RegistryProvider;
+
+	/**
+	 * State that should be set while the widget is being created.
+	 */
+	state?: any;
+
+	/**
+	 * The store that was defined for this widget.
+	 *
+	 * It's the factories responsibility to create a widget that observes the store.
+	 */
+	stateFrom?: StoreLike;
+}
+
+/**
  * Factory method to (asynchronously) create an action.
  *
- * @param registry The combined registries of the app
- * @param store The store that was defined for this action. It's the factories responsibility to create an action that
- *   observes the store
  * @return The action, or a promise for it
  */
 export interface ActionFactory {
-	(registry: CombinedRegistry, store: StoreLike): ActionLike | Promise<ActionLike>;
+	(options: ActionFactoryOptions): ActionLike | Promise<ActionLike>;
 }
 
 /**
@@ -73,7 +120,7 @@ export interface StoreFactory {
  * @return The widget, or a promise for it
  */
 export interface WidgetFactory {
-	(options?: Object): WidgetLike | Promise<WidgetLike>;
+	(options?: WidgetFactoryOptions): WidgetLike | Promise<WidgetLike>;
 }
 
 /**
@@ -132,6 +179,11 @@ export interface ItemDefinition<Factory, Instance> {
  * Definition for a single action.
  */
 export interface ActionDefinition extends ItemDefinition<ActionFactory, ActionLike> {
+	/**
+	 * Initial state, to be added to the action's store, if any.
+	 */
+	state?: any;
+
 	/**
 	 * Identifier of a store which the action should observe for its state.
 	 *
@@ -215,9 +267,11 @@ export interface WidgetListenersMap {
 }
 
 /**
- * Read-only interface for the combined registries of the app factory.
+ * Read-only interface to access actions, custom element factories, stores and widgets.
+ *
+ * Used in helper modules which shouldn't write to the app registry.
  */
-export interface CombinedRegistry {
+export interface ReadOnlyRegistry {
 	/**
 	 * Get the action with the given identifier.
 	 *
@@ -361,8 +415,10 @@ export interface AppMixin {
 	/**
 	 * Register an action factory with the app.
 	 *
-	 * The factory will be called the first time the action is needed. It'll be called with *one* argument:
-	 * the combined registries of the app.
+	 * The factory will be called the first time the action is needed. It'll be called with an options object that has
+	 * a `registryProvider` property containing a RegistryProvider implementation for the app. If a default action store
+	 * is available it'll be passed as the `stateFrom` property. It's the factories responsibility to create an action
+	 * that observes the store.
 	 *
 	 * Note that the `createAction()` factory from `dojo-actions` cannot be used here since it requires you to define
 	 * the `do()` implementation, which the app factory does not allow.
@@ -419,7 +475,8 @@ export interface AppMixin {
 	 * Register a widget factory with the app.
 	 *
 	 * The factory will be called the first time the widget is needed. It'll be called with an options object
-	 * that has its `id` property set to the widget ID.
+	 * that has its `id` property set to the widget ID, and a `registryProvider` property containing a RegistryProvider
+	 * implementation for the app. If a default widget store is available it'll be passed as the `stateFrom` property.
 	 *
 	 * @param id How the widget is identified
 	 * @param factory A factory function that (asynchronously) creates a widget.
@@ -430,8 +487,7 @@ export interface AppMixin {
 	/**
 	 * Load a POJO definition containing actions, stores and widgets that need to be registered.
 	 *
-	 * Action factories will be called with one argument: the combined registries of the app.
-	 * Store and widget factories will also be called with one argument: an options object.
+	 * All factories will be called with an options object.
 	 *
 	 * @return A handle to deregister *all* actions, stores and widgets that were registered.
 	 */
@@ -446,7 +502,7 @@ export interface AppMixin {
 	realize(root: Element): Promise<Handle>;
 }
 
-export type App = AppMixin & CombinedRegistry;
+export type App = AppMixin & ReadOnlyRegistry;
 
 export interface AppOptions {
 	/**
@@ -492,7 +548,6 @@ const widgetFactories = new WeakMap<App, IdentityRegistry<RegisteredFactory<Widg
 
 const instanceRegistries = new WeakMap<App, InstanceRegistry>();
 const midResolvers = new WeakMap<App, ResolveMid>();
-const publicRegistries = new WeakMap<App, CombinedRegistry>();
 const registryProviders = new WeakMap<App, RegistryProvider>();
 const widgetInstances = new WeakMap<App, IdentityRegistry<WidgetLike>>();
 
@@ -517,7 +572,7 @@ function createCustomWidget(app: App, id: string) {
 	const { registryProvider, defaultWidgetStore: stateFrom } = app;
 
 	return app.defaultWidgetStore.get(id).then((state: any) => {
-		const options: any = { id, stateFrom, registryProvider, state };
+		const options: WidgetFactoryOptions = { id, stateFrom, registryProvider, state };
 		const customFactory = customFactories.get(state.type);
 		return customFactory(options);
 	}).then((widget) => {
@@ -580,10 +635,17 @@ const createApp = compose({
 		const idHandle = addIdentifier(this, id);
 		const instanceHandle = instanceRegistries.get(this).addAction(action, id);
 
-		const promise = new Promise<void>((resolve) => {
-			resolve(action.configure(publicRegistries.get(this)));
-		}).then(() => action);
-		const registryHandle = actionFactories.get(this).register(id, () => promise);
+		let registryHandle = actionFactories.get(this).register(id, () => {
+			const promise = new Promise<void>((resolve) => {
+				resolve(action.configure(this.registryProvider));
+			}).then(() => action);
+
+			// Replace the registered factory to ensure the action is not configured twice.
+			registryHandle.destroy();
+			registryHandle = actionFactories.get(this).register(id, () => promise);
+
+			return promise;
+		});
 
 		return {
 			destroy(this: Handle) {
@@ -606,7 +668,8 @@ const createApp = compose({
 					// Always call the factory in a future turn. This harmonizes behavior regardless of whether the
 					// factory is registered through this method or loaded from a definition.
 
-					return factory(publicRegistries.get(this), this.defaultActionStore);
+					const { defaultActionStore: stateFrom, registryProvider } = this;
+					return factory({ registryProvider, stateFrom });
 				})
 				.then((action) => {
 					if (!destroyed) {
@@ -614,7 +677,7 @@ const createApp = compose({
 					}
 
 					// Configure the action, allow for a promise to be returned.
-					return Promise.resolve(action.configure(publicRegistries.get(this))).then(() => {
+					return Promise.resolve(action.configure(this.registryProvider)).then(() => {
 						return action;
 					});
 				});
@@ -641,12 +704,12 @@ const createApp = compose({
 
 	registerCustomElementFactory(this: App, name: string, factory: WidgetFactory): Handle {
 		if (!isValidName(name)) {
-			throw new SyntaxError(`'${name}' is not a valid custom element name'`);
+			throw new SyntaxError(`'${name}' is not a valid custom element name`);
 		}
 
 		// Wrap the factory since the registry cannot store frozen factories, and dojo-compose creates
 		// frozen factories…
-		const wrapped = (options: Object) => factory(options);
+		const wrapped = (options: WidgetFactoryOptions) => factory(options);
 
 		// Note that each custom element requires a new widget, so there's no need to replace the
 		// registered factory.
@@ -737,12 +800,7 @@ const createApp = compose({
 				// factory is registered through this method or loaded from a definition.
 
 				const { registryProvider, defaultWidgetStore } = this;
-				interface Options {
-					id: string;
-					registryProvider: RegistryProvider;
-					stateFrom?: StoreLike;
-				}
-				const options: Options = { id, registryProvider };
+				const options: WidgetFactoryOptions = { id, registryProvider };
 				if (defaultWidgetStore) {
 					options.stateFrom = defaultWidgetStore;
 				}
@@ -778,7 +836,7 @@ const createApp = compose({
 
 		if (actions) {
 			for (const definition of actions) {
-				const factory = makeActionFactory(definition, midResolvers.get(this));
+				const factory = makeActionFactory(definition, midResolvers.get(this), this);
 				const handle = this.registerActionFactory(definition.id, factory);
 				handles.push(handle);
 			}
@@ -818,14 +876,43 @@ const createApp = compose({
 	},
 
 	realize(this: App, root: Element) {
-		return realizeCustomElements(
-			this.defaultWidgetStore,
-			(id) => addIdentifier(this, id),
-			(instance: WidgetLike, id: string) => registerInstance(this, instance, id),
-			publicRegistries.get(this),
-			this.registryProvider,
-			root
-		);
+		const resolveMid = midResolvers.get(this);
+		return extractRegistrationElements(resolveMid, root)
+			.then(({ actions, customElements, defaultStores, stores, widgets }) => {
+				const definitionHandle = this.loadDefinition({ actions, customElements, stores, widgets });
+				if (defaultStores.length === 0) {
+					return definitionHandle;
+				}
+
+				return Promise.all(defaultStores.map(({ type, definition }) => {
+					const factory = makeStoreFactory(definition, resolveMid);
+					return Promise.resolve(factory()).then((store) => {
+						if (type === 'action') {
+							this.defaultActionStore = store;
+						}
+						else {
+							this.defaultWidgetStore = store;
+						}
+					});
+				})).then(() => definitionHandle);
+			}).then((definitionHandle) => {
+				return realizeCustomElements(
+					this.defaultWidgetStore,
+					(id) => addIdentifier(this, id),
+					(instance: WidgetLike, id: string) => registerInstance(this, instance, id),
+					this,
+					this.registryProvider,
+					root
+				).then((realizationHandle) => {
+					return {
+						destroy(this: Handle) {
+							this.destroy = noop;
+							definitionHandle.destroy();
+							realizationHandle.destroy();
+						}
+					};
+				});
+			});
 	}
 })
 .mixin({
@@ -866,7 +953,11 @@ const createApp = compose({
 			return instanceRegistries.get(this).identifyStore(store);
 		},
 
-		createWidget<U extends Child, O>(this: App, factory: ComposeFactory<U, O>, options: any = {}): Promise<[ string, U ]> {
+		createWidget<U extends Child, O extends WidgetFactoryOptions>(
+			this: App,
+			factory: ComposeFactory<U, O>,
+			options: any = {}
+		): Promise<[ string, U ]> {
 			const app = this;
 			const { defaultWidgetStore, registryProvider } = this;
 			const { id = generateWidgetId() } = options;
@@ -874,7 +965,7 @@ const createApp = compose({
 
 			function configureWidget(): Promise<any> | void {
 				// Ensure no other widget with this ID exists.
-				if (publicRegistries.get(app).hasWidget(id)) {
+				if (app.hasWidget(id)) {
 					return Promise.reject(new Error(`A widget with ID '${id}' already exists`));
 				}
 
@@ -963,22 +1054,6 @@ const createApp = compose({
 			toAbsMid = (moduleId: string) => moduleId
 		}: AppOptions = {}
 	) {
-		const publicRegistry = {
-			getAction: instance.getAction.bind(instance),
-			hasAction: instance.hasAction.bind(instance),
-			identifyAction: instance.identifyAction.bind(instance),
-			getCustomElementFactory: instance.getCustomElementFactory.bind(instance),
-			hasCustomElementFactory: instance.hasCustomElementFactory.bind(instance),
-			getStore: instance.getStore.bind(instance),
-			hasStore: instance.hasStore.bind(instance),
-			identifyStore: instance.identifyStore.bind(instance),
-			createWidget: instance.createWidget.bind(instance),
-			getWidget: instance.getWidget.bind(instance),
-			hasWidget: instance.hasWidget.bind(instance),
-			identifyWidget: instance.identifyWidget.bind(instance)
-		};
-		Object.freeze(publicRegistry);
-
 		actionFactories.set(instance, new IdentityRegistry<RegisteredFactory<ActionLike>>());
 		customElementFactories.set(instance, new IdentityRegistry<RegisteredFactory<WidgetLike>>());
 		identifiers.set(instance, new Set<Identifier>());
@@ -987,8 +1062,7 @@ const createApp = compose({
 
 		instanceRegistries.set(instance, new InstanceRegistry());
 		midResolvers.set(instance, makeMidResolver(toAbsMid));
-		publicRegistries.set(instance, publicRegistry);
-		registryProviders.set(instance, new RegistryProvider(publicRegistry));
+		registryProviders.set(instance, new RegistryProvider(instance));
 		widgetInstances.set(instance, new IdentityRegistry<WidgetLike>());
 
 		if (defaultActionStore) {

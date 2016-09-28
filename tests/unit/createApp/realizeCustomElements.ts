@@ -1,5 +1,4 @@
-import global from 'dojo-core/global';
-import has from 'dojo-core/has';
+import { Handle } from 'dojo-core/interfaces';
 import Promise from 'dojo-shim/Promise';
 import createActualWidget from 'dojo-widgets/createWidget';
 import createContainer from 'dojo-widgets/createContainer';
@@ -20,6 +19,7 @@ import {
 	rejects,
 	strictEqual
 } from '../../support/createApp';
+import stubDom from '../../support/stubDom';
 
 function opts (obj: any) {
 	return JSON.stringify(obj).replace(/"/g, '&quot;');
@@ -28,24 +28,17 @@ function opts (obj: any) {
 let app: App = null;
 let root: HTMLElement = null;
 let projector: HTMLElement = null;
-let stubbedGlobals = false;
+let stubbedGlobals: Handle = null;
 
 registerSuite({
-	name: 'createApp#realize',
+	name: 'createApp#realize (custom elements)',
 
 	before() {
-		if (has('host-node')) {
-			global.document = (<any> require('jsdom')).jsdom('<html><body></body></html>');
-			global.Node = global.document.defaultView.Node;
-			stubbedGlobals = true;
-		}
+		stubbedGlobals = stubDom();
 	},
 
 	after() {
-		if (stubbedGlobals) {
-			delete global.document;
-			delete global.Node;
-		}
+		stubbedGlobals.destroy();
 	},
 
 	beforeEach() {
@@ -65,7 +58,7 @@ registerSuite({
 
 	'tag name comparisons are case-insensitive'() {
 		app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
-		projector.innerHTML = '<app-widget id="foo"></app-widget>';
+		projector.innerHTML = '<aPp-WiDgEt id="foo"></aPp-WiDgEt>';
 		return app.realize(root).then(() => {
 			assert.equal(projector.firstChild.nodeName, 'MARK');
 		});
@@ -81,7 +74,7 @@ registerSuite({
 
 	'`is` attribute comparison is case-insensitive'() {
 		app.registerWidget('foo', createActualWidget({ tagName: 'mark' }));
-		projector.innerHTML = '<div is="app-widget" id="foo"></div>';
+		projector.innerHTML = '<div is="aPp-WiDgEt" id="foo"></div>';
 		return app.realize(root).then(() => {
 			assert.equal(projector.firstChild.nodeName, 'MARK');
 		});
@@ -173,11 +166,6 @@ registerSuite({
 			return app.realize(root).then(() => {
 				assert.equal(projector.firstChild.nodeName, 'MARK');
 			});
-		},
-
-		'an ID is required'() {
-			projector.innerHTML = '<app-widget></app-widget>';
-			return rejects(app.realize(root), Error, 'Cannot resolve widget for a custom element without \'data-uid\' or \'id\' attributes');
 		},
 
 		'the ID must resolve to a widget instance'() {
@@ -342,6 +330,12 @@ registerSuite({
 			});
 		},
 
+		'the "id" option must not be present in data-options'() {
+			app.registerCustomElementFactory('foo-bar', createWidget);
+			projector.innerHTML = `<foo-bar data-options="${opts({ id: {} })}"></foo-bar>`;
+			return rejects(app.realize(root), Error, 'Unexpected id value in data-options (in "{\\"id\\":{}}")');
+		},
+
 		'the "registryProvider" option must not be present in data-options'() {
 			app.registerCustomElementFactory('foo-bar', createWidget);
 			projector.innerHTML = `<foo-bar data-options="${opts({ registryProvider: {} })}"></foo-bar>`;
@@ -361,138 +355,68 @@ registerSuite({
 			});
 		},
 
-		'if present, the "stateFrom" option': {
-			'must be a string'() {
-				app.registerCustomElementFactory('foo-bar', createWidget);
-				projector.innerHTML = `<foo-bar data-options="${opts({ stateFrom: 5 })}"></foo-bar>`;
-				return rejects(app.realize(root), TypeError, 'Expected stateFrom value in data-options to be a non-empty string (in "{\\"stateFrom\\":5}")');
-			},
-
-			'must be a non-empty string'() {
-				app.registerCustomElementFactory('foo-bar', createWidget);
-				projector.innerHTML = `<foo-bar data-options="${opts({ stateFrom: '' })}"></foo-bar>`;
-				return rejects(app.realize(root), TypeError, 'Expected stateFrom value in data-options to be a non-empty string (in "{\\"stateFrom\\":\\"\\"}")');
-			},
-
-			'must identify a registered store'() {
-				app.registerCustomElementFactory('foo-bar', createWidget);
-				projector.innerHTML = `<foo-bar data-options="${opts({ stateFrom: 'store' })}"></foo-bar>`;
-				return rejects(app.realize(root), Error);
-			},
-
-			'causes the custom element factory to be called with a stateFrom option set to the store'() {
-				let actual: { stateFrom: StoreLike } = null;
-				app.registerCustomElementFactory('foo-bar', (options) => {
-					actual = <any> options;
-					return createActualWidget({ tagName: 'mark' });
-				});
-				const expected = createStore();
-				app.registerStore('store', expected);
-				projector.innerHTML = `<foo-bar data-options="${opts({ stateFrom: 'store' })}"></foo-bar>`;
-				return app.realize(root).then(() => {
-					assert.isOk(actual);
-					assert.strictEqual(actual.stateFrom, expected);
-				});
-			},
-
-			'takes precedence over data-state-from'() {
-				let actual: { stateFrom: StoreLike } = null;
-				app.registerCustomElementFactory('foo-bar', (options) => {
-					actual = <any> options;
-					return createActualWidget({ tagName: 'mark' });
-				});
-				const expected = createStore();
-				app.registerStore('store', expected);
-				app.registerStore('otherStore', createStore());
-				projector.innerHTML = `<foo-bar data-state-from="otherStore" data-options="${opts({ stateFrom: 'store' })}"></foo-bar>`;
-				return app.realize(root).then(() => {
-					assert.isOk(actual);
-					assert.strictEqual(actual.stateFrom, expected);
-				});
-			},
-
-			'takes precedence over <app-projector data-state-from>'() {
-				let actual: { stateFrom: StoreLike } = null;
-				app.registerCustomElementFactory('foo-bar', (options) => {
-					actual = <any> options;
-					return createActualWidget({ tagName: 'mark' });
-				});
-				const expected = createStore();
-				app.registerStore('store', expected);
-				app.registerStore('otherStore', createStore());
-				projector.setAttribute('data-state-from', 'otherStore');
-				projector.innerHTML = `<foo-bar data-options="${opts({ stateFrom: 'store' })}"></foo-bar>`;
-				return app.realize(root).then(() => {
-					assert.isOk(actual);
-					assert.strictEqual(actual.stateFrom, expected);
-				});
-			},
-
-			'takes precedence over the default widget store'() {
-				const app = createApp({ defaultWidgetStore: createStore() });
-				let actual: { stateFrom: StoreLike } = null;
-				app.registerCustomElementFactory('foo-bar', (options) => {
-					actual = <any> options;
-					return createActualWidget({ tagName: 'mark' });
-				});
-				const expected = createStore();
-				app.registerStore('store', expected);
-				projector.innerHTML = `<foo-bar data-options="${opts({ stateFrom: 'store' })}"></foo-bar>`;
-				return app.realize(root).then(() => {
-					assert.isOk(actual);
-					assert.strictEqual(actual.stateFrom, expected);
-				});
-			}
+		'the "state" option must not be present in data-options'() {
+			app.registerCustomElementFactory('foo-bar', createWidget);
+			projector.innerHTML = `<foo-bar data-options="${opts({ state: {} })}"></foo-bar>`;
+			return rejects(app.realize(root), Error, 'Unexpected state value in data-options (in "{\\"state\\":{}}")');
 		},
 
-		'if present, the "listeners" option': {
-			'must be an object (not null)'() {
+		'the "stateFrom" option must not be present in data-options'() {
+			app.registerCustomElementFactory('foo-bar', createWidget);
+			projector.innerHTML = `<foo-bar data-options="${opts({ stateFrom: {} })}"></foo-bar>`;
+			return rejects(app.realize(root), Error, 'Unexpected stateFrom value in data-options (in "{\\"stateFrom\\":{}}")');
+		},
+
+		'the "listeners" option must not be present in data-options'() {
+			app.registerCustomElementFactory('foo-bar', createWidget);
+			projector.innerHTML = `<foo-bar data-options="${opts({ listeners: {} })}"></foo-bar>`;
+			return rejects(app.realize(root), Error, 'Unexpected listeners value in data-options (in "{\\"listeners\\":{}}")');
+		},
+
+		'the "listeners" option is derived from the data-listeners attribute': {
+			'realization fails if the data-listeners value is not valid JSON'() {
 				app.registerCustomElementFactory('foo-bar', createWidget);
-				projector.innerHTML = `<foo-bar data-options="${opts({ listeners: null })}"></foo-bar>`;
-				return rejects(
-					app.realize(root),
-					TypeError,
-					'Expected listeners value in data-options to be a widget listeners map with action identifiers (in "{\\"listeners\\":null}")'
-				).then(() => {
-					projector.innerHTML = `<foo-bar data-options="${opts({ listeners: 42 })}"></foo-bar>`;
-					return rejects(
-						app.realize(root),
-						TypeError,
-						'Expected listeners value in data-options to be a widget listeners map with action identifiers (in "{\\"listeners\\":42}")');
+				projector.innerHTML = `<foo-bar data-listeners="${opts({}).slice(1)}"></foo-bar>`;
+				return rejects(app.realize(root), SyntaxError).then((err) => {
+					assert.match(err.message, /^Invalid data-listeners:/);
+					assert.match(err.message, / \(in "}"\)$/);
+				});
+			},
+
+			'realization fails if the data-listeners value does not encode an object'() {
+				app.registerCustomElementFactory('foo-bar', createWidget);
+				projector.innerHTML = `<foo-bar data-listeners="${opts(null)}"></foo-bar>`;
+				return rejects(app.realize(root), TypeError, 'Expected object from data-listeners (in "null")').then(() => {
+					projector.innerHTML = `<foo-bar data-listeners="${opts(42)}"></foo-bar>`;
+					return rejects(app.realize(root), TypeError, 'Expected object from data-listeners (in "42")');
 				});
 			},
 
 			'property values must be strings or arrays of strings'() {
 				app.registerCustomElementFactory('foo-bar', createWidget);
-				projector.innerHTML = `<foo-bar data-options="${opts({
-					listeners: {
-						type: 5
-					}
+				projector.innerHTML = `<foo-bar data-listeners="${opts({
+					type: 5
 				})}"></foo-bar>`;
 				return rejects(
 					app.realize(root),
 					TypeError,
-					'Expected listeners value in data-options to be a widget listeners map with action identifiers (in "{\\"listeners\\":{\\"type\\":5}}")'
+					'Expected data-listeners to be a widget listeners map with action identifiers (in "{\\"type\\":5}")'
 				).then(() => {
-					projector.innerHTML = `<foo-bar data-options="${opts({
-						listeners: {
-							type: [true]
-						}
+					projector.innerHTML = `<foo-bar data-listeners="${opts({
+						type: [true]
 					})}"></foo-bar>`;
 					return rejects(
 						app.realize(root),
 						TypeError,
-						'Expected listeners value in data-options to be a widget listeners map with action identifiers (in "{\\"listeners\\":{\\"type\\":[true]}}")'
+						'Expected data-listeners to be a widget listeners map with action identifiers (in "{\\"type\\":[true]}")'
 					);
 				});
 			},
 
 			'the strings must identify registered actions'() {
 				app.registerCustomElementFactory('foo-bar', createWidget);
-				projector.innerHTML = `<foo-bar data-options="${opts({
-					listeners: {
-						type: 'action'
-					}
+				projector.innerHTML = `<foo-bar data-listeners="${opts({
+					type: 'action'
 				})}"></foo-bar>`;
 				return rejects(app.realize(root), Error);
 			},
@@ -505,11 +429,9 @@ registerSuite({
 				});
 				const expected = createAction();
 				app.registerAction('action', expected);
-				projector.innerHTML = `<foo-bar data-options="${opts({
-					listeners: {
-						string: 'action',
-						array: ['action']
-					}
+				projector.innerHTML = `<foo-bar data-listeners="${opts({
+					string: 'action',
+					array: ['action']
 				})}"></foo-bar>`;
 				return app.realize(root).then(() => {
 					assert.isNotNull(actual);
@@ -819,15 +741,6 @@ registerSuite({
 	},
 
 	'identifying and retrieving widgets': {
-		'via data-options'() {
-			const fooBar = createActualWidget();
-			app.registerCustomElementFactory('foo-bar', () => fooBar);
-			projector.innerHTML = '<foo-bar data-options="{&quot;id&quot;:&quot;fooBar&quot;}"></foo-bar>';
-			return app.realize(root).then(() => {
-				assert.equal(app.identifyWidget(fooBar), 'fooBar');
-			});
-		},
-
 		'via data-uid'() {
 			const fooBar = createActualWidget();
 			app.registerCustomElementFactory('foo-bar', () => fooBar);
@@ -846,17 +759,11 @@ registerSuite({
 			});
 		},
 
-		'data-options takes precedence over data-uid over id'() {
-			const fooBar = createActualWidget();
-			app.registerCustomElementFactory('foo-bar', () => fooBar);
+		'data-uid takes precedence over id'() {
 			const bazQux = createActualWidget();
 			app.registerCustomElementFactory('baz-qux', () => bazQux);
-			projector.innerHTML = `
-				<foo-bar data-uid="bazQux" data-options="{&quot;id&quot;:&quot;fooBar&quot;}"></foo-bar>
-				<baz-qux id="fooBar" data-uid="bazQux"></baz-qux>
-			`;
+			projector.innerHTML = '<baz-qux id="fooBar" data-uid="bazQux"></baz-qux>';
 			return app.realize(root).then(() => {
-				assert.equal(app.identifyWidget(fooBar), 'fooBar');
 				assert.equal(app.identifyWidget(bazQux), 'bazQux');
 			});
 		},

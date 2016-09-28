@@ -1,7 +1,7 @@
 define(function() {
 	var factory = null;
-	var wrapper = function(registry) {
-		return factory(registry);
+	var wrapper = function(options) {
+		return factory(options);
 	};
 	wrapper.stub = function(stub) {
 		factory = stub;

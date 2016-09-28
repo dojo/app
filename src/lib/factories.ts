@@ -6,21 +6,21 @@ import {
 	ActionDefinition,
 	ActionFactory,
 	ActionLike,
-	CombinedRegistry,
 	CustomElementDefinition,
 	ItemDefinition,
-	RegistryProvider,
+	ReadOnlyRegistry,
 	StoreDefinition,
 	StoreFactory,
 	StoreLike,
 	WidgetDefinition,
 	WidgetFactory,
+	WidgetFactoryOptions,
 	WidgetLike
 } from '../createApp';
 import { ResolveMid } from './moduleResolver';
 import resolveListenersMap from './resolveListenersMap';
 
-function resolveStore(registry: CombinedRegistry, definition: ActionDefinition | WidgetDefinition): void | StoreLike | Promise<StoreLike> {
+function resolveStore(registry: ReadOnlyRegistry, definition: ActionDefinition | WidgetDefinition): void | StoreLike | Promise<StoreLike> {
 	const { stateFrom } = definition;
 	if (!stateFrom) {
 		return null;
@@ -71,47 +71,53 @@ function resolveFactory(type: FactoryTypes, definition: CustomElementDefinition 
 	if (typeof factory === 'function') {
 		return Promise.resolve(factory);
 	}
-
-	if (isInstance(instance)) {
+	else if (isInstance(instance)) {
 		// <any> hammer since TypeScript can't resolve match the correct overloaded Instance type with the correct
 		// Factory return value.
 		const factory: Factory = () => <any> instance;
 		return Promise.resolve(factory);
 	}
-
-	const mid = <string> (factory || instance);
-	return resolveMid(mid).then((defaultExport) => {
-		if (factory) {
-			if (typeof defaultExport !== 'function') {
-				throw new Error(`Could not resolve '${mid}' to ${errorStrings[type]} factory function`);
+	else {
+		return new Promise((resolve, reject) => {
+			if (instance) {
+				resolveMid<Instance>(instance).then((defaultExport) => {
+					if (!defaultExport || typeof defaultExport !== 'object') {
+						reject(new Error(`Could not resolve '${instance}' to ${errorStrings[type]} instance`));
+					}
+					else {
+						resolve(() => defaultExport);
+					}
+				}).catch(reject);
 			}
-
-			const factory: Factory = defaultExport;
-			return factory;
-		}
-
-		// istanbul ignore else Action factories are expected to guard against definitions with neither
-		// factory or instance properties.
-		if (instance) {
-			if (!defaultExport || typeof defaultExport !== 'object') {
-				throw new Error(`Could not resolve '${mid}' to ${errorStrings[type]} instance`);
+			else {
+				resolveMid<Factory>(factory).then((defaultExport) => {
+					if (typeof defaultExport !== 'function') {
+						reject(new Error(`Could not resolve '${factory}' to ${errorStrings[type]} factory function`));
+					}
+					else {
+						resolve(defaultExport);
+					}
+				}).catch(reject);
 			}
-
-			const instance: Instance = defaultExport;
-			return () => instance;
-		}
-	});
+		});
+	}
 }
 
-export function makeActionFactory(definition: ActionDefinition, resolveMid: ResolveMid): ActionFactory {
+export function makeActionFactory(definition: ActionDefinition, resolveMid: ResolveMid, registry: ReadOnlyRegistry): ActionFactory {
 	if (!('factory' in definition || 'instance' in definition)) {
 		throw new TypeError('Action definitions must specify either the factory or instance option');
 	}
-	if ('instance' in definition && 'stateFrom' in definition) {
-		throw new TypeError('Cannot specify stateFrom option when action definition points directly at an instance');
+	if ('instance' in definition) {
+		if ('state' in definition) {
+			throw new TypeError('Cannot specify state option when action definition points directly at an instance');
+		}
+		if ('stateFrom' in definition) {
+			throw new TypeError('Cannot specify stateFrom option when action definition points directly at an instance');
+		}
 	}
 
-	return (registry: CombinedRegistry, defaultActionStore: StoreLike) => {
+	const { id, state: initialState } = definition;
+	return ({ registryProvider, stateFrom: defaultActionStore }) => {
 		return Promise.all<any>([
 			resolveFactory('action', definition, resolveMid),
 			resolveStore(registry, definition)
@@ -119,7 +125,16 @@ export function makeActionFactory(definition: ActionDefinition, resolveMid: Reso
 			const factory = <ActionFactory> _factory;
 			const store = <StoreLike> _store || defaultActionStore;
 
-			return factory(registry, store);
+			const options = { registryProvider, stateFrom: store };
+
+			if (store && initialState) {
+				return store.add(initialState, { id })
+					// Ignore error, assume store already contains state for this widget.
+					.catch(() => undefined)
+					.then(() => factory(options));
+			}
+
+			return factory(options);
 		});
 	};
 }
@@ -127,7 +142,7 @@ export function makeActionFactory(definition: ActionDefinition, resolveMid: Reso
 export function makeCustomElementFactory(definition: CustomElementDefinition, resolveMid: ResolveMid): WidgetFactory {
 	let promise: Promise<void>;
 	let factory: WidgetFactory;
-	return (options: Object) => {
+	return (options: WidgetFactoryOptions) => {
 		if (factory) {
 			return factory(options);
 		}
@@ -163,7 +178,7 @@ export function makeStoreFactory(definition: StoreDefinition, resolveMid: Resolv
 	};
 }
 
-export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: ResolveMid, registry: CombinedRegistry): WidgetFactory {
+export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: ResolveMid, registry: ReadOnlyRegistry): WidgetFactory {
 	if (!('factory' in definition || 'instance' in definition)) {
 		throw new TypeError('Widget definitions must specify either the factory or instance option');
 	}
@@ -192,19 +207,9 @@ export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: Reso
 		}
 	}
 
-	interface BaseOptions {
-		registryProvider: RegistryProvider;
-		stateFrom?: StoreLike;
-	}
-
-	return ({ registryProvider, stateFrom: defaultWidgetStore }: BaseOptions) => {
-		interface Options extends BaseOptions {
-			id: string;
-			listeners?: EventedListenersMap;
-		}
-
+	return ({ registryProvider, stateFrom: defaultWidgetStore }: WidgetFactoryOptions) => {
 		const { id, state: initialState } = definition;
-		const options: Options = assign({
+		const options: WidgetFactoryOptions = assign({
 			id,
 			registryProvider
 		}, rawOptions);

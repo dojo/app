@@ -8,13 +8,16 @@ import { place, Position } from 'dojo-dom/dom';
 import { createProjector, Projector } from 'dojo-widgets/projector';
 
 import {
-	CombinedRegistry,
+	ReadOnlyRegistry,
 	RegistryProvider,
 	StoreLike,
 	WidgetFactory,
-	WidgetLike
+	WidgetFactoryOptions,
+	WidgetLike,
+	WidgetListenersMap
 } from '../createApp';
 import makeIdGenerator from './makeIdGenerator';
+import parseJsonAttribute from './parseJsonAttribute';
 import resolveListenersMap from './resolveListenersMap';
 
 const reservedNames = new Set([
@@ -26,10 +29,7 @@ const reservedNames = new Set([
 	'font-face-uri',
 	'font-face-format',
 	'font-face-name',
-	'missing-glyph',
-	// These are reserved by this module.
-	'app-projector',
-	'app-widget'
+	'missing-glyph'
 ]);
 
 // According to <https://www.w3.org/TR/custom-elements/#valid-custom-element-name>.
@@ -47,6 +47,10 @@ export function isValidName(name: string): boolean {
 	}
 
 	if (reservedNames.has(name)) { // Reserved names must not be used.
+		return false;
+	}
+
+	if (/^app-/.test(name)) { // Names must not start with app-
 		return false;
 	}
 
@@ -72,11 +76,11 @@ interface CustomElement {
 	widget?: WidgetLike;
 }
 
-function isCustomElement(registry: CombinedRegistry, name: string): boolean {
+function isCustomElement(registry: ReadOnlyRegistry, name: string): boolean {
 	return name === 'app-projector' || name === 'app-widget' || registry.hasCustomElementFactory(name);
 }
 
-function getCustomElementsByWidgetProjector(registry: CombinedRegistry, root: Element): CustomElement[] {
+function getCustomElementsByWidgetProjector(registry: ReadOnlyRegistry, root: Element): CustomElement[] {
 	const allElements: Element[] = arrayFrom(root.getElementsByTagName('*'));
 	allElements.unshift(root); // Be inclusive!
 
@@ -165,92 +169,72 @@ interface Options {
 	stateFrom?: StoreLike;
 }
 
-function resolveOptions(registry: CombinedRegistry, registryProvider: RegistryProvider, element: Element, idFromAttributes: string): Options | Promise<Options> {
-	const str = element.getAttribute('data-options') || '';
+function resolveListeners(registry: ReadOnlyRegistry, element: Element): Promise<EventedListenersMap> {
+	const str = element.getAttribute('data-listeners');
 	if (!str) {
-		return idFromAttributes ? { id: idFromAttributes, registryProvider } : { registryProvider };
+		return null;
 	}
 
-	let json: JsonOptions;
-	try {
-		json = JSON.parse(str);
-	} catch (err) {
-		throw new SyntaxError(`Invalid data-options: ${err.message} (in ${JSON.stringify(str)})`);
-	}
-	if (!json || typeof json !== 'object') {
-		throw new TypeError(`Expected object from data-options (in ${JSON.stringify(str)})`);
-	}
-
-	// Reassign, casted to the correct interface.
-	const options = <Options> json;
-	if ('registryProvider' in json) {
-		throw new Error(`Unexpected registryProvider value in data-options (in ${JSON.stringify(str)})`);
-	}
-	options.registryProvider = registryProvider;
-
-	if (!('id' in json) && idFromAttributes) {
-		options.id = idFromAttributes;
-	}
-
-	const promises: Promise<void>[] = [];
-
-	if ('stateFrom' in json) {
-		const { stateFrom } = json;
-		if (!stateFrom || typeof stateFrom !== 'string') {
-			throw new TypeError(`Expected stateFrom value in data-options to be a non-empty string (in ${JSON.stringify(str)})`);
-		}
-
-		promises.push(registry.getStore(stateFrom).then((store) => {
-			options.stateFrom = store;
-		}));
-	}
-
-	if ('listeners' in json) {
-		const { listeners } = json;
-
-		let valid = true;
-		if (!listeners || typeof listeners !== 'object') {
-			valid = false;
-		}
-		else {
-			// Prefer breaking a labeled loop over nesting Array#some() calls or repeating the throwing of
-			// the TypeError.
-			check: for (const eventType in listeners) {
-				const value = listeners[eventType];
-				if (Array.isArray(value)) {
-					for (const identifier of value) {
-						if (typeof identifier !== 'string') {
-							valid = false;
-							break check;
-						}
-					}
-				}
-				else if (typeof value !== 'string') {
+	const listeners = parseJsonAttribute<WidgetListenersMap>('data-listeners', str);
+	let valid = true;
+	// Prefer breaking a labeled loop over nesting Array#some() calls or repeating the throwing of
+	// the TypeError.
+	check: for (const eventType in listeners) {
+		const value = listeners[eventType];
+		if (Array.isArray(value)) {
+			for (const identifier of value) {
+				if (typeof identifier !== 'string') {
 					valid = false;
 					break check;
 				}
 			}
 		}
-
-		if (!valid) {
-			throw new TypeError(`Expected listeners value in data-options to be a widget listeners map with action identifiers (in ${JSON.stringify(str)})`);
+		else if (typeof value !== 'string') {
+			valid = false;
+			break check;
 		}
-
-		promises.push(resolveListenersMap(registry, listeners).then((map) => {
-			options.listeners = map;
-		}));
 	}
 
-	if (promises.length > 0) {
-		return Promise.all(promises).then(() => {
-			return options;
-		});
+	if (!valid) {
+		throw new TypeError(`Expected data-listeners to be a widget listeners map with action identifiers (in ${JSON.stringify(str)})`);
 	}
 
+	return resolveListenersMap(registry, listeners);
+}
+
+function resolveOptions(registry: ReadOnlyRegistry, registryProvider: RegistryProvider, element: Element, idFromAttributes: string): Options {
+	const str = element.getAttribute('data-options') || '';
+	if (!str) {
+		return idFromAttributes ? { id: idFromAttributes, registryProvider } : { registryProvider };
+	}
+
+	const json = parseJsonAttribute<JsonOptions>('data-options', str);
+	if ('id' in json) {
+		throw new Error(`Unexpected id value in data-options (in ${JSON.stringify(str)})`);
+	}
+	if ('listeners' in json) {
+		throw new Error(`Unexpected listeners value in data-options (in ${JSON.stringify(str)})`);
+	}
+	if ('registryProvider' in json) {
+		throw new Error(`Unexpected registryProvider value in data-options (in ${JSON.stringify(str)})`);
+	}
+	if ('state' in json) {
+		throw new Error(`Unexpected state value in data-options (in ${JSON.stringify(str)})`);
+	}
+	if ('stateFrom' in json) {
+		throw new Error(`Unexpected stateFrom value in data-options (in ${JSON.stringify(str)})`);
+	}
+
+	// Reassign, casted to the correct interface.
+	const options = <Options> json;
+	options.registryProvider = registryProvider;
+	if (idFromAttributes) {
+		options.id = idFromAttributes;
+	}
 	return options;
 }
 
-function resolveStateFromAttribute(registry: CombinedRegistry, element: Element): Promise<StoreLike> {
+function resolveStateFromAttribute(registry: ReadOnlyRegistry, element: Element): Promise<StoreLike> {
 	const stateFrom = element.getAttribute('data-state-from');
 	return stateFrom ? registry.getStore(stateFrom) : null;
 }
@@ -261,22 +245,10 @@ function getInitialState(element: Element): Object {
 		return null;
 	}
 
-	let initialState: Object;
-	try {
-		initialState = JSON.parse(str);
-	} catch (err) {
-		throw new SyntaxError(`Invalid data-state: ${err.message} (in ${JSON.stringify(str)})`);
-	}
-	if (!initialState || typeof initialState !== 'object') {
-		throw new TypeError(`Expected object from data-state (in ${JSON.stringify(str)})`);
-	}
-
-	return initialState;
+	return parseJsonAttribute('data-state', str);
 }
 
 const generateId = makeIdGenerator('custom-element-');
-
-const noop = () => {};
 
 /**
  * Realizes custom elements within a root element.
@@ -293,7 +265,7 @@ export default function realizeCustomElements(
 	defaultWidgetStore: StoreLike,
 	addIdentifier: (id: string) => Handle,
 	registerInstance: (widget: WidgetLike, id: string) => Handle,
-	registry: CombinedRegistry,
+	registry: ReadOnlyRegistry,
 	registryProvider: RegistryProvider,
 	root: Element
 ): Promise<Handle> {
@@ -333,36 +305,38 @@ export default function realizeCustomElements(
 
 					let promise: Promise<WidgetLike> = null;
 					if (isWidgetInstance) {
-						if (!id) {
-							throw new Error('Cannot resolve widget for a custom element without \'data-uid\' or \'id\' attributes');
-						}
 						promise = registry.getWidget(id);
 					}
 					else {
 						promise = Promise.all<any>([
 							registry.getCustomElementFactory(custom.name),
+							resolveListeners(registry, custom.element),
 							resolveOptions(registry, registryProvider, custom.element, id),
 							resolveStateFromAttribute(registry, custom.element),
 							projectorStateFrom
-						]).then(([_factory, _options, _store, projectorStore]) => {
+						]).then(([_factory, _listeners, _options, _store, projectorStore]) => {
 							const factory: WidgetFactory = _factory;
-							const options: Options = _options;
+							const listeners: EventedListenersMap = _listeners;
+							const options: WidgetFactoryOptions = _options;
 							// `data-state-from` store of the element takes precedence, then of the projector, then
 							// the application's default widget store.
 							const store: StoreLike = _store || projectorStore || defaultWidgetStore;
 
 							id = options.id;
-							// If the widget has an ID, but stateFrom was not in its `data-options` attribute, and
-							// either its `data-state-from` attribute resolved to a store, or there is a default
-							// store, set the stateFrom option to the `data-state-from` or default widget store.
-							if (id && !options.stateFrom && store) {
-								options.stateFrom = store;
+
+							if (listeners) {
+								options.listeners = listeners;
 							}
 
-							if (id && options.stateFrom) {
+							// If the widget has an ID, and either its `data-state-from` attribute resolved to a store,
+							// or there is a default store, set the stateFrom option to the `data-state-from` or default
+							// widget store.
+							if (id && store) {
+								options.stateFrom = store;
+
 								const initialState = getInitialState(custom.element);
 								if (initialState) {
-									return options.stateFrom.add(initialState, { id })
+									return store.add(initialState, { id })
 										// Ignore error, assume store already contains state for this widget.
 										.catch(() => undefined)
 										.then(() => factory(options));
@@ -460,8 +434,7 @@ export default function realizeCustomElements(
 		return Promise.all(attachedProjectors);
 	}).then(() => {
 		return {
-			destroy(this: Handle) {
-				this.destroy = noop;
+			destroy() {
 				for (const p of projectors) {
 					p.destroy();
 				}

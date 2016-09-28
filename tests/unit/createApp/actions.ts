@@ -3,7 +3,8 @@ import * as registerSuite from 'intern!object';
 import * as assert from 'intern/chai!assert';
 
 import createApp, {
-	CombinedRegistry,
+	ActionFactoryOptions,
+	RegistryProvider,
 	StoreLike
 } from 'src/createApp';
 
@@ -18,15 +19,6 @@ import {
 } from '../../support/createApp';
 
 const { toAbsMid } = require;
-
-function isCombinedRegistry(registry: CombinedRegistry): void {
-	assert.isFunction(registry.getAction);
-	assert.isFunction(registry.hasAction);
-	assert.isFunction(registry.getStore);
-	assert.isFunction(registry.hasStore);
-	assert.isFunction(registry.getWidget);
-	assert.isFunction(registry.hasWidget);
-}
 
 registerSuite({
 	name: 'createApp (actions)',
@@ -96,7 +88,7 @@ registerSuite({
 			);
 		},
 
-		'immediately calls configure() on the action'() {
+		'calls configure() on the action when it is needed'() {
 			let called = false;
 			const action = createAction();
 			action.configure = () => { called = true; };
@@ -104,27 +96,38 @@ registerSuite({
 			const app = createApp();
 			app.registerAction('foo', action);
 
-			assert.isTrue(called);
+			assert.isFalse(called);
+			return app.getAction('foo').then(() => {
+				assert.isTrue(called);
+			});
 		},
 
-		'action.configure() is passed a combined registry'() {
-			let registry: CombinedRegistry = null;
+		'action is only configured once'() {
+			let count = 0;
 			const action = createAction();
-			action.configure = (actual: CombinedRegistry) => { registry = actual; };
+			action.configure = () => { count++; };
 
 			const app = createApp();
 			app.registerAction('foo', action);
 
-			isCombinedRegistry(registry);
+			return Promise.all([
+				app.getAction('foo'),
+				app.getAction('foo')
+			]).then(() => {
+				assert.equal(count, 1);
+			});
 		},
 
-		'registerAction() does not throw if action.configure() throws'() {
+		'action.configure() is passed the registryProvider'() {
+			let registry: RegistryProvider = null;
 			const action = createAction();
-			action.configure = () => { throw new Error(); };
+			action.configure = (actual: RegistryProvider) => { registry = actual; };
 
 			const app = createApp();
-			assert.doesNotThrow(() => {
-				app.registerAction('foo', action);
+			app.registerAction('foo', action);
+
+			return app.getAction('foo').then(() => {
+				assert.strictEqual(registry, app.registryProvider);
 			});
 		},
 
@@ -269,17 +272,17 @@ registerSuite({
 			}
 		},
 
-		'factory is passed a combined registry'() {
-			let registry: CombinedRegistry = null;
+		'factory is called with an options object that has a registryProvider property'() {
+			let actual: ActionFactoryOptions = null;
 
 			const app = createApp();
-			app.registerActionFactory('foo', (actual) => {
-				registry = actual;
+			app.registerActionFactory('foo', (options) => {
+				actual = options;
 				return createAction();
 			});
 
 			return app.getAction('foo').then(() => {
-				isCombinedRegistry(registry);
+				assert.strictEqual(actual.registryProvider, app.registryProvider);
 			});
 		},
 
@@ -296,16 +299,16 @@ registerSuite({
 			});
 		},
 
-		'action.configure() is passed a combined registry'() {
-			let registry: CombinedRegistry = null;
+		'action.configure() is passed the registryProvider'() {
+			let registry: RegistryProvider = null;
 			const action = createAction();
-			action.configure = (actual: CombinedRegistry) => { registry = actual; };
+			action.configure = (actual: RegistryProvider) => { registry = actual; };
 
 			const app = createApp();
 			app.registerActionFactory('foo', () => action);
 
 			return app.getAction('foo').then(() => {
-				isCombinedRegistry(registry);
+				assert.strictEqual(registry, app.registryProvider);
 			});
 		},
 
@@ -480,10 +483,10 @@ registerSuite({
 			});
 		},
 
-		'action.configure() is passed a combined registry'() {
-			let registry: CombinedRegistry = null;
+		'action.configure() is passed the registryProvider'() {
+			let registry: RegistryProvider = null;
 			const action = createAction();
-			action.configure = (actual: CombinedRegistry) => { registry = actual; };
+			action.configure = (actual: RegistryProvider) => { registry = actual; };
 
 			const app = createApp();
 			app.loadDefinition({
@@ -496,7 +499,7 @@ registerSuite({
 			});
 
 			return app.getAction('foo').then(() => {
-				isCombinedRegistry(registry);
+				assert.strictEqual(registry, app.registryProvider);
 			});
 		},
 
@@ -584,21 +587,19 @@ registerSuite({
 				return rejects(app.getAction('foo'), Error);
 			},
 
-			'passes the resolved store to the action factory'() {
-				const action = createAction();
-				let received: StoreLike = null;
-
-				const store = createStore();
+			'factory is passed a store reference in its stateFrom option'() {
+				const expected = createStore();
+				let actual: StoreLike = null;
 
 				const app = createApp();
-				app.registerStore('store', store);
+				app.registerStore('store', expected);
 				app.loadDefinition({
 					actions: [
 						{
 							id: 'foo',
-							factory(_: any, store: StoreLike) {
-								received = store;
-								return action;
+							factory(options) {
+								actual = options.stateFrom;
+								return createAction();
 							},
 							stateFrom: 'store'
 						}
@@ -606,58 +607,177 @@ registerSuite({
 				});
 
 				return app.getAction('foo').then(() => {
-					assert.strictEqual(received, store);
+					assert.strictEqual(actual, expected);
 				});
 			},
 
 			'stateFrom may be an actual store, rather than a store identifier'() {
-				const action = createAction();
-				let received: StoreLike = null;
-
-				const store = createStore();
+				const expected = createStore();
+				let actual: StoreLike = null;
 
 				const app = createApp();
 				app.loadDefinition({
 					actions: [
 						{
 							id: 'foo',
-							factory(_: any, store: StoreLike) {
-								received = store;
-								return action;
+							factory(options) {
+								actual = options.stateFrom;
+								return createAction();
 							},
-							stateFrom: store
+							stateFrom: expected
 						}
 					]
 				});
 
 				return app.getAction('foo').then(() => {
-					assert.strictEqual(received, store);
+					assert.strictEqual(actual, expected);
 				});
 			},
 
 			'overrides the default action store'() {
-				const action = createAction();
-				let received: StoreLike = null;
+				const expected = createStore();
+				let actual: StoreLike = null;
 
 				const defaultActionStore = createStore();
 				const app = createApp({ defaultActionStore });
-
-				const store = createStore();
 				app.loadDefinition({
 					actions: [
 						{
 							id: 'foo',
-							factory(_: any, store: StoreLike) {
-								received = store;
-								return action;
+							factory(options) {
+								actual = options.stateFrom;
+								return createAction();
 							},
+							stateFrom: expected
+						}
+					]
+				});
+
+				return app.getAction('foo').then(() => {
+					assert.strictEqual(actual, expected);
+				});
+			}
+		},
+
+		'with state option': {
+			'state is added to the defined store before factory is called'() {
+				let calls: string[] = [];
+				let addArgs: any[][] = [];
+
+				const store = createStore();
+				(<any> store).add = (...args: any[]) => {
+					calls.push('add');
+					addArgs.push(args);
+					return Promise.resolve();
+				};
+
+				const state = { foo: 'bar' };
+
+				const app = createApp();
+				app.loadDefinition({
+					actions: [
+						{
+							id: 'foo',
+							factory() {
+								calls.push('factory');
+								return createAction();
+							},
+							state,
 							stateFrom: store
 						}
 					]
 				});
 
 				return app.getAction('foo').then(() => {
-					assert.strictEqual(received, store);
+					assert.deepEqual(calls, ['add', 'factory']);
+					assert.deepEqual(addArgs, [[{ foo: 'bar' }, { id: 'foo' }]]);
+				});
+			},
+
+			'state is added to the default store before factory is called'() {
+				let calls: string[] = [];
+				let addArgs: any[][] = [];
+
+				const store = createStore();
+				(<any> store).add = (...args: any[]) => {
+					calls.push('add');
+					addArgs.push(args);
+					return Promise.resolve();
+				};
+
+				const state = { foo: 'bar' };
+
+				const app = createApp();
+				app.defaultActionStore = store;
+				app.loadDefinition({
+					actions: [
+						{
+							id: 'foo',
+							factory() {
+								calls.push('factory');
+								return createAction();
+							},
+							state
+						}
+					]
+				});
+
+				return app.getAction('foo').then(() => {
+					assert.deepEqual(calls, ['add', 'factory']);
+					assert.deepEqual(addArgs, [[{ foo: 'bar' }, { id: 'foo' }]]);
+				});
+			},
+
+			'the factory is called even if adding state fails'() {
+				let calls: string[] = [];
+
+				const store = createStore();
+				(<any> store).add = (...args: any[]) => {
+					calls.push('add');
+					return Promise.reject(new Error());
+				};
+
+				const state = { foo: 'bar' };
+
+				const app = createApp();
+				app.loadDefinition({
+					actions: [
+						{
+							id: 'foo',
+							factory() {
+								calls.push('factory');
+								return createAction();
+							},
+							state,
+							stateFrom: store
+						}
+					]
+				});
+
+				return app.getAction('foo').then(() => {
+					assert.deepEqual(calls, ['add', 'factory']);
+				});
+			},
+
+			'the factory is called even if there is no store to add state to'() {
+				let calls: string[] = [];
+
+				const app = createApp();
+				app.loadDefinition({
+					actions: [
+						{
+							id: 'foo',
+							factory() {
+								calls.push('factory');
+								return createAction();
+							},
+							state: { foo: 'bar' }
+						}
+					]
+				});
+
+				return app.getAction('foo').then(() => {
+					assert.deepEqual(calls, ['factory']);
 				});
 			}
 		},
@@ -827,13 +947,11 @@ registerSuite({
 				}
 			},
 
-			'factory is passed a combined registry'() {
-				let registries: { foo: CombinedRegistry, bar: CombinedRegistry } = {
-					foo: null,
-					bar: null
-				};
-				stubActionFactory((registry: CombinedRegistry) => {
-					registries.bar = registry;
+			'factory is always passed registryProvider options'() {
+				let fooOptions: ActionFactoryOptions = null;
+				let barOptions: ActionFactoryOptions = null;
+				stubActionFactory((options) => {
+					barOptions = options;
 					return createAction();
 				});
 
@@ -842,8 +960,8 @@ registerSuite({
 					actions: [
 						{
 							id: 'foo',
-							factory(registry) {
-								registries.foo = registry;
+							factory(options) {
+								fooOptions = options;
 								return createAction();
 							}
 						},
@@ -858,8 +976,8 @@ registerSuite({
 					app.getAction('foo'),
 					app.getAction('bar')
 				]).then(() => {
-					isCombinedRegistry(registries.foo);
-					isCombinedRegistry(registries.bar);
+					assert.strictEqual(fooOptions.registryProvider, app.registryProvider);
+					assert.strictEqual(barOptions.registryProvider, app.registryProvider);
 				});
 			},
 
@@ -874,8 +992,8 @@ registerSuite({
 					actions: [
 						{
 							id: 'foo',
-							factory(_: any, store: StoreLike) {
-								received = store;
+							factory(options) {
+								received = options.stateFrom;
 								return action;
 							}
 						}
@@ -945,6 +1063,20 @@ registerSuite({
 						]
 					});
 				}, TypeError, 'Cannot specify stateFrom option when action definition points directly at an instance');
+			},
+
+			'state option is not allowed'() {
+				assert.throws(() => {
+					createApp().loadDefinition({
+						actions: [
+							{
+								id: 'foo',
+								instance: createAction(),
+								state: {}
+							}
+						]
+					});
+				}, TypeError, 'Cannot specify state option when action definition points directly at an instance');
 			},
 
 			'only configures action when getAction() is called'() {

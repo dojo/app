@@ -48,7 +48,9 @@ app.defaultWidgetStore = createMemoryStore();
 
 This store will be used as the `stateFrom` option to widget and custom element factories, unless another store is specified.
 
-### Registering actions
+### Functional API
+
+#### Registering actions
 
 If you already have instantiated an action:
 
@@ -67,7 +69,7 @@ app.registerAction('my-action', action);
 You can also register a factory method which creates the action only when needed:
 
 ```ts
-app.registerActionFactory('my-lazy-action', () => {
+app.registerActionFactory('my-lazy-action', (options) => {
 	return createAction({
 		do() {
 			// something else
@@ -78,9 +80,9 @@ app.registerActionFactory('my-lazy-action', () => {
 
 Note that an action instance may only be registered once. A factory is not allowed to return a previously registered instance.
 
-The factory is called with a registry object and potentially a default action store. The registry object contains the same `has*()` and `get*()` methods that are available on the application factory itself.
+The `options` object may have a `stateFrom` property, set to the default action store. A [registry provider](#registry-providers) is available under the `registryProvider` property.
 
-### Registering custom element factories
+#### Registering custom element factories
 
 ```ts
 import createWidget from 'dojo-widgets/createWidget';
@@ -90,9 +92,9 @@ app.registerCustomElementFactory('tag-name', createWidget);
 
 A factory for a custom element should return a unique widget instance. It receives an `options` object with an optional `id` property and other options from the custom element.
 
-Tag names must be [valid according to the Custom Elements spec](https://www.w3.org/TR/custom-elements/#valid-custom-element-name). Additionally `app-projector` and `app-widget` names are reserved. Names are automatically lowercased before the factory is registered.
+Tag names must be [valid according to the Custom Elements spec](https://www.w3.org/TR/custom-elements/#valid-custom-element-name). Additionally names starting with `app-` are reserved. Names are automatically lowercased before the factory is registered.
 
-### Registering stores
+#### Registering stores
 
 If you already have instantiated a store:
 
@@ -114,7 +116,7 @@ app.registerStoreFactory('my-lazy-store', () => {
 
 Note that a store instance may only be registered once. A factory is not allowed to return a previously registered instance.
 
-### Registering widgets
+#### Registering widgets
 
 If you already have instantiated a widget:
 
@@ -138,7 +140,7 @@ The `options` object will have an `id` property set to `my-lazy-widget`. A [regi
 
 Note that a widget instance may only be registered once. A factory is not allowed to return a previously registered instance.
 
-### Seeing if an action, store or widget is registered
+#### Seeing if an action, store or widget is registered
 
 To see whether a particular action, store or widget is registered, use the `has*()` methods:
 
@@ -159,7 +161,7 @@ app.hasStore(DEFAULT_ACTION_STORE);
 app.hasStore(DEFAULT_WIDGET_STORE);
 ```
 
-### Finding the ID under which an action, store or widget was registered
+#### Finding the ID under which an action, store or widget was registered
 
 To find the ID under which a particular action, store or widget instance was registered, use the `identify*()` methods:
 
@@ -173,7 +175,7 @@ Each method returns the ID string if the respective instance was registered, or 
 
 Note that the default action store, if any, is registered under the `DEFAULT_ACTION_STORE` symbol, *not* an ID string. The same goes for the default widget store, which is registered under the `DEFAULT_WIDGET_STORE` symbol.
 
-### Loading an action, store or widget
+#### Loading an action, store or widget
 
 You can load previously registered actions, stores and widgets using the `get*()` methods:
 
@@ -194,7 +196,7 @@ app.getStore(DEFAULT_ACTION_STORE);
 app.getStore(DEFAULT_WIDGET_STORE);
 ```
 
-### Configuring actions
+#### Configuring actions
 
 You might want to export an action from a module, and then register this module with the app factory:
 
@@ -219,14 +221,14 @@ app.registerAction('my-action', myAction);
 
 However if the action needs to access a store that is lazily loaded you'd then need a reference to the application factory in order to access the store.
 
-To make this easier the application factory calls `configure()` on actions after they've been loaded. The configuration object contains the same `has*()` and `get*()` methods that are available on the application factory itself.
+To make this easier the application factory calls `configure()` on actions after they've been loaded. The configuration object is the [registry provider](#registry-providers).
 
 For example, to store a reference to a particular store, you could do:
 
 ```ts
 // my-action.ts
 import createAction from 'dojo-actions/createAction';
-import { CombinedRegistry } from 'dojo-app/createApp';
+import { RegistryProvider } from 'dojo-app/createApp';
 import { MemoryStore } from 'dojo-widgets/util/createMemoryStore';
 
 interface MyAction {
@@ -234,8 +236,8 @@ interface MyAction {
 }
 
 export default createAction.extend<MyAction>({})({
-	configure(registry: CombinedRegistry) {
-		return registry.getStore('my-store').then((store) => {
+	configure(registryProvider: RegistryProvider) {
+		return registryProvider.get('stores').get('my-store').then((store) => {
 			(<MyAction> this).store = store;
 		});
 	},
@@ -252,21 +254,21 @@ If you registered an action factory you can do something similar, without having
 ```ts
 // my-action-factory.ts
 import createAction from 'dojo-actions/createAction';
-import { CombinedRegistry } from 'dojo-app/createApp';
+import { ActionFactory } from 'dojo-app/createApp';
 import { MemoryStore } from 'dojo-widgets/util/createMemoryStore';
 
-export default function(registry: CombinedRegistry) {
-	return registry.getStore('my-store').then((store) => {
+export default (function({ registryProvider }) {
+	return registryProvider.get('stores').get('my-store').then((store) => {
 		return createAction({
 			do() {
 				return (<MemoryStore<Object>> store).patch({ id: 'some-object', value: 'some-value' });
 			}
 		});
 	});
-}
+} as ActionFactory);
 ```
 
-### Describing applications
+#### Describing applications
 
 The above examples show how to register individual objects and factories. However you can also describe and load entire applications with a single method call:
 
@@ -298,9 +300,9 @@ Note that if an action, store or widget instance is provided to the `instance` o
 
 The application factory must be loaded with [`dojo-loader`](https://github.com/dojo/loader) in order to resolve module identifiers. Both ES and UMD modules are supported. The default export is used as the `factory` or `instance` value.
 
-Custom element definitions must have a `name` property, which must be a [valid custom element name](https://www.w3.org/TR/custom-elements/#valid-custom-element-name) (and not `app-projector` or `app-widget`). They must also have the `factory` property, but *not* the `id` and `instance` properties
+Custom element definitions must have a `name` property, which must be a [valid custom element name](https://www.w3.org/TR/custom-elements/#valid-custom-element-name) (and not start with `app-`). They must also have the `factory` property, but *not* the `id` and `instance` properties
 
-#### Action definitions
+##### Action definitions
 
 You might be tempted to specify `dojo-actions/createAction` as the `factory` in action definitions. However actions must be created with a `do()` implementation and this implementation cannot be specified in the definition object. You'll have to use your own factory method, like in the `registerActionFactory()` example above, or point directly at an action instance.
 
@@ -308,11 +310,13 @@ If you use your own factory method you can use the `stateFrom` option in the act
 
 If the `stateFrom` option is not used, but a default action store is provided, that default action store will be passed to the factory.
 
-#### Store definitions
+Use the `state` property to define an initial state that is added to the actions's store before the action is created, if any. This will be done lazily once the action is needed. The store is assumed to reject the initial state if it already contains state for the action. This error will be ignored and the action will be created with whatever state was already in the store.
+
+##### Store definitions
 
 If you use `factory` in your store definition you can use the `options` property to specify an object that is passed when the factory is called.
 
-#### Widget definitions
+##### Widget definitions
 
 Like stores, widget factories typically take an options argument. Widget definitions too support the `options` property, letting you specify the object that is passed when the factory is called.
 
@@ -326,7 +330,7 @@ Use the `stateFrom` property to specify the store that the widget should observe
 
 These actions and stores will be lazily loaded when the widget is needed.
 
-#### Relative module identifiers
+##### Relative module identifiers
 
 Module identifiers are resolved relative to the `dojo-app/createApp` module. You can provide a `toAbsMid()` function when creating the application factory to implement your own module resolution logic.
 
@@ -348,7 +352,7 @@ app.loadDefinition({
 
 This uses the `require()` function available to `my-app/main`, which will resolve module identifiers relative to itself.
 
-### Deregistering
+#### Deregistering
 
 The various `register*()` and `register*Factory()` methods return a handle. Call `destroy()` on this handle to deregister the action, custom element, store or widget from the application factory.
 
@@ -356,17 +360,73 @@ The various `register*()` and `register*Factory()` methods return a handle. Call
 
 Note that destroying handles will not destroy any action, store or widget instances.
 
-### Registry providers
+#### Registry providers
 
-The registry provider can provide read-only registries for actions, stores and widgets. It's available under `app.registryProvider` and passed to widget factories as the `registryProvider` option.
+The registry provider can provide read-only registries for actions, stores and widgets. It's available under `app.registryProvider`, passed to action and widget factories as the `registryProvider` option, and used when configuring actions.
 
 Use `registryProvider.get('actions')` to get an action registry. `registryProvider.get('stores')` gives you a store registry, and `registryProvider.get('widgets')` a widget registry.
 
 Each registry has `get()` and `identify()` methods. These behave the same as the `get*()` and `identify*()` methods of the application.
 
-### Custom Elements
+### Declarative DSL
 
-Use the `App#realize(root: Element)` method to realize custom elements inside a DOM element.
+The application factory allows you to define actions and stores declaratively, in HTML. You can also render widgets and custom elements. This is done using the `App#realize(root: Element)` method.
+
+`App#realize()` returns a promise. It is rejected when errors occur (e.g. bad `data-options` values, or a factory throwing an error). Otherwise it is fulfilled with a `Handle` object. Use the `destroy()` method to unregister the registered actions and stores, as well as destroy widgets.
+
+The following custom elements are recognized:
+
+* `<app-action>`
+* `<app-actions>`
+* `<app-store>`
+* `<app-projector>`
+* `<app-widget>`
+
+These are matched case-insensitively. You can also use the `is` attribute, for example `<div is="app-projector">`.
+
+#### Defining actions
+
+Use `<app-action>` to define an action. Specify its ID using the `data-uid` or `id` attribute (`data-uid` takes precedence). Use the `data-factory` attribute to specify the module ID for a factory function which can create the action when it's needed. The function must be the default export of the module.
+
+Alternatively use the `data-from` attribute to import an existing action, again by specifying its module ID. To import a specific member, use the `data-import` attribute. When using `data-from` it's not necessary to specify `data-uid` or `id`. If used, the `data-import` value will be used as the action ID. Otherwise the filename portion of the `data-from` module ID is used.
+
+Modules are only loaded when the action is needed.
+
+The `data-state-from` attribute may be used to specify a store that the action should observe for its state. This is only available when the action is created through a factory. If not set the default action store is used (if any).
+
+Use the `data-state` attribute to specify an initial state object, encoded as a JSON string. This initial state will be added to the action's store before it's created. The store is assumed to reject the initial state if it already contains state for the action. This error will be ignored and the action will be created with whatever state was already in the store.
+
+Use `<app-actions>` to load action instances from a module. The `data-from` attribute must be used to specify the module ID. The module is loaded immediately. Its non-default members are assumed to be action instances. The member names will be used as the action IDs.
+
+#### Defining stores
+
+Use `<app-store>` to define a store. Specify its ID using the `data-uid` or `id` attribute (`data-uid` takes precedence). Use the `data-factory` attribute to specify the module ID for a factory function which can create the store when it's needed. The function must be the default export of the module.
+
+Alternatively use the `data-from` attribute to import an existing store, again by specifying its module ID. To import a specific member, use the `data-import` attribute. When using `data-from` it's not necessary to specify `data-uid` or `id`. If used, the `data-import` value will be used as the store ID. Otherwise the filename portion of the `data-from` module ID is used.
+
+Use the `data-type` attribute with value `action` or `widget` to define a default action or widget store. The store ID is ignored (and optional) when `data-type` is used. Note that default stores can only be defined once.
+
+The optional `data-options` attribute can be used to specify an options object, encoded as a JSON string. It's passed to the factory when creating the store, so `data-options` can only be used together with `data-factory`.
+
+Modules are only loaded when the store is needed.
+
+#### Defining widgets
+
+Use `<app-widget>` to define a widget. Specify its ID using the `data-uid` or `id` attribute (`data-uid` takes precedence). Use the `data-factory` attribute to specify the module ID for a factory function which can create the widget when it's needed. The function must be the default export of the module.
+
+Alternatively use the `data-from` attribute to import an existing widget, again by specifying its module ID. To import a specific member, use the `data-import` attribute. When using `data-from` it's not necessary to specify `data-uid` or `id`. If used, the `data-import` value will be used as the widget ID. Otherwise the filename portion of the `data-from` module ID is used.
+
+Modules are only loaded when the widget is needed.
+
+The `data-listeners`, `data-options`, `data-state` and `data-state-from` attributes may be used together with `data-factory`. See the section on [rendering widgets](#rendering-widgets) for details.
+
+#### Defining custom elements
+
+Use `<app-element>` to define a custom element. Specify its name using the `data-name` attribute. Use the `data-factory` attribute to specify the module ID for a factory function which can create the widget when it's needed. The function must be the default export of the module.
+
+Modules are only loaded when the widget is needed.
+
+#### Rendering widgets
 
 Widgets are rendered inside a projector. You can declare (multiple) projector slots in your DOM tree using the `app-projector` custom element. These projectors must not be nested. Other custom elements can only occur within a `app-projector`. You can pass a single `app-projector` element as the `root` argument to `App#realize()`.
 
@@ -374,21 +434,23 @@ All descending custom elements are replaced by rendered widgets. Widgets for nes
 
 Custom elements are matched (case-insensitively) to registered factories. First the tag name is matched. If no factory is found, and the element has an `is` attribute, that value is used to find a factory. Unrecognized elements are left in the DOM where possible.
 
-A factory options object can be provided in the DOM by setting the `data-options` attribute to a JSON string. The options object may have a `stateFrom` property containing a store identifier. It may also have a `listeners` property containing a widget listener map. Values for each event type can be action identifiers or arrays thereof. These properties are resolved to the actual store and action instances before the factory is called. Additional properties are passed to the factory as-is.
+A factory options object can be provided in the DOM by setting the `data-options` attribute to a JSON string. The options object must not have an `id` property, instead the `data-uid` or `id` attribute should be used. It also must not have a `stateFrom` property, the `data-state-from` should be used instead. Similarly use the `data-listeners` attribute instead of the `listeners` property, and the `data-state` attribute instead of the `state` property.
 
-Widgets can be identified through the `id` property on the options object, a `data-uid` attribute, or an `id` attribute. The options object takes precedence over the `data-uid` attribute, which takes precedence over the `id` attribute. It's valid to use the different attributes, but only the most specific ID will be passed to the factory (in the `options` object).
+Widgets can be identified through a `data-uid` or `id` attribute. The `data-uid` attribute takes precedence over the `id` attribute. It's valid to use the different attributes, but only the most specific ID will be passed to the factory (in its `options` object).
 
-The `data-state-from` attribute may be used on custom elements to specify a store identifier. This will only take effect if a widget ID is also specified. The `stateFrom` property on the options object that is passed to the factory will be set to the referenced store. Any `stateFrom` property in the `data-options` object still takes precedence.
+The `data-listeners` attribute may be used to specify a widget listener map. Values for each event type can be action identifiers or arrays thereof. These properties are resolved to the actual store and action instances before the factory is called. Additional properties are passed to the factory as-is.
+
+The `data-state-from` attribute may be used on custom elements to specify a store identifier. This will only take effect if a widget ID is also specified. The `stateFrom` property on the options object that is passed to the factory will be set to the referenced store.
 
 A default widget store may be configured by setting the `data-state-from` attribute on the `app-projector` custom element. It applies to all descendant elements that have IDs, though they can override it by setting their own `data-state-from` attribute or configuring `stateFrom` in their `data-options`.
 
 Custom elements that have widget IDs and a `stateFrom` store may set their `data-state` attribute to an initial state object, encoded as a JSON string. This initial state will be added to the store before the widget is created. The store is assumed to reject the initial state if it already contains state for the widget. This error will be ignored and the widget will be created with whatever state was already in the store.
 
-The special `app-widget` custom element can be used to render a previously registered widget. The `data-uid` or `id` attribute is used to retrieve the widget. The `data-state`, `data-state-from` and `data-options` attributes are ignored. No default widget store is applied.
+The previously mentioned `app-widget` custom element can be used to render a specific widget. It can be declared using the `data-factory` or `data-from` attributes. Alternatively use the `data-uid` or `id` attribute to reference a widget that was registered using the functional API.
 
 A widget ID can only be used once within an application. Similarly a widget instance can only be rendered once. The `getWidget()`, `hasWidget()` and `identifyWidget()` methods will work with widgets created by custom element factories.
 
-`App#realize()` returns a promise. It is rejected when errors occur (e.g. bad `data-options` values, or a factory throws an error). Otherwise it is fulfilled with a `Handle` object. Use the `destroy()` method to destroy the created projectors and widgets. Widgets rendered through `app-widget` are left as-is.
+Destroying the handle returned by `App#realize()` also destroys projectors. Widgets rendered through `app-widget` are left as-is.
 
 Given this application definition:
 
@@ -442,7 +504,7 @@ And this `<body>`:
 	<app-projector>
 		<div>
 			<dojo-container>
-				<a-widget data-options='{"id":"widget-1","tagName":"mark","stateFrom":"widget-state","listeners":{"click":"an-action"}}'></a-widget>
+				<a-widget data-uid="widget-1" data-options='{"tagName":"mark"}' data-listeners='{"click":"an-action"}' data-state-from="widget-state"></a-widget>
 				<div>
 					<div is="app-widget" id="widget-2"></div>
 				</div>

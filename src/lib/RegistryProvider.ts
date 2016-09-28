@@ -4,9 +4,10 @@ import { Child } from 'dojo-widgets/mixins/interfaces';
 
 import {
 	ActionLike,
-	CombinedRegistry,
 	Identifier,
+	ReadOnlyRegistry,
 	StoreLike,
+	WidgetFactoryOptions,
 	WidgetLike
 } from '../createApp';
 
@@ -33,6 +34,19 @@ export interface Registry<I, T> {
 	identify(value: T): I;
 }
 
+interface UnderlyingRegistry {
+	getAction(id: Identifier): Promise<ActionLike>;
+	identifyAction(action: ActionLike): Identifier;
+	getStore(id: Identifier | symbol): Promise<StoreLike>;
+	identifyStore(store: StoreLike): Identifier | symbol;
+	createWidget<
+		U extends Child,
+		O extends WidgetFactoryOptions
+	>(factory: ComposeFactory<U, O>, options?: O): Promise<[string, U]>;
+	getWidget(id: Identifier): Promise<WidgetLike>;
+	identifyWidget(widget: WidgetLike): Identifier;
+}
+
 /**
  * Registry to (asynchronously) get widget instances by their ID, as well as create new instances that are then added
  * to the registry.
@@ -57,9 +71,17 @@ export default class RegistryProvider {
 	private storeRegistry: Registry<Identifier | symbol, StoreLike>;
 	private widgetRegistry: WidgetRegistry<Identifier, WidgetLike>;
 
-	private combinedRegistry: CombinedRegistry;
-	constructor(combinedRegistry: CombinedRegistry) {
-		this.combinedRegistry = combinedRegistry;
+	private underlyingRegistry: UnderlyingRegistry;
+	constructor(registry: ReadOnlyRegistry) {
+		this.underlyingRegistry = Object.freeze({
+			getAction: registry.getAction.bind(registry),
+			identifyAction: registry.identifyAction.bind(registry),
+			getStore: registry.getStore.bind(registry),
+			identifyStore: registry.identifyStore.bind(registry),
+			createWidget: registry.createWidget.bind(registry),
+			getWidget: registry.getWidget.bind(registry),
+			identifyWidget: registry.identifyWidget.bind(registry)
+		});
 	}
 
 	/**
@@ -76,19 +98,19 @@ export default class RegistryProvider {
 		switch (type) {
 			case 'actions':
 				return this.actionRegistry || (this.actionRegistry = {
-					get: this.combinedRegistry.getAction,
-					identify: this.combinedRegistry.identifyAction
+					get: this.underlyingRegistry.getAction,
+					identify: this.underlyingRegistry.identifyAction
 				});
 			case 'stores':
 				return this.storeRegistry || (this.storeRegistry = {
-					get: this.combinedRegistry.getStore,
-					identify: this.combinedRegistry.identifyStore
+					get: this.underlyingRegistry.getStore,
+					identify: this.underlyingRegistry.identifyStore
 				});
 			case 'widgets':
 				return this.widgetRegistry || (this.widgetRegistry = {
-					create: this.combinedRegistry.createWidget,
-					get: this.combinedRegistry.getWidget,
-					identify: this.combinedRegistry.identifyWidget
+					create: this.underlyingRegistry.createWidget,
+					get: this.underlyingRegistry.getWidget,
+					identify: this.underlyingRegistry.identifyWidget
 				});
 			default:
 				throw new Error(`No such store: ${type}`);
