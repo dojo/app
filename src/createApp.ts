@@ -929,21 +929,20 @@ const createApp = compose({
 			factory: ComposeFactory<U, O>,
 			options: any = {}
 		): Promise<[ string, U ]> {
-			const app = this;
 			const { defaultWidgetStore, registryProvider } = this;
 			const { id = generateWidgetId() } = options;
 			// Like for custom elements, don't add the generated ID to the options.
 
-			function configureWidget(): Promise<any> | void {
-				// Ensure no other widget with this ID exists.
-				if (app.hasWidget(id)) {
-					return Promise.reject(new Error(`A widget with ID '${id}' already exists`));
-				}
+			// Ensure no other widget with this ID exists.
+			if (this.hasWidget(id)) {
+				return Promise.reject(new Error(`A widget with ID '${id}' already exists`));
+			}
 
-				if (!options.registryProvider) {
-					options.registryProvider = registryProvider;
-				}
+			if (!options.registryProvider) {
+				options.registryProvider = registryProvider;
+			}
 
+			return new Promise((resolve) => {
 				if (options.id && (options.stateFrom || defaultWidgetStore)) {
 					const store: StoreLike = options.stateFrom = options.stateFrom || defaultWidgetStore;
 
@@ -953,21 +952,21 @@ const createApp = compose({
 						assign(state, options.state);
 					}
 					// TODO: What happens if the store rejects?
-					return store.add(state);
+					resolve(store.add(state));
 				}
-			}
-
-			return Promise
-				.resolve(configureWidget())
-				.then(() => {
-					const widget = factory(options);
-					// Add the instance to the various registries the app may maintain.
-					//
-					// No need to trap registerInstance for duplicates, because we are creating new
-					// in this function
-					widget.own(registerInstance(app, widget, id));
-					return [ id, widget ];
-				});
+				else {
+					resolve();
+				}
+			})
+			.then(() => {
+				const widget = factory(options);
+				// Add the instance to the various registries the app may maintain.
+				//
+				// No need to trap registerInstance for duplicates, because we are creating new
+				// in this function
+				widget.own(registerInstance(this, widget, id));
+				return [ id, widget ];
+			});
 		},
 
 		getWidget(this: App, id: Identifier): Promise<WidgetLike> {
