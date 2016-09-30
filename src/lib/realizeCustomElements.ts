@@ -317,7 +317,7 @@ export default function realizeCustomElements(
 					const isWidgetInstance = custom.name === 'app-widget';
 					let id = getIdFromAttributes(custom.element);
 
-					let promise: Promise<WidgetLike> = null;
+					let promise: Promise<WidgetLike>;
 					if (isWidgetInstance) {
 						if (!id) {
 							throw new Error('app-widget requires data-uid or id attribute');
