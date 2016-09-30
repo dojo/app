@@ -144,7 +144,7 @@ export function makeActionFactory(definition: ActionDefinition, resolveMid: Reso
 }
 
 export function makeCustomElementFactory(definition: CustomElementDefinition, resolveMid: ResolveMid): WidgetFactory {
-	let promise: Promise<void>;
+	let promise: Promise<void> | null = null;
 	let factory: WidgetFactory;
 	return (options: WidgetFactoryOptions) => {
 		if (factory) {
