@@ -443,17 +443,20 @@ registerSuite({
 					actual = <any> options;
 					return createActualWidget({ tagName: 'mark' });
 				});
-				const expected = createAction();
-				app.registerAction('action', expected);
+				const expected1 = createAction();
+				const expected2 = createAction();
+				app.registerAction('action1', expected1);
+				app.registerAction('action2', expected2);
 				projector.innerHTML = `<foo-bar data-listeners="${opts({
-					string: 'action',
-					array: ['action']
+					string: 'action1',
+					array: ['action1', 'action2']
 				})}"></foo-bar>`;
 				return app.realize(root).then(() => {
 					assert.isNotNull(actual);
-					assert.strictEqual(actual.listeners['string'], expected);
-					assert.lengthOf(actual.listeners['array'], 1);
-					assert.strictEqual((<ActionLike[]> actual.listeners['array'])[0], expected);
+					assert.strictEqual(actual.listeners['string'], expected1);
+					assert.lengthOf(actual.listeners['array'], 2);
+					assert.strictEqual((<ActionLike[]> actual.listeners['array'])[0], expected1);
+					assert.strictEqual((<ActionLike[]> actual.listeners['array'])[1], expected2);
 				});
 			}
 		}

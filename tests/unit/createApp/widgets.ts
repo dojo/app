@@ -1006,7 +1006,8 @@ registerSuite({
 								},
 								listeners: {
 									foo: ['foo', expected[1]],
-									bar: [expected[1]]
+									bar: [expected[1]],
+									baz: expected
 								}
 							}
 						]
@@ -1018,7 +1019,11 @@ registerSuite({
 						assert.strictEqual(foo[1], expected[1]);
 
 						const bar = <EventedListener<any>[]> actual['bar'];
-						assert.strictEqual(bar[0], expected[1]);
+						assert.strictEqual(bar, expected[1]);
+
+						const baz = <EventedListener<any>[]> actual['baz'];
+						assert.strictEqual(baz[0], expected[0]);
+						assert.strictEqual(baz[1], expected[1]);
 					});
 				}
 			},
