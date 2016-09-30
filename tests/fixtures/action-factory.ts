@@ -1,6 +1,6 @@
 import { ActionFactory } from 'src/createApp';
 
-let factory: ActionFactory = null;
+let factory: ActionFactory;
 
 export function stub (stub: ActionFactory) {
 	factory = stub;

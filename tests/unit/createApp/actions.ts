@@ -119,7 +119,7 @@ registerSuite({
 		},
 
 		'action.configure() is passed the registryProvider'() {
-			let registry: RegistryProvider = null;
+			let registry: RegistryProvider;
 			const action = createAction();
 			action.configure = (actual: RegistryProvider) => { registry = actual; };
 
@@ -273,7 +273,7 @@ registerSuite({
 		},
 
 		'factory is called with an options object that has a registryProvider property'() {
-			let actual: ActionFactoryOptions = null;
+			let actual: ActionFactoryOptions;
 
 			const app = createApp();
 			app.registerActionFactory('foo', (options) => {
@@ -300,7 +300,7 @@ registerSuite({
 		},
 
 		'action.configure() is passed the registryProvider'() {
-			let registry: RegistryProvider = null;
+			let registry: RegistryProvider;
 			const action = createAction();
 			action.configure = (actual: RegistryProvider) => { registry = actual; };
 
@@ -484,7 +484,7 @@ registerSuite({
 		},
 
 		'action.configure() is passed the registryProvider'() {
-			let registry: RegistryProvider = null;
+			let registry: RegistryProvider;
 			const action = createAction();
 			action.configure = (actual: RegistryProvider) => { registry = actual; };
 
@@ -589,7 +589,7 @@ registerSuite({
 
 			'factory is passed a store reference in its stateFrom option'() {
 				const expected = createStore();
-				let actual: StoreLike = null;
+				let actual: StoreLike;
 
 				const app = createApp();
 				app.registerStore('store', expected);
@@ -613,7 +613,7 @@ registerSuite({
 
 			'stateFrom may be an actual store, rather than a store identifier'() {
 				const expected = createStore();
-				let actual: StoreLike = null;
+				let actual: StoreLike;
 
 				const app = createApp();
 				app.loadDefinition({
@@ -636,7 +636,7 @@ registerSuite({
 
 			'overrides the default action store'() {
 				const expected = createStore();
-				let actual: StoreLike = null;
+				let actual: StoreLike;
 
 				const defaultActionStore = createStore();
 				const app = createApp({ defaultActionStore });
@@ -948,8 +948,8 @@ registerSuite({
 			},
 
 			'factory is always passed registryProvider options'() {
-				let fooOptions: ActionFactoryOptions = null;
-				let barOptions: ActionFactoryOptions = null;
+				let fooOptions: ActionFactoryOptions;
+				let barOptions: ActionFactoryOptions;
 				stubActionFactory((options) => {
 					barOptions = options;
 					return createAction();
@@ -983,7 +983,7 @@ registerSuite({
 
 			'if a default action store is provided, and no stateFrom option, the factory is passed the default store'() {
 				const action = createAction();
-				let received: StoreLike = null;
+				let received: StoreLike;
 
 				const defaultActionStore = createStore();
 				const app = createApp({ defaultActionStore });

@@ -1,6 +1,6 @@
 import { WidgetFactory } from 'src/createApp';
 
-let factory: WidgetFactory = null;
+let factory: WidgetFactory;
 
 export function stub (stub: WidgetFactory) {
 	factory = stub;
