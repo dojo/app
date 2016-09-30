@@ -202,7 +202,7 @@ function resolveListeners(registry: ReadOnlyRegistry, element: Element): null | 
 	return resolveListenersMap(registry, listeners);
 }
 
-function resolveOptions(registry: ReadOnlyRegistry, registryProvider: RegistryProvider, element: Element, idFromAttributes: string): Options {
+function resolveOptions(registry: ReadOnlyRegistry, registryProvider: RegistryProvider, element: Element, idFromAttributes?: string): Options {
 	const str = element.getAttribute('data-options') || '';
 	if (!str) {
 		return idFromAttributes ? { id: idFromAttributes, registryProvider } : { registryProvider };
