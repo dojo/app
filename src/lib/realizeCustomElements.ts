@@ -307,8 +307,13 @@ export default function realizeCustomElements(
 
 			// Recursion-free, depth first processing of the tree.
 			let processing = [children];
-			while (processing.length > 0) {
-				for (const custom of processing.shift()) {
+			while (true) {
+				const next = processing.shift();
+				if (!next) {
+					break;
+				}
+
+				for (const custom of next) {
 					const isWidgetInstance = custom.name === 'app-widget';
 					let id = getIdFromAttributes(custom.element);
 
