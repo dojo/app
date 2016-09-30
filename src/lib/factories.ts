@@ -20,7 +20,7 @@ import {
 import { ResolveMid } from './moduleResolver';
 import resolveListenersMap from './resolveListenersMap';
 
-function resolveStore(registry: ReadOnlyRegistry, definition: ActionDefinition | WidgetDefinition): void | StoreLike | Promise<StoreLike> {
+function resolveStore(registry: ReadOnlyRegistry, definition: ActionDefinition | WidgetDefinition): null | StoreLike | Promise<StoreLike> {
 	const { stateFrom } = definition;
 	if (!stateFrom) {
 		return null;
