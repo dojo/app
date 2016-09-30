@@ -1,6 +1,7 @@
 import { remove } from 'dojo-dom/dom';
 import { from as arrayFrom } from 'dojo-shim/array';
 import Promise from 'dojo-shim/Promise';
+import Set from 'dojo-shim/Set';
 
 import {
 	ActionDefinition,
@@ -17,26 +18,32 @@ import {
 import { RESOLVE_CONTENTS, ResolveMid } from './moduleResolver';
 import parseJsonAttribute from './parseJsonAttribute';
 
-interface BaseTask {
-	element: Element;
-}
-
 interface JsonObject {
 	[key: string]: any;
 }
 
+interface BaseTask {
+	element: Element;
+}
+
+interface FactoryResolver {
+	factory: string;
+}
+
+interface ImportResolver {
+	from: string;
+	importName?: string;
+}
+
 interface ActionTask extends BaseTask {
-	factory?: string;
-	from?: string;
 	id: string;
-	importName: string;
+	resolver: FactoryResolver | ImportResolver;
 	state?: JsonObject;
 	stateFrom?: string;
 	type: 'action';
 }
 
-interface ElementTask extends BaseTask {
-	factory: string;
+interface ElementTask extends BaseTask, FactoryResolver {
 	name: string;
 	type: 'element';
 }
@@ -47,22 +54,18 @@ interface MultipleActionsTask extends BaseTask {
 }
 
 interface StoreTask extends BaseTask {
-	default?: 'action' | 'widget';
-	factory: string;
-	from?: string;
 	id: string;
-	importName: string;
+	isDefault: boolean;
 	options?: JsonObject;
+	resolver: FactoryResolver | ImportResolver;
 	type: 'store';
 }
 
 interface WidgetTask extends BaseTask {
-	factory?: string;
-	from?: string;
 	id: string;
-	importName: string;
 	listeners?: JsonObject;
 	options?: JsonObject;
+	resolver: FactoryResolver | ImportResolver;
 	state?: JsonObject;
 	stateFrom?: string;
 	type: 'widget';
@@ -70,211 +73,224 @@ interface WidgetTask extends BaseTask {
 
 type Task = ActionTask | ElementTask | MultipleActionsTask | StoreTask | WidgetTask;
 
-const parsers = Object.create(null, {
-	'app-action': {
-		value(element: Element): ActionTask {
-			let id = element.getAttribute('data-uid') || element.getAttribute('id');
-			const factory = element.getAttribute('data-factory');
-			const from = element.getAttribute('data-from');
-			const importName = element.getAttribute('data-import');
-			const stateFrom = element.getAttribute('data-state-from');
-			const stateJson = element.getAttribute('data-state');
+function isFactoryResolver(resolver: FactoryResolver | ImportResolver): resolver is FactoryResolver {
+	return (<any> resolver).factory;
+}
 
-			if (factory && !id) {
-				throw new Error('app-action requires data-uid or id attribute if data-factory is given');
-			}
-			if (!factory && !from) {
-				throw new Error('app-action requires data-from attribute if data-factory is not given');
-			}
-			if (stateFrom && !factory) {
-				throw new Error('app-action requires data-factory attribute if data-state-from is given');
-			}
-			if (stateJson && !factory) {
-				throw new Error('app-action requires data-factory attribute if data-state is given');
-			}
+function get(element: Element, name: string): string | undefined {
+	const value = element.getAttribute(name);
+	return value === null ? undefined : value;
+}
 
-			if (from && !id) {
-				if (importName) {
-					id = importName;
-				}
-				else {
-					id = from.split('/').pop();
-				}
-			}
+const TAG_NAMES = new Set(['app-action', 'app-actions', 'app-element', 'app-store', 'app-widget']);
 
-			if (!id) {
-				throw new Error(`Could not determine ID for app-action (from=${from} and import=${importName})`);
-			}
+const parsers = {
+	action(element: Element): ActionTask {
+		let id = get(element, 'data-uid') || get(element, 'id');
+		const factory = get(element, 'data-factory');
+		const from = get(element, 'data-from');
+		const importName = get(element, 'data-import');
+		const stateFrom = get(element, 'data-state-from');
+		const stateJson = get(element, 'data-state');
 
-			const state = stateJson ? parseJsonAttribute<JsonObject>('data-state', stateJson) : null;
-
-			return {
-				element,
-				factory,
-				from,
-				id,
-				importName,
-				state,
-				stateFrom,
-				type: 'action'
-			};
+		if (factory && !id) {
+			throw new Error('app-action requires data-uid or id attribute if data-factory is given');
 		}
+		if (!factory && !from) {
+			throw new Error('app-action requires data-from attribute if data-factory is not given');
+		}
+		if (factory && from) {
+			throw new Error('app-action cannot be used with both data-from and data-factory attributes');
+		}
+		if (stateFrom && !factory) {
+			throw new Error('app-action requires data-factory attribute if data-state-from is given');
+		}
+		if (stateJson && !factory) {
+			throw new Error('app-action requires data-factory attribute if data-state is given');
+		}
+
+		if (from && !id) {
+			if (importName) {
+				id = importName;
+			}
+			else {
+				id = <string> from.split('/').pop();
+			}
+		}
+
+		if (!id) {
+			throw new Error(`Could not determine ID for app-action (from=${from} and import=${importName})`);
+		}
+
+		const resolver = factory ? { factory } : { from: <string> from, importName };
+		const state = stateJson ? parseJsonAttribute<JsonObject>('data-state', stateJson) : undefined;
+
+		return {
+			element,
+			id,
+			resolver,
+			state,
+			stateFrom,
+			type: 'action'
+		};
 	},
 
-	'app-actions': {
-		value(element: Element): MultipleActionsTask {
-			const from = element.getAttribute('data-from');
-			if (!from) {
-				throw new Error('app-actions requires data-from attribute');
-			}
-
-			return {
-				element,
-				from,
-				type: 'multiple-actions'
-			};
+	actions(element: Element): MultipleActionsTask {
+		const from = get(element, 'data-from');
+		if (!from) {
+			throw new Error('app-actions requires data-from attribute');
 		}
+
+		return {
+			element,
+			from,
+			type: 'multiple-actions'
+		};
 	},
 
-	'app-element': {
-		value(element: Element): ElementTask {
-			const factory = element.getAttribute('data-factory');
-			const name = element.getAttribute('data-name');
+	element(element: Element): ElementTask {
+		const factory = get(element, 'data-factory');
+		const name = get(element, 'data-name');
 
-			if (!factory) {
-				throw new Error('app-element requires data-factory');
-			}
-			if (!name) {
-				throw new Error('app-element requires data-name');
-			}
-
-			return {
-				element,
-				factory,
-				name,
-				type: 'element'
-			};
+		if (!factory) {
+			throw new Error('app-element requires data-factory');
 		}
+		if (!name) {
+			throw new Error('app-element requires data-name');
+		}
+
+		return {
+			element,
+			factory,
+			name,
+			type: 'element'
+		};
 	},
 
-	'app-store': {
-		value(element: Element): StoreTask {
-			let id = element.getAttribute('data-uid') || element.getAttribute('id');
-			const factory = element.getAttribute('data-factory');
-			const from = element.getAttribute('data-from');
-			const importName = element.getAttribute('data-import');
-			const type = element.getAttribute('data-type');
-			const optionsJson = element.getAttribute('data-options');
+	store(element: Element): StoreTask {
+		let id = get(element, 'data-uid') || get(element, 'id');
+		const factory = get(element, 'data-factory');
+		const from = get(element, 'data-from');
+		const importName = get(element, 'data-import');
+		const type = <'action' | 'widget' | undefined> get(element, 'data-type');
+		const optionsJson = get(element, 'data-options');
 
-			if (factory && !id && !type) {
-				throw new Error('app-store requires data-uid, id or data-type attribute if data-factory is given');
-			}
-			if (!factory && !from) {
-				throw new Error('app-store requires data-from attribute if data-factory is not given');
-			}
-			if (type && id) {
-				throw new Error('data-type attribute must not be provided if app-store has data-uid or id attribute');
-			}
-			if (type && type !== 'action' && type !== 'widget') {
-				throw new Error('data-type attribute of app-store must have a value of \'action\' or \'widget\'');
-			}
-			if (optionsJson && !factory) {
-				throw new Error('app-store requires data-factory attribute if data-options is given');
-			}
-
-			if (from && !type && !id) {
-				if (importName) {
-					id = importName;
-				}
-				else {
-					id = from.split('/').pop();
-				}
-			}
-
-			if (!type && !id) {
-				throw new Error(`Could not determine ID for app-store (from=${from} and import=${importName})`);
-			}
-
-			const options = optionsJson ? parseJsonAttribute<JsonObject>('data-options', optionsJson) : null;
-
-			return {
-				default: <'action' | 'widget'> type,
-				factory,
-				from,
-				id,
-				importName,
-				element,
-				options,
-				type: 'store'
-			};
+		if (factory && !id && !type) {
+			throw new Error('app-store requires data-uid, id or data-type attribute if data-factory is given');
 		}
+		if (!factory && !from) {
+			throw new Error('app-store requires data-from attribute if data-factory is not given');
+		}
+		if (factory && from) {
+			throw new Error('app-store cannot be used with both data-from and data-factory attributes');
+		}
+		if (type && id) {
+			throw new Error('data-type attribute must not be provided if app-store has data-uid or id attribute');
+		}
+		if (type && type !== 'action' && type !== 'widget') {
+			throw new Error('data-type attribute of app-store must have a value of \'action\' or \'widget\'');
+		}
+		if (optionsJson && !factory) {
+			throw new Error('app-store requires data-factory attribute if data-options is given');
+		}
+
+		if (from && !type && !id) {
+			if (importName) {
+				id = importName;
+			}
+			else {
+				id = <string> from.split('/').pop();
+			}
+		}
+
+		if (!type && !id) {
+			throw new Error(`Could not determine ID for app-store (from=${from} and import=${importName})`);
+		}
+
+		const options = optionsJson ? parseJsonAttribute<JsonObject>('data-options', optionsJson) : undefined;
+		const resolver = factory ? { factory } : { from: <string> from, importName };
+
+		const isDefault = Boolean(type);
+		if (isDefault) {
+			id = type;
+		}
+
+		return {
+			id: <string> id,
+			isDefault,
+			element,
+			options,
+			resolver,
+			type: 'store'
+		};
 	},
 
-	'app-widget': {
-		value(element: Element): WidgetTask {
-			let id = element.getAttribute('data-uid') || element.getAttribute('id');
-			const factory = element.getAttribute('data-factory');
-			const from = element.getAttribute('data-from');
-			const importName = element.getAttribute('data-import');
-			const listenersJson = element.getAttribute('data-listeners');
-			const optionsJson = element.getAttribute('data-options');
-			const stateFrom = element.getAttribute('data-state-from');
-			const stateJson = element.getAttribute('data-state');
+	widget(element: Element): WidgetTask | null {
+		let id = get(element, 'data-uid') || get(element, 'id');
+		const factory = get(element, 'data-factory');
+		const from = get(element, 'data-from');
+		const importName = get(element, 'data-import');
+		const listenersJson = get(element, 'data-listeners');
+		const optionsJson = get(element, 'data-options');
+		const stateFrom = get(element, 'data-state-from');
+		const stateJson = get(element, 'data-state');
 
-			if (stateFrom && !factory) {
-				throw new Error('app-widget requires data-factory attribute if data-state-from is given');
-			}
-			if (listenersJson && !factory) {
-				throw new Error('app-widget requires data-factory attribute if data-listeners is given');
-			}
-			if (optionsJson && !factory) {
-				throw new Error('app-widget requires data-factory attribute if data-options is given');
-			}
-			if (stateJson && !factory) {
-				throw new Error('app-widget requires data-factory attribute if data-state is given');
-			}
-
-			// Without factory or from, assume the widget has already been defined elsewhere.
-			if (!factory && !from) {
-				return null;
-			}
-
-			if (factory && !id) {
-				throw new Error('app-widget requires data-uid or id attribute if data-factory is given');
-			}
-
-			if (from && !id) {
-				if (importName) {
-					id = importName;
-				}
-				else {
-					id = from.split('/').pop();
-				}
-			}
-
-			if (!id) {
-				throw new Error(`Could not determine ID for app-widget (from=${from} and import=${importName})`);
-			}
-
-			const listeners = listenersJson ? parseJsonAttribute<JsonObject>('data-listeners', listenersJson) : null;
-			const options = optionsJson ? parseJsonAttribute<JsonObject>('data-options', optionsJson) : null;
-			const state = stateJson ? parseJsonAttribute<JsonObject>('data-state', stateJson) : null;
-
-			return {
-				element,
-				factory,
-				from,
-				id,
-				importName,
-				listeners,
-				options,
-				state,
-				stateFrom,
-				type: 'widget'
-			};
+		if (stateFrom && !factory) {
+			throw new Error('app-widget requires data-factory attribute if data-state-from is given');
 		}
+		if (listenersJson && !factory) {
+			throw new Error('app-widget requires data-factory attribute if data-listeners is given');
+		}
+		if (optionsJson && !factory) {
+			throw new Error('app-widget requires data-factory attribute if data-options is given');
+		}
+		if (stateJson && !factory) {
+			throw new Error('app-widget requires data-factory attribute if data-state is given');
+		}
+
+		// Without factory or from, assume the widget has already been defined elsewhere.
+		if (!factory && !from) {
+			return null;
+		}
+		if (factory && from) {
+			throw new Error('app-widget cannot be used with both data-from and data-factory attributes');
+		}
+
+		if (factory && !id) {
+			throw new Error('app-widget requires data-uid or id attribute if data-factory is given');
+		}
+
+		if (from && !id) {
+			if (importName) {
+				id = importName;
+			}
+			else {
+				id = from.split('/').pop();
+			}
+		}
+
+		if (!id) {
+			throw new Error(`Could not determine ID for app-widget (from=${from} and import=${importName})`);
+		}
+
+		const listeners = listenersJson ? parseJsonAttribute<JsonObject>('data-listeners', listenersJson) : undefined;
+		const options = optionsJson ? parseJsonAttribute<JsonObject>('data-options', optionsJson) : undefined;
+		const state = stateJson ? parseJsonAttribute<JsonObject>('data-state', stateJson) : undefined;
+
+		const resolver = factory ? { factory } : { from: <string> from, importName };
+
+		return {
+			element,
+			id,
+			listeners,
+			options,
+			resolver,
+			state,
+			stateFrom,
+			type: 'widget'
+		};
 	}
-});
+};
 
 function getRegistrationTasks(root: Element): Task[] {
 	const allElements: Element[] = arrayFrom(root.getElementsByTagName('*'));
@@ -282,24 +298,39 @@ function getRegistrationTasks(root: Element): Task[] {
 
 	const tasks: Task[] = [];
 	for (const element of allElements) {
-		let name: string;
+		let name: string | undefined;
 
 		const tagName = element.tagName.toLowerCase();
-		if (parsers[tagName]) {
+		if (TAG_NAMES.has(tagName)) {
 			name = tagName;
 		}
 		else {
-			const attrIs = (element.getAttribute('is') || '').toLowerCase();
-			if (parsers[attrIs]) {
+			const attrIs = (get(element, 'is') || '').toLowerCase();
+			if (TAG_NAMES.has(attrIs)) {
 				name = attrIs;
 			}
 		}
 
-		if (name) {
-			const task = parsers[name](element);
-			if (task) {
-				tasks.push(task);
-			}
+		let task: Task | null = null;
+		switch (name) {
+			case 'app-action':
+				task = parsers.action(element);
+				break;
+			case 'app-actions':
+				task = parsers.actions(element);
+				break;
+			case 'app-element':
+				task = parsers.element(element);
+				break;
+			case 'app-store':
+				task = parsers.store(element);
+				break;
+			case 'app-widget':
+				task = parsers.widget(element);
+				break;
+		}
+		if (task) {
+			tasks.push(task);
 		}
 	}
 
@@ -309,10 +340,8 @@ function getRegistrationTasks(root: Element): Task[] {
 function createActionDefinition(
 	resolveMid: ResolveMid,
 	{
-		factory,
-		from,
 		id,
-		importName,
+		resolver,
 		state,
 		stateFrom
 	}: ActionTask
@@ -320,13 +349,13 @@ function createActionDefinition(
 	return {
 		id,
 		factory(options) {
-			if (factory) {
-				return resolveMid<ActionFactory>(factory).then((factory) => {
+			if (isFactoryResolver(resolver)) {
+				return resolveMid<ActionFactory>(resolver.factory).then((factory) => {
 					return factory(options);
 				});
 			}
 			else {
-				return resolveMid<ActionLike>(from, importName || 'default');
+				return resolveMid<ActionLike>(resolver.from, resolver.importName || 'default');
 			}
 		},
 		state,
@@ -367,22 +396,20 @@ function createCustomElementDefinition(
 function createStoreDefinition(
 	resolveMid: ResolveMid,
 	{
-		factory,
-		from,
 		id,
-		importName,
-		options
+		options,
+		resolver
 	}: StoreTask
 ): StoreDefinition {
 	return {
 		id,
 		factory(options: any) {
-			if (factory) {
-				return resolveMid<StoreFactory>(factory)
+			if (isFactoryResolver(resolver)) {
+				return resolveMid<StoreFactory>(resolver.factory)
 					.then((factory) => factory(options));
 			}
 			else {
-				return resolveMid<StoreLike>(from, importName || 'default');
+				return resolveMid<StoreLike>(resolver.from, resolver.importName || 'default');
 			}
 		},
 		options
@@ -392,12 +419,10 @@ function createStoreDefinition(
 function createWidgetDefinition(
 	resolveMid: ResolveMid,
 	{
-		factory,
-		from,
 		id,
-		importName,
 		listeners,
 		options,
+		resolver,
 		state,
 		stateFrom
 	}: WidgetTask
@@ -405,12 +430,12 @@ function createWidgetDefinition(
 	return {
 		id,
 		factory(options) {
-			if (factory) {
-				return resolveMid<WidgetFactory>(factory)
+			if (isFactoryResolver(resolver)) {
+				return resolveMid<WidgetFactory>(resolver.factory)
 					.then((factory) => factory(options));
 			}
 			else {
-				return resolveMid<WidgetLike>(from, importName || 'default');
+				return resolveMid<WidgetLike>(resolver.from, resolver.importName || 'default');
 			}
 		},
 		listeners,
@@ -436,8 +461,11 @@ export interface Result {
 
 	/**
 	 * Default action and widget stores that should be loaded into the app.
+	 *
+	 * The 'action' ID indicates that the definition is for the default action store.
+	 * The 'widget' ID indicates that the definition is for the default widget store.
 	 */
-	defaultStores: { type: 'action' | 'widget', definition: StoreDefinition }[];
+	defaultStores: StoreDefinition[];
 
 	/**
 	 * Stores that should be loaded into the app.
@@ -488,10 +516,10 @@ export default function extractRegistrationElements(resolveMid: ResolveMid, root
 				}
 
 				case 'store': {
-					const { default: type } = <StoreTask> task;
+					const { isDefault } = <StoreTask> task;
 					const definition = createStoreDefinition(resolveMid, <StoreTask> task);
-					if (type) {
-						result.defaultStores.push({ type, definition });
+					if (isDefault) {
+						result.defaultStores.push(definition);
 					}
 					else {
 						result.stores.push(definition);

@@ -885,7 +885,9 @@ const createApp = compose({
 					return definitionHandle;
 				}
 
-				return Promise.all(defaultStores.map(({ type, definition }) => {
+				return Promise.all(defaultStores.map((definition) => {
+					// N.B. The ID is ignored by the store factory
+					const { id: type } = definition;
 					const factory = makeStoreFactory(definition, resolveMid);
 					return Promise.resolve(factory())
 						.then((store) => {

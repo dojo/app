@@ -28,9 +28,9 @@ import {
 } from 'tests/support/createApp';
 import stubDom from 'tests/support/stubDom';
 
-let app: App = null;
-let root: HTMLElement = null;
-let stubbedGlobals: Handle = null;
+let app: App;
+let root: HTMLElement;
+let stubbedGlobals: Handle;
 
 registerSuite({
 	name: 'createApp#realize (extract registration elements)',
@@ -139,6 +139,11 @@ registerSuite({
 			return rejects(app.realize(root), Error, 'app-action requires data-from attribute if data-factory is not given');
 		},
 
+		'requires data-from or data-factory, not both'() {
+			root.innerHTML = '<app-action id="action" data-factory="tests/fixtures/action-factory" data-from="tests/fixtures/action-instance"></app-action>';
+			return rejects(app.realize(root), Error, 'app-action cannot be used with both data-from and data-factory attributes');
+		},
+
 		'requires data-factory if data-state-from is given'() {
 			root.innerHTML = '<app-action data-state-from="store" data-from="tests/fixtures/action-instance"></app-action>';
 			return rejects(app.realize(root), Error, 'app-action requires data-factory attribute if data-state-from is given');
@@ -151,7 +156,7 @@ registerSuite({
 
 		'without data-uid, id or data-import, the data-from must not end in a slash'() {
 			root.innerHTML = '<app-action data-from="tests/fixtures/action-instance/"></app-action>';
-			return rejects(app.realize(root), Error, 'Could not determine ID for app-action (from=tests/fixtures/action-instance/ and import=null)');
+			return rejects(app.realize(root), Error, 'Could not determine ID for app-action (from=tests/fixtures/action-instance/ and import=undefined)');
 		},
 
 		'is added to the registry under the data-uid value'() {
@@ -195,9 +200,9 @@ registerSuite({
 				app.registerStore('store', store);
 
 				const action = createAction();
-				let received: StoreLike = null;
+				let received: StoreLike;
 				stubActionFactory(({ stateFrom }) => {
-					received = stateFrom;
+					received = stateFrom!;
 					return action;
 				});
 
@@ -216,9 +221,9 @@ registerSuite({
 				app.defaultActionStore = createStore();
 
 				const action = createAction();
-				let received: StoreLike = null;
+				let received: StoreLike;
 				stubActionFactory(({ stateFrom }) => {
-					received = stateFrom;
+					received = stateFrom!;
 					return action;
 				});
 
@@ -379,7 +384,7 @@ registerSuite({
 				app.defaultActionStore = createStore();
 
 				const action = createAction();
-				let options: ActionFactoryOptions = null;
+				let options: ActionFactoryOptions | null = null;
 				stubActionFactory((actual) => {
 					options = actual;
 					return action;
@@ -390,8 +395,8 @@ registerSuite({
 					assert.isNull(options);
 					return strictEqual(app.getAction('foo'), action);
 				}).then(() => {
-					assert.strictEqual(options.registryProvider, app.registryProvider);
-					assert.strictEqual(options.stateFrom, app.defaultActionStore);
+					assert.strictEqual(options!.registryProvider, app.registryProvider);
+					assert.strictEqual(options!.stateFrom, app.defaultActionStore);
 				});
 			},
 
@@ -399,7 +404,7 @@ registerSuite({
 				app.defaultActionStore = createStore();
 
 				const action = createAction();
-				let options: ActionFactoryOptions = null;
+				let options: ActionFactoryOptions | null = null;
 				return new Promise((resolve) => {
 					require(['tests/fixtures/generic-amd-factory'], (factory) => {
 						factory.stub((actual: ActionFactoryOptions) => {
@@ -414,8 +419,8 @@ registerSuite({
 						assert.isNull(options);
 						return strictEqual(app.getAction('foo'), action);
 					}).then(() => {
-						assert.strictEqual(options.registryProvider, app.registryProvider);
-						assert.strictEqual(options.stateFrom, app.defaultActionStore);
+						assert.strictEqual(options!.registryProvider, app.registryProvider);
+						assert.strictEqual(options!.stateFrom, app.defaultActionStore);
 					});
 				});
 			}
@@ -621,9 +626,14 @@ registerSuite({
 			return rejects(app.realize(root), Error, 'app-store requires data-from attribute if data-factory is not given');
 		},
 
+		'requires data-from or data-factory, not both'() {
+			root.innerHTML = '<app-store id="store" data-factory="tests/fixtures/store-factory" data-from="tests/fixtures/store-instance"></app-store>';
+			return rejects(app.realize(root), Error, 'app-store cannot be used with both data-from and data-factory attributes');
+		},
+
 		'without data-uid, id, data-type or data-import, the data-from must not end in a slash'() {
 			root.innerHTML = '<app-store data-from="tests/fixtures/store-instance/"></app-store>';
-			return rejects(app.realize(root), Error, 'Could not determine ID for app-store (from=tests/fixtures/store-instance/ and import=null)');
+			return rejects(app.realize(root), Error, 'Could not determine ID for app-store (from=tests/fixtures/store-instance/ and import=undefined)');
 		},
 
 		'data-type must not be provided with data-uid'() {
@@ -846,6 +856,11 @@ registerSuite({
 			return rejects(app.realize(root), Error, 'app-widget requires data-uid or id attribute if data-factory is given');
 		},
 
+		'requires data-from or data-factory, not both'() {
+			root.innerHTML = '<app-projector><app-widget id="widget" data-factory="tests/fixtures/widget-factory" data-from="tests/fixtures/widget-instance"></app-widget></app-projector>';
+			return rejects(app.realize(root), Error, 'app-widget cannot be used with both data-from and data-factory attributes');
+		},
+
 		'requires data-factory if data-state-from is given'() {
 			root.innerHTML = '<app-projector><app-widget data-state-from="store" data-from="tests/fixtures/widget-instance"></app-widget></app-projector>';
 			return rejects(app.realize(root), Error, 'app-widget requires data-factory attribute if data-state-from is given');
@@ -858,7 +873,7 @@ registerSuite({
 
 		'without data-uid, id or data-import, the data-from must not end in a slash'() {
 			root.innerHTML = '<app-projector><app-widget data-from="tests/fixtures/widget-instance/"></app-widget></app-projector>';
-			return rejects(app.realize(root), Error, 'Could not determine ID for app-widget (from=tests/fixtures/widget-instance/ and import=null)');
+			return rejects(app.realize(root), Error, 'Could not determine ID for app-widget (from=tests/fixtures/widget-instance/ and import=undefined)');
 		},
 
 		'is added to the registry under the data-uid value'() {
@@ -902,9 +917,9 @@ registerSuite({
 				app.registerStore('store', store);
 
 				const widget = createWidget();
-				let received: StoreLike = null;
-				stubWidgetFactory(({ stateFrom }) => {
-					received = stateFrom;
+				let received: StoreLike;
+				stubWidgetFactory((options) => {
+					received = options!.stateFrom!;
 					return widget;
 				});
 
@@ -922,9 +937,9 @@ registerSuite({
 				app.defaultWidgetStore = createStore();
 
 				const widget = createWidget();
-				let received: StoreLike = null;
-				stubWidgetFactory(({ stateFrom }) => {
-					received = stateFrom;
+				let received: StoreLike;
+				stubWidgetFactory((options) => {
+					received = options!.stateFrom!;
 					return widget;
 				});
 
@@ -1143,9 +1158,9 @@ registerSuite({
 				app.defaultWidgetStore = createStore();
 
 				const widget = createWidget();
-				let options: WidgetFactoryOptions = null;
+				let options: WidgetFactoryOptions;
 				stubWidgetFactory((actual) => {
-					options = actual;
+					options = actual!;
 					return widget;
 				});
 
@@ -1161,7 +1176,7 @@ registerSuite({
 				app.defaultWidgetStore = createStore();
 
 				const widget = createWidget();
-				let options: WidgetFactoryOptions = null;
+				let options: WidgetFactoryOptions;
 				return new Promise((resolve) => {
 					require(['tests/fixtures/generic-amd-factory'], (factory) => {
 						factory.stub((actual: WidgetFactoryOptions) => {
