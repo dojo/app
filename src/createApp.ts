@@ -568,12 +568,15 @@ function addIdentifier(app: App, id: Identifier) {
 }
 
 function createCustomWidget(app: App, id: string) {
-	const customFactories = customElementFactories.get(app);
-	const { registryProvider, defaultWidgetStore: stateFrom } = app;
+	const { registryProvider, defaultWidgetStore } = app;
+	// istanbul ignore if
+	if (!defaultWidgetStore) {
+		throw new Error('A default widget store must be configured in order to create custom widgets');
+	}
 
-	return app.defaultWidgetStore.get(id).then((state: any) => {
-		const options: WidgetFactoryOptions = { id, stateFrom, registryProvider, state };
-		const customFactory = customFactories.get(state.type);
+	return defaultWidgetStore.get(id).then((state: any) => {
+		const options: WidgetFactoryOptions = { id, stateFrom: defaultWidgetStore, registryProvider, state };
+		const customFactory = customElementFactories.get(app).get(state.type);
 		return customFactory(options);
 	}).then((widget) => {
 		widget.own(registerInstance(app, widget, id));
