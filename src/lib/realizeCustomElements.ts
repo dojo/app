@@ -86,7 +86,7 @@ function getCustomElementsByWidgetProjector(registry: ReadOnlyRegistry, root: El
 
 	const customElements: CustomElement[] = [];
 	for (const element of allElements) {
-		let name: string;
+		let name: string | undefined;
 
 		const tagName = normalizeName(element.tagName);
 		if (isCustomElement(registry, tagName)) {
