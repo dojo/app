@@ -15,6 +15,7 @@ import {
 	rejects,
 	strictEqual
 } from '../../support/createApp';
+import { defer } from '../../support/util';
 
 const { toAbsMid } = require;
 
@@ -199,17 +200,14 @@ registerSuite({
 
 			'prevents a pending store instance from being registered'() {
 				const store = createStore();
-				let fulfil: () => void;
-				const promise = new Promise((resolve) => {
-					fulfil = () => resolve(store);
-				});
+				const { resolve, promise } = defer();
 
 				const app = createApp();
 				const handle = app.registerStoreFactory('foo', () => promise);
 
 				app.getStore('foo');
 				handle.destroy();
-				fulfil();
+				resolve(store);
 
 				return new Promise((resolve) => setTimeout(resolve, 10)).then(() => {
 					assert.throws(() => app.identifyStore(store));

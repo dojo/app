@@ -17,6 +17,7 @@ import {
 	rejects,
 	strictEqual
 } from '../../support/createApp';
+import { defer } from '../../support/util';
 
 const { toAbsMid } = require;
 
@@ -389,17 +390,14 @@ registerSuite({
 
 			'prevents a pending action instance from being registered'() {
 				const action = createAction();
-				let fulfil: () => void;
-				const promise = new Promise((resolve) => {
-					fulfil = () => resolve(action);
-				});
+				const { resolve, promise } = defer();
 
 				const app = createApp();
 				const handle = app.registerActionFactory('foo', () => promise);
 
 				app.getAction('foo');
 				handle.destroy();
-				fulfil();
+				resolve(action);
 
 				return new Promise((resolve) => setTimeout(resolve, 10)).then(() => {
 					assert.throws(() => app.identifyAction(action));

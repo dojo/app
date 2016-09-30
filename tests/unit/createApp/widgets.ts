@@ -25,6 +25,7 @@ import {
 	rejects,
 	strictEqual
 } from '../../support/createApp';
+import { defer } from '../../support/util';
 
 const { toAbsMid } = require;
 
@@ -455,17 +456,14 @@ registerSuite({
 
 			'prevents a pending widget instance from being registered'() {
 				const widget = createWidget();
-				let fulfil: () => void;
-				const promise = new Promise((resolve) => {
-					fulfil = () => resolve(widget);
-				});
+				const { resolve, promise } = defer();
 
 				const app = createApp();
 				const handle = app.registerWidgetFactory('foo', () => promise);
 
 				app.getWidget('foo');
 				handle.destroy();
-				fulfil();
+				resolve(widget);
 
 				return new Promise((resolve) => setTimeout(resolve, 10)).then(() => {
 					assert.throws(() => app.identifyWidget(widget));
