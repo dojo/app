@@ -20,8 +20,8 @@ registerSuite({
 	name: 'createApp',
 
 	'#defaultActionStore': {
-		'defaults to null'() {
-			assert.isNull(createApp().defaultActionStore);
+		'defaults to undefined'() {
+			assert.isUndefined(createApp().defaultActionStore);
 		},
 		'can be set at creation time'() {
 			const store = createStore();
@@ -52,8 +52,8 @@ registerSuite({
 	},
 
 	'#defaultWidgetStore': {
-		'defaults to null'() {
-			assert.isNull(createApp().defaultWidgetStore);
+		'defaults to undefined'() {
+			assert.isUndefined(createApp().defaultWidgetStore);
 		},
 		'can be set at creation time'() {
 			const store = createStore();

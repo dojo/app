@@ -610,9 +610,6 @@ const createApp = compose({
 		if (factories.has(DEFAULT_ACTION_STORE)) {
 			return <StoreLike> factories.get(DEFAULT_ACTION_STORE)();
 		}
-		else {
-			return null;
-		}
 	},
 
 	set defaultWidgetStore(store: StoreLike) {
@@ -624,9 +621,6 @@ const createApp = compose({
 		const factories = storeFactories.get(this);
 		if (factories.has(DEFAULT_WIDGET_STORE)) {
 			return <StoreLike> factories.get(DEFAULT_WIDGET_STORE)();
-		}
-		else {
-			return null;
 		}
 	},
 
@@ -1063,8 +1057,8 @@ const createApp = compose({
 	initialize (
 		instance: App,
 		{
-			defaultActionStore = null,
-			defaultWidgetStore = null,
+			defaultActionStore,
+			defaultWidgetStore,
 			toAbsMid = (moduleId: string) => moduleId
 		}: AppOptions = {}
 	) {
