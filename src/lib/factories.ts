@@ -92,7 +92,7 @@ function resolveFactory(type: FactoryTypes, definition: CustomElementDefinition 
 					.catch(reject);
 			}
 			else {
-				resolveMid<Factory>(factory)
+				resolveMid<Factory>(<string> factory)
 					.then((defaultExport) => {
 						if (typeof defaultExport !== 'function') {
 							reject(new Error(`Could not resolve '${factory}' to ${errorStrings[type]} factory function`));
