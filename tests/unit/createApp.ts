@@ -224,7 +224,7 @@ registerSuite({
 
 			'is read-only'() {
 				assert.throws(() => {
-					app.registryProvider = null;
+					app.registryProvider = null!;
 				}, TypeError);
 			}
 		};

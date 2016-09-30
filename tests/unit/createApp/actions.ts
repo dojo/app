@@ -598,7 +598,7 @@ registerSuite({
 						{
 							id: 'foo',
 							factory(options) {
-								actual = options.stateFrom;
+								actual = options.stateFrom!;
 								return createAction();
 							},
 							stateFrom: 'store'
@@ -621,7 +621,7 @@ registerSuite({
 						{
 							id: 'foo',
 							factory(options) {
-								actual = options.stateFrom;
+								actual = options.stateFrom!;
 								return createAction();
 							},
 							stateFrom: expected
@@ -645,7 +645,7 @@ registerSuite({
 						{
 							id: 'foo',
 							factory(options) {
-								actual = options.stateFrom;
+								actual = options.stateFrom!;
 								return createAction();
 							},
 							stateFrom: expected
@@ -993,7 +993,7 @@ registerSuite({
 						{
 							id: 'foo',
 							factory(options) {
-								received = options.stateFrom;
+								received = options.stateFrom!;
 								return action;
 							}
 						}

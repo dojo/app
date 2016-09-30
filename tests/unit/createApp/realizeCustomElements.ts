@@ -141,19 +141,19 @@ registerSuite({
 		`.trim();
 		return app.realize(root).then(() => {
 			const before1 = projector.firstChild;
-			assert.equal(before1.nodeValue.trim(), 'before1');
+			assert.equal(before1.nodeValue!.trim(), 'before1');
 			const foo = <Element> before1.nextSibling;
 			assert.equal(foo.nodeName, 'MARK');
 			const div = foo.nextElementSibling;
 			assert.equal(div.nodeName, 'DIV');
 			const before2 = div.firstChild;
-			assert.equal(before2.nodeValue.trim(), 'before2');
+			assert.equal(before2.nodeValue!.trim(), 'before2');
 			const bar = before2.nextSibling;
 			assert.equal(bar.nodeName, 'STRONG');
 			const after2 = bar.nextSibling;
-			assert.equal(after2.nodeValue.trim(), 'after2');
+			assert.equal(after2.nodeValue!.trim(), 'after2');
 			const after1 = div.nextSibling;
-			assert.equal(after1.nodeValue.trim(), 'after1');
+			assert.equal(after1.nodeValue!.trim(), 'after1');
 		});
 	},
 
@@ -300,7 +300,7 @@ registerSuite({
 			let fooBar: { [p: string]: any };
 			let bazQux: { [p: string]: any };
 			app.registerCustomElementFactory('foo-bar', (options) => {
-				fooBar = options;
+				fooBar = options!;
 				return createActualWidget({ tagName: 'mark' });
 			});
 			app.loadDefinition({
@@ -308,7 +308,7 @@ registerSuite({
 					{
 						name: 'baz-qux',
 						factory(options) {
-							bazQux = options;
+							bazQux = options!;
 							return createActualWidget({ tagName: 'strong' });
 						}
 					}
