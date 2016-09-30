@@ -425,7 +425,10 @@ export default function realizeCustomElements(
 
 		// Attach all projectors at the same time.
 		const attachedProjectors = projectors.map((projector) => {
-			const immediatePlaceholders = immediatePlaceholderLookup.get(projector);
+			// The lookup is guaranteed to contain custom elements, which are guaranteed to have a widget.
+			// Cast to the RealizedElement type to avoid strict null check violations.
+			type RealizedElement = CustomElement & { widget: WidgetLike }
+			const immediatePlaceholders = <RealizedElement[]> immediatePlaceholderLookup.get(projector);
 			immediatePlaceholderLookup.delete(projector);
 
 			// Append the top-level widgets to the projector.
