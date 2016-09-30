@@ -247,8 +247,12 @@ registerSuite({
 			Error,
 			'Could not add store, already registered as action with identity foo'
 		).then(() => {
-			while (handles.length) {
-				handles.shift().destroy();
+			while (true) {
+				const h = handles.shift();
+				if (!h) {
+					break;
+				}
+				h.destroy();
 			}
 
 			handles.push(
