@@ -152,7 +152,7 @@ function getCustomElementsByWidgetProjector(registry: ReadOnlyRegistry, root: El
 	return widgetProjectors;
 }
 
-function getIdFromAttributes(element: Element): string {
+function getIdFromAttributes(element: Element): string | undefined {
 	return element.getAttribute('data-uid') || element.getAttribute('id') || undefined;
 }
 
@@ -169,7 +169,7 @@ interface Options {
 	stateFrom?: StoreLike;
 }
 
-function resolveListeners(registry: ReadOnlyRegistry, element: Element): Promise<EventedListenersMap> {
+function resolveListeners(registry: ReadOnlyRegistry, element: Element): null | Promise<EventedListenersMap> {
 	const str = element.getAttribute('data-listeners');
 	if (!str) {
 		return null;
@@ -242,12 +242,12 @@ function getTransitionOptionFromProjector(element: Element): boolean {
 	return value ? value === 'true' : true;
 }
 
-function resolveStateFromAttribute(registry: ReadOnlyRegistry, element: Element): Promise<StoreLike> {
+function resolveStateFromAttribute(registry: ReadOnlyRegistry, element: Element): null | Promise<StoreLike> {
 	const stateFrom = element.getAttribute('data-state-from');
 	return stateFrom ? registry.getStore(stateFrom) : null;
 }
 
-function getInitialState(element: Element): Object {
+function getInitialState(element: Element): null | Object {
 	const str = element.getAttribute('data-state') || '';
 	if (!str) {
 		return null;
