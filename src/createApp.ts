@@ -900,12 +900,12 @@ const createApp = compose({
 			})
 			.then((definitionHandle) => {
 				return realizeCustomElements(
-					this.defaultWidgetStore,
 					(id) => addIdentifier(this, id),
 					(instance: WidgetLike, id: string) => registerInstance(this, instance, id),
 					this,
 					this.registryProvider,
-					root
+					root,
+					this.defaultWidgetStore
 				)
 				.then((realizationHandle) => {
 					return {

@@ -270,12 +270,12 @@ const generateId = makeIdGenerator('custom-element-');
  * @return A handle to detach rendered widgets from the DOM and remove them from the widget registry
  */
 export default function realizeCustomElements(
-	defaultWidgetStore: StoreLike,
 	addIdentifier: (id: string) => Handle,
 	registerInstance: (widget: WidgetLike, id: string) => Handle,
 	registry: ReadOnlyRegistry,
 	registryProvider: RegistryProvider,
-	root: Element
+	root: Element,
+	defaultWidgetStore?: StoreLike,
 ): Promise<Handle> {
 	// Bottom up, breadth first queue of custom elements who's children's widgets need to be appended to
 	// their own widget. Combined for all widget projectors.
