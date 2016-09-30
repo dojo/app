@@ -35,7 +35,7 @@ function resolveListeners(registry: ReadOnlyRegistry, ref: WidgetListenerOrArray
 	return [undefined, registry.getAction(<string> ref)];
 }
 
-export default function resolveListenersMap(registry: ReadOnlyRegistry, listeners: WidgetListenersMap): Promise<EventedListenersMap> {
+export default function resolveListenersMap(registry: ReadOnlyRegistry, listeners?: WidgetListenersMap): Promise<EventedListenersMap> {
 	if (!listeners) {
 		return null;
 	}
