@@ -250,8 +250,6 @@ function getInitialState(element: Element): Object {
 
 const generateId = makeIdGenerator('custom-element-');
 
-const noop = () => {};
-
 /**
  * Realizes custom elements within a root element.
  *
@@ -308,7 +306,7 @@ export default function realizeCustomElements(
 					let promise: Promise<WidgetLike> = null;
 					if (isWidgetInstance) {
 						if (!id) {
-							throw new Error('Cannot resolve widget for a custom element without \'data-uid\' or \'id\' attributes');
+							throw new Error('app-widget requires data-uid or id attribute');
 						}
 						promise = registry.getWidget(id);
 					}
@@ -439,8 +437,7 @@ export default function realizeCustomElements(
 		return Promise.all(attachedProjectors);
 	}).then(() => {
 		return {
-			destroy(this: Handle) {
-				this.destroy = noop;
+			destroy() {
 				for (const p of projectors) {
 					p.destroy();
 				}
