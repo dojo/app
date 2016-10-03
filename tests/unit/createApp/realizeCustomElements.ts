@@ -559,6 +559,12 @@ registerSuite({
 			return app.realize(root).then(() => {
 				assert.isTrue(projectorSpy.calledWith( match({ cssTransitions: true })));
 			});
+		},
+		'is passed to the widget projector when attribute node exists without a value'() {
+			projector.setAttribute('data-css-transitions', '');
+			return app.realize(root).then(() => {
+				assert.isTrue(projectorSpy.calledWith( match({ cssTransitions: true })));
+			});
 		}
 	},
 
