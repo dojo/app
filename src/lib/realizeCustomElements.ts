@@ -235,7 +235,7 @@ function resolveOptions(registry: ReadOnlyRegistry, registryProvider: RegistryPr
 }
 
 function getTransitionOptionFromProjector(element: Element): boolean {
-	return Boolean(element.getAttribute('data-css-transitions'));
+	return element.getAttribute('data-css-transitions') === 'true';
 }
 
 function resolveStateFromAttribute(registry: ReadOnlyRegistry, element: Element): Promise<StoreLike> {

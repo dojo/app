@@ -45,6 +45,7 @@
     "grunt-tslint": "^3.1.0",
     "grunt-typings": ">=0.1.5",
     "intern": "^3.2.3",
+    "sinon": "1.14.1",
     "istanbul": "^0.4.3",
     "jsdom": "^9.2.1",
     "remap-istanbul": "^0.6.4",

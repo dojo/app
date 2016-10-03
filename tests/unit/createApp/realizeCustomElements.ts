@@ -1,9 +1,12 @@
 import { Handle } from 'dojo-core/interfaces';
+import global from 'dojo-core/global';
 import Promise from 'dojo-shim/Promise';
 import createActualWidget from 'dojo-widgets/createWidget';
 import createContainer from 'dojo-widgets/createContainer';
 import * as registerSuite from 'intern!object';
 import * as assert from 'intern/chai!assert';
+import * as widgetProjector from 'dojo-widgets/projector';
+import { match, spy, SinonSpy } from 'sinon';
 
 import createApp, {
 	App,
@@ -29,16 +32,19 @@ let app: App = null;
 let root: HTMLElement = null;
 let projector: HTMLElement = null;
 let stubbedGlobals: Handle = null;
+let projectorSpy: SinonSpy;
 
 registerSuite({
 	name: 'createApp#realize (custom elements)',
 
 	before() {
 		stubbedGlobals = stubDom();
+		global.cssTransitions = true;
 	},
 
 	after() {
 		stubbedGlobals.destroy();
+		delete global.cssTransitions;
 	},
 
 	beforeEach() {
@@ -46,6 +52,11 @@ registerSuite({
 		projector = document.createElement('app-projector');
 		root.appendChild(projector);
 		app = createApp();
+		projectorSpy = spy(widgetProjector, 'createProjector');
+	},
+
+	afterEach() {
+		projectorSpy && projectorSpy.restore();
 	},
 
 	'recognizes custom elements by tag name'() {
@@ -527,6 +538,26 @@ registerSuite({
 			return app.realize(root).then(() => {
 				assert.isOk(actual);
 				assert.notProperty(actual, 'stateFrom');
+			});
+		}
+	},
+
+	'<app-projector data-css-transition> attribute': {
+		'is false if empty'() {
+			return app.realize(root).then(() => {
+				assert.isTrue(projectorSpy.calledWith( match({ cssTransitions: false })));
+			});
+		},
+		'is passed to the widget projector when explicitly set to false'() {
+			projector.setAttribute('data-css-transitions', 'false');
+			return app.realize(root).then(() => {
+				assert.isTrue(projectorSpy.calledWith( match({ cssTransitions: false })));
+			});
+		},
+		'is passed to the widget projector when explicitly set to true'() {
+			projector.setAttribute('data-css-transitions', 'true');
+			return app.realize(root).then(() => {
+				assert.isTrue(projectorSpy.calledWith( match({ cssTransitions: true })));
 			});
 		}
 	},
