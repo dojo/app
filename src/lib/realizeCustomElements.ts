@@ -234,6 +234,14 @@ function resolveOptions(registry: ReadOnlyRegistry, registryProvider: RegistryPr
 	return options;
 }
 
+function getTransitionOptionFromProjector(element: Element): boolean {
+	if (!element.hasAttribute('data-css-transitions')) {
+		return false;
+	}
+	const value = element.getAttribute('data-css-transitions');
+	return value ? value === 'true' : true;
+}
+
 function resolveStateFromAttribute(registry: ReadOnlyRegistry, element: Element): Promise<StoreLike> {
 	const stateFrom = element.getAttribute('data-state-from');
 	return stateFrom ? registry.getStore(stateFrom) : null;
@@ -290,7 +298,8 @@ export default function realizeCustomElements(
 
 		const widgetProjectors = getCustomElementsByWidgetProjector(registry, root);
 		for (const { children, element: root } of widgetProjectors) {
-			const projector = createProjector({ root });
+			const cssTransitions = getTransitionOptionFromProjector(root);
+			const projector = createProjector({ root, cssTransitions });
 			immediatePlaceholderLookup.set(projector, children);
 			projectors.push(projector);
 

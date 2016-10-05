@@ -63,6 +63,7 @@ export const loaderOptions = {
 		{ name: 'dojo-widgets', location: 'node_modules/dojo-widgets' },
 		{ name: 'maquette', location: 'node_modules/maquette/dist', main: 'maquette' },
 		{ name: 'immutable', location: 'node_modules/immutable/dist', main: 'immutable' },
+		{ name: 'sinon', location: 'node_modules/sinon/pkg', main: 'sinon' },
 		{ name: 'rxjs', location: 'node_modules/@reactivex/rxjs/dist/amd' }
 	]
 };
