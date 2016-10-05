@@ -20,7 +20,7 @@ import {
 import { ResolveMid } from './moduleResolver';
 import resolveListenersMap from './resolveListenersMap';
 
-function resolveStore(registry: ReadOnlyRegistry, definition: ActionDefinition | WidgetDefinition): void | StoreLike | Promise<StoreLike> {
+function resolveStore(registry: ReadOnlyRegistry, definition: ActionDefinition | WidgetDefinition): null | StoreLike | Promise<StoreLike> {
 	const { stateFrom } = definition;
 	if (!stateFrom) {
 		return null;
@@ -92,7 +92,7 @@ function resolveFactory(type: FactoryTypes, definition: CustomElementDefinition 
 					.catch(reject);
 			}
 			else {
-				resolveMid<Factory>(factory)
+				resolveMid<Factory>(<string> factory)
 					.then((defaultExport) => {
 						if (typeof defaultExport !== 'function') {
 							reject(new Error(`Could not resolve '${factory}' to ${errorStrings[type]} factory function`));
@@ -144,7 +144,7 @@ export function makeActionFactory(definition: ActionDefinition, resolveMid: Reso
 }
 
 export function makeCustomElementFactory(definition: CustomElementDefinition, resolveMid: ResolveMid): WidgetFactory {
-	let promise: Promise<void>;
+	let promise: Promise<void> | null = null;
 	let factory: WidgetFactory;
 	return (options: WidgetFactoryOptions) => {
 		if (factory) {

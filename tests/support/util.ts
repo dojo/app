@@ -1,3 +1,5 @@
+import Promise from 'dojo-shim/Promise';
+
 /**
  * Thenable represents any object with a callable `then` property.
  */
@@ -15,4 +17,13 @@ export function isEventuallyRejected<T>(promise: Thenable<T>): Thenable<boolean>
 
 export function throwImmediatly() {
 	throw new Error('unexpected code path');
+}
+
+export function defer(): { promise: Promise<any>; resolve(value: any): void; reject(reason: any): void; } {
+	let resolve: any;
+	let reject: any;
+	const promise = new Promise((...args: ((v: any) => void)[]) => {
+		[resolve, reject] = args;
+	});
+	return { promise, resolve, reject };
 }

@@ -28,10 +28,10 @@ function opts (obj: any) {
 	return JSON.stringify(obj).replace(/"/g, '&quot;');
 }
 
-let app: App = null;
-let root: HTMLElement = null;
-let projector: HTMLElement = null;
-let stubbedGlobals: Handle = null;
+let app: App;
+let root: HTMLElement;
+let projector: HTMLElement;
+let stubbedGlobals: Handle;
 let projectorSpy: SinonSpy;
 
 registerSuite({
@@ -141,19 +141,19 @@ registerSuite({
 		`.trim();
 		return app.realize(root).then(() => {
 			const before1 = projector.firstChild;
-			assert.equal(before1.nodeValue.trim(), 'before1');
+			assert.equal(before1.nodeValue!.trim(), 'before1');
 			const foo = <Element> before1.nextSibling;
 			assert.equal(foo.nodeName, 'MARK');
 			const div = foo.nextElementSibling;
 			assert.equal(div.nodeName, 'DIV');
 			const before2 = div.firstChild;
-			assert.equal(before2.nodeValue.trim(), 'before2');
+			assert.equal(before2.nodeValue!.trim(), 'before2');
 			const bar = before2.nextSibling;
 			assert.equal(bar.nodeName, 'STRONG');
 			const after2 = bar.nextSibling;
-			assert.equal(after2.nodeValue.trim(), 'after2');
+			assert.equal(after2.nodeValue!.trim(), 'after2');
 			const after1 = div.nextSibling;
-			assert.equal(after1.nodeValue.trim(), 'after1');
+			assert.equal(after1.nodeValue!.trim(), 'after1');
 		});
 	},
 
@@ -297,10 +297,10 @@ registerSuite({
 
 	'custom elements are created with options': {
 		'options come from the data-options attribute'() {
-			let fooBar: { [p: string]: any } = null;
-			let bazQux: { [p: string]: any } = null;
+			let fooBar: { [p: string]: any };
+			let bazQux: { [p: string]: any };
 			app.registerCustomElementFactory('foo-bar', (options) => {
-				fooBar = options;
+				fooBar = options!;
 				return createActualWidget({ tagName: 'mark' });
 			});
 			app.loadDefinition({
@@ -308,7 +308,7 @@ registerSuite({
 					{
 						name: 'baz-qux',
 						factory(options) {
-							bazQux = options;
+							bazQux = options!;
 							return createActualWidget({ tagName: 'strong' });
 						}
 					}
@@ -359,7 +359,7 @@ registerSuite({
 		},
 
 		'the "registryProvider" option is provided to the factory'() {
-			let actual: { registryProvider: RegistryProvider } = null;
+			let actual: { registryProvider: RegistryProvider };
 			app.registerCustomElementFactory('foo-bar', (options) => {
 				actual = <any> options;
 				return createActualWidget({ tagName: 'mark' });
@@ -438,22 +438,25 @@ registerSuite({
 			},
 
 			'causes the custom element factory to be called with a listeners map for the actions'() {
-				let actual: { listeners: { [type: string]: ActionLike | ActionLike[] } } = null;
+				let actual: { listeners: { [type: string]: ActionLike | ActionLike[] } };
 				app.registerCustomElementFactory('foo-bar', (options) => {
 					actual = <any> options;
 					return createActualWidget({ tagName: 'mark' });
 				});
-				const expected = createAction();
-				app.registerAction('action', expected);
+				const expected1 = createAction();
+				const expected2 = createAction();
+				app.registerAction('action1', expected1);
+				app.registerAction('action2', expected2);
 				projector.innerHTML = `<foo-bar data-listeners="${opts({
-					string: 'action',
-					array: ['action']
+					string: 'action1',
+					array: ['action1', 'action2']
 				})}"></foo-bar>`;
 				return app.realize(root).then(() => {
 					assert.isNotNull(actual);
-					assert.strictEqual(actual.listeners['string'], expected);
-					assert.lengthOf(actual.listeners['array'], 1);
-					assert.strictEqual((<ActionLike[]> actual.listeners['array'])[0], expected);
+					assert.strictEqual(actual.listeners['string'], expected1);
+					assert.lengthOf(actual.listeners['array'], 2);
+					assert.strictEqual((<ActionLike[]> actual.listeners['array'])[0], expected1);
+					assert.strictEqual((<ActionLike[]> actual.listeners['array'])[1], expected2);
 				});
 			}
 		}
@@ -461,7 +464,7 @@ registerSuite({
 
 	'non-projector data-state-from attribute': {
 		'is ignored if empty'() {
-			let actual: { stateFrom: StoreLike } = null;
+			let actual: { stateFrom: StoreLike };
 			app.registerCustomElementFactory('foo-bar', (options) => {
 				actual = <any> options;
 				return createActualWidget({ tagName: 'mark' });
@@ -480,7 +483,7 @@ registerSuite({
 		},
 
 		'if the element has an ID, causes the custom element factory to be called with a stateFrom option set to the store'() {
-			let actual: { stateFrom: StoreLike } = null;
+			let actual: { stateFrom: StoreLike };
 			app.registerCustomElementFactory('foo-bar', (options) => {
 				actual = <any> options;
 				return createActualWidget({ tagName: 'mark' });
@@ -495,7 +498,7 @@ registerSuite({
 		},
 
 		'takes precedence over <app-projector data-state-from>'() {
-			let actual: { stateFrom: StoreLike } = null;
+			let actual: { stateFrom: StoreLike };
 			app.registerCustomElementFactory('foo-bar', (options) => {
 				actual = <any> options;
 				return createActualWidget({ tagName: 'mark' });
@@ -512,7 +515,7 @@ registerSuite({
 		},
 
 		'takes precedence over the default widget store'() {
-			let actual: { stateFrom: StoreLike } = null;
+			let actual: { stateFrom: StoreLike };
 			const app = createApp({ defaultWidgetStore: createStore() });
 			app.registerCustomElementFactory('foo-bar', (options) => {
 				actual = <any> options;
@@ -528,7 +531,7 @@ registerSuite({
 		},
 
 		'is ignored if the element does not have an ID'() {
-			let actual: { stateFrom: StoreLike } = null;
+			let actual: { stateFrom: StoreLike };
 			app.registerCustomElementFactory('foo-bar', (options) => {
 				actual = <any> options;
 				return createActualWidget({ tagName: 'mark' });
@@ -570,7 +573,7 @@ registerSuite({
 
 	'<app-projector data-state-from> attribute': {
 		'is ignored if empty'() {
-			let actual: { stateFrom: StoreLike } = null;
+			let actual: { stateFrom: StoreLike };
 			app.registerCustomElementFactory('foo-bar', (options) => {
 				actual = <any> options;
 				return createActualWidget({ tagName: 'mark' });
@@ -591,7 +594,7 @@ registerSuite({
 		},
 
 		'if descendant elements have an ID, causes their custom element factory to be called with a stateFrom option set to the store'() {
-			let actual: { stateFrom: StoreLike } = null;
+			let actual: { stateFrom: StoreLike };
 			app.registerCustomElementFactory('foo-bar', (options) => {
 				actual = <any> options;
 				return createActualWidget({ tagName: 'mark' });
@@ -607,7 +610,7 @@ registerSuite({
 		},
 
 		'takes precedence over the default widget store'() {
-			let actual: { stateFrom: StoreLike } = null;
+			let actual: { stateFrom: StoreLike };
 			const app = createApp({ defaultWidgetStore: createStore() });
 			app.registerCustomElementFactory('foo-bar', (options) => {
 				actual = <any> options;
@@ -624,7 +627,7 @@ registerSuite({
 		},
 
 		'is ignored for descendant elements that do not have an ID'() {
-			let actual: { stateFrom: StoreLike } = null;
+			let actual: { stateFrom: StoreLike };
 			app.registerCustomElementFactory('foo-bar', (options) => {
 				actual = <any> options;
 				return createActualWidget({ tagName: 'mark' });
@@ -641,7 +644,7 @@ registerSuite({
 
 	'the app has a default widget store': {
 		'if the element has an ID, causes the custom element factory to be called with a stateFrom option set to the store'() {
-			let actual: { stateFrom: StoreLike } = null;
+			let actual: { stateFrom: StoreLike };
 			const expected = createStore();
 			const app = createApp({ defaultWidgetStore: expected });
 			app.registerCustomElementFactory('foo-bar', (options) => {

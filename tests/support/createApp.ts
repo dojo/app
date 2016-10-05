@@ -33,16 +33,16 @@ export const createSpyStore = compose({
 	get(this: any, id: string): Promise<any> {
 		return Promise.resolve(this._map.get(id));
 	},
-	_add: <any[][]> null,
-	_map: <Map<string, any>> null,
+	_add: [] as any[][],
+	_map: new Map<string, any>(),
 	observe(...args: any[]): any {},
-	_observe: <any[][]> null,
+	_observe: [] as any[][],
 	patch(this: any, ...args: any[]): Promise<any> {
 		this._patch.push(args);
 		return Promise.resolve({});
 	},
-	_patch: <any[][]> null,
-	_options: <any> null
+	_patch: [] as any[][],
+	_options: undefined as any
 }, (instance, options) => {
 	instance._options = options;
 	instance._add = [];
@@ -71,8 +71,8 @@ export const createSpyWidget = compose({
 	tagName: 'div',
 	id: '',
 	parent: null,
-	_options: <any> null,
-	_own: <any[]> null,
+	_options: undefined as any,
+	_own: [] as any[],
 	_destroyed: false
 }, (instance, options) => {
 	instance._options = options;

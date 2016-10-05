@@ -20,8 +20,8 @@ registerSuite({
 	name: 'createApp',
 
 	'#defaultActionStore': {
-		'defaults to null'() {
-			assert.isNull(createApp().defaultActionStore);
+		'defaults to undefined'() {
+			assert.isUndefined(createApp().defaultActionStore);
 		},
 		'can be set at creation time'() {
 			const store = createStore();
@@ -52,8 +52,8 @@ registerSuite({
 	},
 
 	'#defaultWidgetStore': {
-		'defaults to null'() {
-			assert.isNull(createApp().defaultWidgetStore);
+		'defaults to undefined'() {
+			assert.isUndefined(createApp().defaultWidgetStore);
 		},
 		'can be set at creation time'() {
 			const store = createStore();
@@ -224,7 +224,7 @@ registerSuite({
 
 			'is read-only'() {
 				assert.throws(() => {
-					app.registryProvider = null;
+					app.registryProvider = null!;
 				}, TypeError);
 			}
 		};
@@ -247,8 +247,12 @@ registerSuite({
 			Error,
 			'Could not add store, already registered as action with identity foo'
 		).then(() => {
-			while (handles.length) {
-				handles.shift().destroy();
+			while (true) {
+				const h = handles.shift();
+				if (!h) {
+					break;
+				}
+				h.destroy();
 			}
 
 			handles.push(

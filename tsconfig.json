@@ -9,6 +9,7 @@
 		"baseUrl": "node_modules",
 		"removeComments": false,
 		"sourceMap": true,
+		"strictNullChecks": true,
 		"target": "es5",
 		"moduleResolution": "classic"
 	},

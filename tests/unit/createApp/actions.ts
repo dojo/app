@@ -17,6 +17,7 @@ import {
 	rejects,
 	strictEqual
 } from '../../support/createApp';
+import { defer } from '../../support/util';
 
 const { toAbsMid } = require;
 
@@ -119,7 +120,7 @@ registerSuite({
 		},
 
 		'action.configure() is passed the registryProvider'() {
-			let registry: RegistryProvider = null;
+			let registry: RegistryProvider;
 			const action = createAction();
 			action.configure = (actual: RegistryProvider) => { registry = actual; };
 
@@ -273,7 +274,7 @@ registerSuite({
 		},
 
 		'factory is called with an options object that has a registryProvider property'() {
-			let actual: ActionFactoryOptions = null;
+			let actual: ActionFactoryOptions;
 
 			const app = createApp();
 			app.registerActionFactory('foo', (options) => {
@@ -300,7 +301,7 @@ registerSuite({
 		},
 
 		'action.configure() is passed the registryProvider'() {
-			let registry: RegistryProvider = null;
+			let registry: RegistryProvider;
 			const action = createAction();
 			action.configure = (actual: RegistryProvider) => { registry = actual; };
 
@@ -389,17 +390,14 @@ registerSuite({
 
 			'prevents a pending action instance from being registered'() {
 				const action = createAction();
-				let fulfil: () => void;
-				const promise = new Promise((resolve) => {
-					fulfil = () => resolve(action);
-				});
+				const { resolve, promise } = defer();
 
 				const app = createApp();
 				const handle = app.registerActionFactory('foo', () => promise);
 
 				app.getAction('foo');
 				handle.destroy();
-				fulfil();
+				resolve(action);
 
 				return new Promise((resolve) => setTimeout(resolve, 10)).then(() => {
 					assert.throws(() => app.identifyAction(action));
@@ -484,7 +482,7 @@ registerSuite({
 		},
 
 		'action.configure() is passed the registryProvider'() {
-			let registry: RegistryProvider = null;
+			let registry: RegistryProvider;
 			const action = createAction();
 			action.configure = (actual: RegistryProvider) => { registry = actual; };
 
@@ -589,7 +587,7 @@ registerSuite({
 
 			'factory is passed a store reference in its stateFrom option'() {
 				const expected = createStore();
-				let actual: StoreLike = null;
+				let actual: StoreLike;
 
 				const app = createApp();
 				app.registerStore('store', expected);
@@ -598,7 +596,7 @@ registerSuite({
 						{
 							id: 'foo',
 							factory(options) {
-								actual = options.stateFrom;
+								actual = options.stateFrom!;
 								return createAction();
 							},
 							stateFrom: 'store'
@@ -613,7 +611,7 @@ registerSuite({
 
 			'stateFrom may be an actual store, rather than a store identifier'() {
 				const expected = createStore();
-				let actual: StoreLike = null;
+				let actual: StoreLike;
 
 				const app = createApp();
 				app.loadDefinition({
@@ -621,7 +619,7 @@ registerSuite({
 						{
 							id: 'foo',
 							factory(options) {
-								actual = options.stateFrom;
+								actual = options.stateFrom!;
 								return createAction();
 							},
 							stateFrom: expected
@@ -636,7 +634,7 @@ registerSuite({
 
 			'overrides the default action store'() {
 				const expected = createStore();
-				let actual: StoreLike = null;
+				let actual: StoreLike;
 
 				const defaultActionStore = createStore();
 				const app = createApp({ defaultActionStore });
@@ -645,7 +643,7 @@ registerSuite({
 						{
 							id: 'foo',
 							factory(options) {
-								actual = options.stateFrom;
+								actual = options.stateFrom!;
 								return createAction();
 							},
 							stateFrom: expected
@@ -948,8 +946,8 @@ registerSuite({
 			},
 
 			'factory is always passed registryProvider options'() {
-				let fooOptions: ActionFactoryOptions = null;
-				let barOptions: ActionFactoryOptions = null;
+				let fooOptions: ActionFactoryOptions;
+				let barOptions: ActionFactoryOptions;
 				stubActionFactory((options) => {
 					barOptions = options;
 					return createAction();
@@ -983,7 +981,7 @@ registerSuite({
 
 			'if a default action store is provided, and no stateFrom option, the factory is passed the default store'() {
 				const action = createAction();
-				let received: StoreLike = null;
+				let received: StoreLike;
 
 				const defaultActionStore = createStore();
 				const app = createApp({ defaultActionStore });
@@ -993,7 +991,7 @@ registerSuite({
 						{
 							id: 'foo',
 							factory(options) {
-								received = options.stateFrom;
+								received = options.stateFrom!;
 								return action;
 							}
 						}

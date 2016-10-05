@@ -22,7 +22,7 @@ registerSuite({
 		},
 
 		'provides a wrapper for the registered factory'() {
-			let receivedOptions: Object;
+			let receivedOptions: Object | undefined;
 			const expectedReturnValue = createWidget();
 
 			const app = createApp();

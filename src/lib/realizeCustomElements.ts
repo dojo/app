@@ -86,7 +86,7 @@ function getCustomElementsByWidgetProjector(registry: ReadOnlyRegistry, root: El
 
 	const customElements: CustomElement[] = [];
 	for (const element of allElements) {
-		let name: string;
+		let name: string | undefined;
 
 		const tagName = normalizeName(element.tagName);
 		if (isCustomElement(registry, tagName)) {
@@ -152,7 +152,7 @@ function getCustomElementsByWidgetProjector(registry: ReadOnlyRegistry, root: El
 	return widgetProjectors;
 }
 
-function getIdFromAttributes(element: Element): string {
+function getIdFromAttributes(element: Element): string | undefined {
 	return element.getAttribute('data-uid') || element.getAttribute('id') || undefined;
 }
 
@@ -169,7 +169,7 @@ interface Options {
 	stateFrom?: StoreLike;
 }
 
-function resolveListeners(registry: ReadOnlyRegistry, element: Element): Promise<EventedListenersMap> {
+function resolveListeners(registry: ReadOnlyRegistry, element: Element): null | Promise<EventedListenersMap> {
 	const str = element.getAttribute('data-listeners');
 	if (!str) {
 		return null;
@@ -202,7 +202,7 @@ function resolveListeners(registry: ReadOnlyRegistry, element: Element): Promise
 	return resolveListenersMap(registry, listeners);
 }
 
-function resolveOptions(registry: ReadOnlyRegistry, registryProvider: RegistryProvider, element: Element, idFromAttributes: string): Options {
+function resolveOptions(registry: ReadOnlyRegistry, registryProvider: RegistryProvider, element: Element, idFromAttributes?: string): Options {
 	const str = element.getAttribute('data-options') || '';
 	if (!str) {
 		return idFromAttributes ? { id: idFromAttributes, registryProvider } : { registryProvider };
@@ -242,12 +242,12 @@ function getTransitionOptionFromProjector(element: Element): boolean {
 	return value ? value === 'true' : true;
 }
 
-function resolveStateFromAttribute(registry: ReadOnlyRegistry, element: Element): Promise<StoreLike> {
+function resolveStateFromAttribute(registry: ReadOnlyRegistry, element: Element): null | Promise<StoreLike> {
 	const stateFrom = element.getAttribute('data-state-from');
 	return stateFrom ? registry.getStore(stateFrom) : null;
 }
 
-function getInitialState(element: Element): Object {
+function getInitialState(element: Element): null | Object {
 	const str = element.getAttribute('data-state') || '';
 	if (!str) {
 		return null;
@@ -270,12 +270,12 @@ const generateId = makeIdGenerator('custom-element-');
  * @return A handle to detach rendered widgets from the DOM and remove them from the widget registry
  */
 export default function realizeCustomElements(
-	defaultWidgetStore: StoreLike,
 	addIdentifier: (id: string) => Handle,
 	registerInstance: (widget: WidgetLike, id: string) => Handle,
 	registry: ReadOnlyRegistry,
 	registryProvider: RegistryProvider,
-	root: Element
+	root: Element,
+	defaultWidgetStore?: StoreLike,
 ): Promise<Handle> {
 	// Bottom up, breadth first queue of custom elements who's children's widgets need to be appended to
 	// their own widget. Combined for all widget projectors.
@@ -307,12 +307,17 @@ export default function realizeCustomElements(
 
 			// Recursion-free, depth first processing of the tree.
 			let processing = [children];
-			while (processing.length > 0) {
-				for (const custom of processing.shift()) {
+			while (true) {
+				const next = processing.shift();
+				if (!next) {
+					break;
+				}
+
+				for (const custom of next) {
 					const isWidgetInstance = custom.name === 'app-widget';
 					let id = getIdFromAttributes(custom.element);
 
-					let promise: Promise<WidgetLike> = null;
+					let promise: Promise<WidgetLike>;
 					if (isWidgetInstance) {
 						if (!id) {
 							throw new Error('app-widget requires data-uid or id attribute');
@@ -420,7 +425,10 @@ export default function realizeCustomElements(
 
 		// Attach all projectors at the same time.
 		const attachedProjectors = projectors.map((projector) => {
-			const immediatePlaceholders = immediatePlaceholderLookup.get(projector);
+			// The lookup is guaranteed to contain custom elements, which are guaranteed to have a widget.
+			// Cast to the RealizedElement type to avoid strict null check violations.
+			type RealizedElement = CustomElement & { widget: WidgetLike }
+			const immediatePlaceholders = <RealizedElement[]> immediatePlaceholderLookup.get(projector);
 			immediatePlaceholderLookup.delete(projector);
 
 			// Append the top-level widgets to the projector.

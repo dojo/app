@@ -25,6 +25,7 @@ import {
 	rejects,
 	strictEqual
 } from '../../support/createApp';
+import { defer } from '../../support/util';
 
 const { toAbsMid } = require;
 
@@ -373,7 +374,7 @@ registerSuite({
 		},
 
 		'factory is called with an options object that has an ID property'() {
-			let actual: { [p: string]: any } = null;
+			let actual: { [p: string]: any };
 			const app = createApp();
 			app.registerWidgetFactory('foo', (options: any) => {
 				actual = options;
@@ -387,7 +388,7 @@ registerSuite({
 		},
 
 		'factory is called with an options object that has a registryProvider property'() {
-			let actual: { [p: string]: any } = null;
+			let actual: { [p: string]: any };
 			const app = createApp();
 			app.registerWidgetFactory('foo', (options: any) => {
 				actual = options;
@@ -401,7 +402,7 @@ registerSuite({
 		},
 
 		'the stateFrom option is set to the default widget store, if any'() {
-			let actual: { [p: string]: any } = null;
+			let actual: { [p: string]: any };
 			const store = createStore();
 			const app = createApp({ defaultWidgetStore: store });
 			app.registerWidgetFactory('foo', (options: any) => {
@@ -455,17 +456,14 @@ registerSuite({
 
 			'prevents a pending widget instance from being registered'() {
 				const widget = createWidget();
-				let fulfil: () => void;
-				const promise = new Promise((resolve) => {
-					fulfil = () => resolve(widget);
-				});
+				const { resolve, promise } = defer();
 
 				const app = createApp();
 				const handle = app.registerWidgetFactory('foo', () => promise);
 
 				app.getWidget('foo');
 				handle.destroy();
-				fulfil();
+				resolve(widget);
 
 				return new Promise((resolve) => setTimeout(resolve, 10)).then(() => {
 					assert.throws(() => app.identifyWidget(widget));
@@ -735,7 +733,7 @@ registerSuite({
 			},
 
 			'the factory\'s stateFrom option is set to the default widget store, if any'() {
-				let actual: { [p: string]: any } = null;
+				let actual: { [p: string]: any };
 				const store = createStore();
 				const app = createApp({ defaultWidgetStore: store });
 				app.loadDefinition({
@@ -757,7 +755,7 @@ registerSuite({
 			},
 
 			'the definition\'s stateFrom option takes precedence over the default widget store, if any'() {
-				let actual: { [p: string]: any } = null;
+				let actual: { [p: string]: any };
 				const app = createApp({ defaultWidgetStore: createStore() });
 				const store = createStore();
 				app.loadDefinition({
@@ -891,8 +889,8 @@ registerSuite({
 					registryProvider: RegistryProvider;
 				}
 
-				let fooOptions: Options = null;
-				let barOptions: Options = null;
+				let fooOptions: Options;
+				let barOptions: Options;
 				stubWidgetFactory((options: Options) => {
 					barOptions = options;
 					return createWidget();
@@ -932,7 +930,7 @@ registerSuite({
 						foo: createAction(),
 						bar: createAction()
 					};
-					let actual: EventedListenersMap = null;
+					let actual: EventedListenersMap;
 
 					const app = createApp();
 					app.registerAction('foo', expected.foo);
@@ -964,7 +962,7 @@ registerSuite({
 						foo: createAction(),
 						bar(evt: any) {}
 					};
-					let actual: EventedListenersMap = null;
+					let actual: EventedListenersMap;
 
 					const app = createApp();
 					app.registerAction('foo', expected.foo);
@@ -992,7 +990,7 @@ registerSuite({
 
 				'an array of listeners may be specified'() {
 					const expected = [createAction(), (evt: any) => {}];
-					let actual: EventedListenersMap = null;
+					let actual: EventedListenersMap;
 
 					const app = createApp();
 					app.registerAction('foo', <ActionLike> expected[0]);
@@ -1006,7 +1004,8 @@ registerSuite({
 								},
 								listeners: {
 									foo: ['foo', expected[1]],
-									bar: [expected[1]]
+									bar: [expected[1]],
+									baz: expected
 								}
 							}
 						]
@@ -1018,7 +1017,11 @@ registerSuite({
 						assert.strictEqual(foo[1], expected[1]);
 
 						const bar = <EventedListener<any>[]> actual['bar'];
-						assert.strictEqual(bar[0], expected[1]);
+						assert.strictEqual(bar, expected[1]);
+
+						const baz = <EventedListener<any>[]> actual['baz'];
+						assert.strictEqual(baz[0], expected[0]);
+						assert.strictEqual(baz[1], expected[1]);
 					});
 				}
 			},
@@ -1026,7 +1029,7 @@ registerSuite({
 			'with stateFrom option': {
 				'factory is passed a store reference in its stateFrom option'() {
 					const expected = createStore();
-					let actual: StoreLike = null;
+					let actual: StoreLike;
 
 					const app = createApp();
 					app.registerStore('store', expected);
@@ -1050,7 +1053,7 @@ registerSuite({
 
 				'stateFrom may be an actual store, rather than a store identifier'() {
 					const expected = createStore();
-					let actual: StoreLike = null;
+					let actual: StoreLike;
 
 					const app = createApp();
 					app.loadDefinition({
