@@ -47,6 +47,14 @@ function isInstance(value: any): value is Instance {
 	return value && typeof value === 'object';
 }
 
+// Used as a cast for definitions passed to resolveFactory(). The definitions need to be cast because
+// CustomElementDefinition does not have an `instance` property. Note that at this point the definition has already
+// been validated to ensure it has either a factory or an instance.
+interface DestructurableDefinition {
+	instance?: Instance | string;
+	factory?: Factory | string;
+}
+
 /**
  * Resolve a factory for an action, custom element, store or widget.
  *
@@ -65,8 +73,7 @@ function resolveFactory(type: 'store', definition: StoreDefinition, resolveMid: 
 function resolveFactory(type: 'widget', definition: WidgetDefinition, resolveMid: ResolveMid): Promise<WidgetFactory>;
 function resolveFactory(type: FactoryTypes, definition: CustomElementDefinition | ItemDefinition<Factory, Instance>, resolveMid: ResolveMid): Promise<Factory>;
 function resolveFactory(type: FactoryTypes, definition: CustomElementDefinition | ItemDefinition<Factory, Instance>, resolveMid: ResolveMid): Promise<Factory> {
-	const { factory } = definition;
-	const { instance = null } = (<ItemDefinition<Factory, Instance>> definition);
+	const { factory, instance } = <DestructurableDefinition> definition;
 
 	if (typeof factory === 'function') {
 		return Promise.resolve(factory);
