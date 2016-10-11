@@ -23,52 +23,52 @@ interface JsonObject {
 }
 
 interface BaseTask {
-	element: Element;
+	readonly element: Element;
 }
 
 interface FactoryResolver {
-	factory: string;
+	readonly factory: string;
 }
 
 interface ImportResolver {
-	from: string;
-	importName?: string;
+	readonly from: string;
+	readonly importName?: string;
 }
 
 interface ActionTask extends BaseTask {
-	id: string;
-	resolver: FactoryResolver | ImportResolver;
-	state?: JsonObject;
-	stateFrom?: string;
-	type: 'action';
+	readonly id: string;
+	readonly resolver: FactoryResolver | ImportResolver;
+	readonly state?: JsonObject;
+	readonly stateFrom?: string;
+	readonly type: 'action';
 }
 
 interface ElementTask extends BaseTask, FactoryResolver {
-	name: string;
-	type: 'element';
+	readonly name: string;
+	readonly type: 'element';
 }
 
 interface MultipleActionsTask extends BaseTask {
-	from: string;
-	type: 'multiple-actions';
+	readonly from: string;
+	readonly type: 'multiple-actions';
 }
 
 interface StoreTask extends BaseTask {
-	id: string;
-	isDefault: boolean;
-	options?: JsonObject;
-	resolver: FactoryResolver | ImportResolver;
-	type: 'store';
+	readonly id: string;
+	readonly isDefault: boolean;
+	readonly options?: JsonObject;
+	readonly resolver: FactoryResolver | ImportResolver;
+	readonly type: 'store';
 }
 
 interface WidgetTask extends BaseTask {
-	id: string;
-	listeners?: JsonObject;
-	options?: JsonObject;
-	resolver: FactoryResolver | ImportResolver;
-	state?: JsonObject;
-	stateFrom?: string;
-	type: 'widget';
+	readonly id: string;
+	readonly listeners?: JsonObject;
+	readonly options?: JsonObject;
+	readonly resolver: FactoryResolver | ImportResolver;
+	readonly state?: JsonObject;
+	readonly stateFrom?: string;
+	readonly type: 'widget';
 }
 
 type Task = ActionTask | ElementTask | MultipleActionsTask | StoreTask | WidgetTask;

@@ -17,7 +17,7 @@ const errorStrings: { [type: number]: string } = {
 };
 
 export default class InstanceRegistry {
-	private map = new WeakMap<Instance, { id: Identifier | symbol, type: Type }>();
+	private readonly map = new WeakMap<Instance, { id: Identifier | symbol, type: Type }>();
 
 	addAction(action: ActionLike, id: Identifier): Handle {
 		return this.add(action, id, Type.Action);

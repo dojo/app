@@ -401,7 +401,7 @@ export interface AppMixin {
 	/**
 	 * Provides access to read-only registries for actions, stores and widgets.
 	 */
-	registryProvider: RegistryProvider;
+	readonly registryProvider: RegistryProvider;
 
 	/**
 	 * Register an action with the app.
