@@ -70,9 +70,9 @@ export function normalizeName(name: string): string {
 }
 
 interface CustomElement {
-	children: CustomElement[];
-	element: Element;
-	name: string;
+	readonly children: CustomElement[];
+	readonly element: Element;
+	readonly name: string;
 	widget?: WidgetLike;
 }
 
@@ -157,16 +157,16 @@ function getIdFromAttributes(element: Element): string | undefined {
 }
 
 interface JsonOptions {
-	id?: string;
-	listeners?: any;
-	stateFrom?: any;
+	readonly id?: string;
+	readonly listeners?: any;
+	readonly stateFrom?: any;
 }
 
 interface Options {
 	id?: string;
-	listeners?: EventedListenersMap;
+	readonly listeners?: EventedListenersMap;
 	registryProvider: RegistryProvider;
-	stateFrom?: StoreLike;
+	readonly stateFrom?: StoreLike;
 }
 
 function resolveListeners(registry: ReadOnlyRegistry, element: Element): null | Promise<EventedListenersMap> {

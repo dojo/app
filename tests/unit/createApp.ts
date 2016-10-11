@@ -220,12 +220,6 @@ registerSuite({
 
 			'any other get() call throws'() {
 				assert.throws(() => registryProvider.get('foo'), Error, 'No such store: foo');
-			},
-
-			'is read-only'() {
-				assert.throws(() => {
-					app.registryProvider = null!;
-				}, TypeError);
 			}
 		};
 	})(),

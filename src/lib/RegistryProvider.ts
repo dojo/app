@@ -71,7 +71,7 @@ export default class RegistryProvider {
 	private storeRegistry: Registry<Identifier | symbol, StoreLike>;
 	private widgetRegistry: WidgetRegistry<Identifier, WidgetLike>;
 
-	private underlyingRegistry: UnderlyingRegistry;
+	private readonly underlyingRegistry: UnderlyingRegistry;
 	constructor(registry: ReadOnlyRegistry) {
 		this.underlyingRegistry = Object.freeze({
 			getAction: registry.getAction.bind(registry),
