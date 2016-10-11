@@ -79,9 +79,8 @@ function resolveFactory(type: FactoryTypes, definition: CustomElementDefinition 
 		return Promise.resolve(factory);
 	}
 	else if (isInstance(instance)) {
-		// <any> hammer since TypeScript can't resolve match the correct overloaded Instance type with the correct
-		// Factory return value.
-		const factory: Factory = () => <any> instance;
+		// Cast to Factory since TypeScript gets confused with the overloaded Factory types that can return promises.
+		const factory = (() => instance) as Factory;
 		return Promise.resolve(factory);
 	}
 	else {
