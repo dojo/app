@@ -98,6 +98,7 @@ function resolveFactory(type: FactoryTypes, definition: CustomElementDefinition 
 					.catch(reject);
 			}
 			else {
+				// Calling code ensures that factory at this point is a string, even though TypeScript can't infer that.
 				resolveMid<Factory>(<string> factory)
 					.then((defaultExport) => {
 						if (typeof defaultExport !== 'function') {
