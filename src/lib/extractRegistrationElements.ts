@@ -1,4 +1,6 @@
 import { remove } from 'dojo-dom/dom';
+import { Router } from 'dojo-routing/createRouter';
+import { Context } from 'dojo-routing/interfaces';
 import { from as arrayFrom } from 'dojo-shim/array';
 import Promise from 'dojo-shim/Promise';
 import Set from 'dojo-shim/Set';
@@ -53,6 +55,11 @@ interface MultipleActionsTask extends BaseTask {
 	readonly type: 'multiple-actions';
 }
 
+interface RouterTask extends BaseTask {
+	readonly resolver: ImportResolver;
+	readonly type: 'router';
+}
+
 interface StoreTask extends BaseTask {
 	readonly id: string;
 	readonly isDefault: boolean;
@@ -71,7 +78,7 @@ interface WidgetTask extends BaseTask {
 	readonly type: 'widget';
 }
 
-type Task = ActionTask | ElementTask | MultipleActionsTask | StoreTask | WidgetTask;
+type Task = ActionTask | ElementTask | MultipleActionsTask | RouterTask | StoreTask | WidgetTask;
 
 function isFactoryResolver(resolver: FactoryResolver | ImportResolver): resolver is FactoryResolver {
 	return (<any> resolver).factory;
@@ -82,7 +89,7 @@ function get(element: Element, name: string): string | undefined {
 	return value === null ? undefined : value;
 }
 
-const TAG_NAMES = new Set(['app-action', 'app-actions', 'app-element', 'app-store', 'app-widget']);
+const TAG_NAMES = new Set(['app-action', 'app-actions', 'app-element', 'app-router', 'app-store', 'app-widget']);
 
 const parsers = {
 	action(element: Element): ActionTask {
@@ -164,6 +171,21 @@ const parsers = {
 			factory,
 			name,
 			type: 'element'
+		};
+	},
+
+	router(element: Element): RouterTask {
+		const from = get(element, 'data-from');
+		const importName = get(element, 'data-import');
+
+		if (!from) {
+			throw new Error('app-router requires data-from');
+		}
+
+		return {
+			element,
+			resolver: { from, importName },
+			type: 'router'
 		};
 	},
 
@@ -322,6 +344,9 @@ function getRegistrationTasks(root: Element): Task[] {
 			case 'app-element':
 				task = parsers.element(element);
 				break;
+			case 'app-router':
+				task = parsers.router(element);
+				break;
 			case 'app-store':
 				task = parsers.store(element);
 				break;
@@ -393,6 +418,10 @@ function createCustomElementDefinition(
 	};
 }
 
+function createRouterResolver(resolveMid: ResolveMid, { resolver }: RouterTask) {
+	return () => resolveMid<Router<Context>>(resolver.from, resolver.importName || 'default');
+}
+
 function createStoreDefinition(
 	resolveMid: ResolveMid,
 	{
@@ -446,6 +475,11 @@ function createWidgetDefinition(
 }
 
 /**
+ * Resolves a router.
+ */
+export type RouterResolver = () => Promise<Router<Context>>;
+
+/**
  * Provides resulting definition objects that were extracted from the root element.
  */
 export interface Result {
@@ -466,6 +500,11 @@ export interface Result {
 	 * The 'widget' ID indicates that the definition is for the default widget store.
 	 */
 	defaultStores: StoreDefinition[];
+
+	/**
+	 * Resolves routers that should be loaded into the app.
+	 */
+	routers: RouterResolver[];
 
 	/**
 	 * Stores that should be loaded into the app.
@@ -491,6 +530,7 @@ export default function extractRegistrationElements(resolveMid: ResolveMid, root
 			actions: [],
 			customElements: [],
 			defaultStores: [],
+			routers: [],
 			stores: [],
 			widgets: []
 		};
@@ -514,6 +554,10 @@ export default function extractRegistrationElements(resolveMid: ResolveMid, root
 					promises.push(promise);
 					break;
 				}
+
+				case 'router':
+					result.routers.push(createRouterResolver(resolveMid, <RouterTask> task));
+					break;
 
 				case 'store': {
 					const { isDefault } = <StoreTask> task;

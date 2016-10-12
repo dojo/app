@@ -118,6 +118,7 @@ registerSuite({
 					'app-actions',
 					'app-element',
 					'app-projector',
+					'app-router',
 					'app-store',
 					'app-widget'
 				].forEach((name) => {

@@ -13,7 +13,7 @@ import Symbol from 'dojo-shim/Symbol';
 import WeakMap from 'dojo-shim/WeakMap';
 import { Child } from 'dojo-widgets/mixins/interfaces';
 
-import extractRegistrationElements from './lib/extractRegistrationElements';
+import extractRegistrationElements, { RouterResolver } from './lib/extractRegistrationElements';
 import {
 	makeActionFactory,
 	makeCustomElementFactory,
@@ -631,6 +631,29 @@ function registerInstance(app: App, instance: WidgetLike, id: string): Handle {
 	};
 }
 
+function resolveAndSetDefaultStore(app: App, definition: StoreDefinition): Promise<void> {
+	const { resolveMid } = privateStateMap.get(app);
+
+	// N.B. The ID is ignored by the store factory
+	const { id: type } = definition;
+	const factory = makeStoreFactory(definition, resolveMid);
+	return Promise.resolve(factory())
+		.then((store) => {
+			if (type === 'action') {
+				app.defaultActionStore = store;
+			}
+			else {
+				app.defaultWidgetStore = store;
+			}
+		});
+}
+
+function resolveAndSetRouter(app: App, resolver: RouterResolver): Promise<void> {
+	return resolver().then((router) => {
+		app.router = router;
+	});
+}
+
 const createApp = compose({
 	set defaultActionStore(store: StoreLike) {
 		const { instanceRegistry, storeFactories } = privateStateMap.get(this);
@@ -940,27 +963,18 @@ const createApp = compose({
 		const { resolveMid } = privateStateMap.get(this);
 
 		return extractRegistrationElements(resolveMid, root)
-			.then(({ actions, customElements, defaultStores, stores, widgets }) => {
+			.then(({ actions, customElements, defaultStores, routers, stores, widgets }) => {
 				const definitionHandle = this.loadDefinition({ actions, customElements, stores, widgets });
-				if (defaultStores.length === 0) {
-					return definitionHandle;
+
+				const nonLazy: Promise<any>[] = [];
+				for (const definition of defaultStores) {
+					nonLazy.push(resolveAndSetDefaultStore(this, definition));
+				}
+				for (const routerResolver of routers) {
+					nonLazy.push(resolveAndSetRouter(this, routerResolver));
 				}
 
-				return Promise.all(defaultStores.map((definition) => {
-					// N.B. The ID is ignored by the store factory
-					const { id: type } = definition;
-					const factory = makeStoreFactory(definition, resolveMid);
-					return Promise.resolve(factory())
-						.then((store) => {
-							if (type === 'action') {
-								this.defaultActionStore = store;
-							}
-							else {
-								this.defaultWidgetStore = store;
-							}
-						});
-				}))
-				.then(() => definitionHandle);
+				return nonLazy.length === 0 ? definitionHandle : Promise.all(nonLazy).then(() => definitionHandle);
 			})
 			.then((definitionHandle) => {
 				return realizeCustomElements(
