@@ -48,6 +48,24 @@ app.defaultWidgetStore = createMemoryStore();
 
 This store will be used as the `stateFrom` option to widget and custom element factories, unless another store is specified.
 
+Similarly you can define a [router](https://github.com/dojo/routing) at creation time:
+
+```ts
+import createRouter from 'dojo-routing/createRouter';
+
+const router = createRouter();
+const app = createApp({ router });
+```
+
+Or (again just once), assign the router:
+
+```ts
+import createRouter from 'dojo-routing/createRouter';
+
+const app = createApp();
+app.router = createRouter();
+```
+
 ### Functional API
 
 #### Registering actions

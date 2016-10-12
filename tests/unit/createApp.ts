@@ -3,6 +3,8 @@ import Promise from 'dojo-shim/Promise';
 import * as registerSuite from 'intern!object';
 import * as assert from 'intern/chai!assert';
 
+import createRouter from 'dojo-routing/createRouter';
+
 import createApp, { DEFAULT_ACTION_STORE, DEFAULT_WIDGET_STORE } from 'src/createApp';
 
 import { stub as stubActionFactory } from '../fixtures/action-factory';
@@ -80,6 +82,29 @@ registerSuite({
 			return app.getStore(DEFAULT_WIDGET_STORE).then((actual) => {
 				assert.strictEqual(actual, store);
 			});
+		}
+	},
+
+	'#router': {
+		'defaults to undefined'() {
+			assert.isUndefined(createApp().router);
+		},
+		'can be set at creation time'() {
+			const router = createRouter();
+			const app = createApp({ router });
+			assert.strictEqual(app.router, router);
+		},
+		'can be set after creation'() {
+			const router = createRouter();
+			const app = createApp();
+			app.router = router;
+			assert.strictEqual(app.router, router);
+		},
+		'can only be set once'() {
+			const router = createRouter();
+			const app = createApp({ router });
+			assert.throws(() => app.router = createRouter(), Error);
+			assert.strictEqual(app.router, router);
 		}
 	},
 

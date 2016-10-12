@@ -5,6 +5,8 @@ import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
 import IdentityRegistry from 'dojo-core/IdentityRegistry';
 import { assign } from 'dojo-core/lang';
+import { Router } from 'dojo-routing/createRouter';
+import { Context } from 'dojo-routing/interfaces';
 import Promise from 'dojo-shim/Promise';
 import Set from 'dojo-shim/Set';
 import Symbol from 'dojo-shim/Symbol';
@@ -404,6 +406,13 @@ export interface AppMixin {
 	readonly registryProvider: RegistryProvider;
 
 	/**
+	 * The router to be used with this app.
+	 *
+	 * It is automatically started after the app has been realized when calling start().
+	 */
+	router?: Router<Context>;
+
+	/**
 	 * Register an action with the app.
 	 *
 	 * @param id How the action is identified
@@ -517,6 +526,13 @@ export interface AppOptions {
 	defaultWidgetStore?: StoreLike;
 
 	/**
+	 * The router to be used with this app.
+	 *
+	 * It is automatically started after the app has been realized when calling start().
+	 */
+	router?: Router<Context>;
+
+	/**
 	 * Function that maps a (relative) module identifier to an absolute one. Used to resolve relative module
 	 * identifiers in definitions.
 	 */
@@ -548,6 +564,7 @@ interface PrivateState {
 	readonly instanceRegistry: InstanceRegistry;
 	readonly registryProvider: RegistryProvider;
 	readonly resolveMid: ResolveMid;
+	router?: Router<Context>;
 	readonly storeFactories: IdentityRegistry<RegisteredFactory<StoreLike>>;
 	readonly widgetFactories: IdentityRegistry<RegisteredFactory<WidgetLike>>;
 	readonly widgetInstances: IdentityRegistry<WidgetLike>;
@@ -643,6 +660,21 @@ const createApp = compose({
 
 	get registryProvider(this: App) {
 		return privateStateMap.get(this).registryProvider;
+	},
+
+	set router(this: App, router: Router<Context>) {
+		const state = privateStateMap.get(this);
+		if (state.router) {
+			throw new Error('Could not set router, a router has already been set');
+		}
+		state.router = router;
+	},
+
+	get router(this: App) {
+		const { router } = privateStateMap.get(this);
+		if (router) {
+			return router;
+		}
 	},
 
 	registerAction(this: App, id: Identifier, action: ActionLike): Handle {
@@ -1101,6 +1133,7 @@ const createApp = compose({
 		{
 			defaultActionStore,
 			defaultWidgetStore,
+			router,
 			toAbsMid = (moduleId: string) => moduleId
 		}: AppOptions = {}
 	) {
@@ -1111,6 +1144,7 @@ const createApp = compose({
 			instanceRegistry: new InstanceRegistry(),
 			registryProvider: new RegistryProvider(instance),
 			resolveMid: makeMidResolver(toAbsMid),
+			router,
 			storeFactories: new IdentityRegistry<RegisteredFactory<StoreLike>>(),
 			widgetFactories: new IdentityRegistry<RegisteredFactory<WidgetLike>>(),
 			widgetInstances: new IdentityRegistry<WidgetLike>()
