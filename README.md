@@ -556,6 +556,31 @@ The realized DOM will be:
 </body>
 ```
 
+### Starting the application
+
+Use `App#start()` to start the application. If you provide the `root` option the `root` element is realized first. If a router was defined it is automatically started upon realization. The `dispatchCurrent` option is forwarded to `Router#start()`.
+
+Sometimes an application requires more setup after realization, but before the router is started. Provide a callback for the `afterRealize` option that takes care of it. It may return a promise if necessary.
+
+`App#start()` returns a promise for a pausable handle. Pausing and resuming is forwarded to the handle returned by `Router#start()`. Destroying the handle destroys the router and the realization of the `root` element.
+
+`App#start()` may only be called once.
+
+For example:
+
+```ts
+app.start({
+	root: document.body,
+	afterRealize() {
+		return new Promise((resolve) => {
+			// further setup
+			resolve();
+		});
+	},
+	dispatchCurrent: false
+});
+```
+
 ## How do I use this package?
 
 TODO: Add appropriate usage and instruction guidelines

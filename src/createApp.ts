@@ -5,7 +5,8 @@ import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
 import { Handle } from 'dojo-core/interfaces';
 import IdentityRegistry from 'dojo-core/IdentityRegistry';
 import { assign } from 'dojo-core/lang';
-import { Router } from 'dojo-routing/createRouter';
+import { PausableHandle } from 'dojo-core/on';
+import { Router, StartOptions as RouterStartOptions } from 'dojo-routing/createRouter';
 import { Context } from 'dojo-routing/interfaces';
 import Promise from 'dojo-shim/Promise';
 import Set from 'dojo-shim/Set';
@@ -509,6 +510,38 @@ export interface AppMixin {
 	 * @return A handle to detach rendered widgets from the DOM and remove them from the widget registry
 	 */
 	realize(root: Element): Promise<Handle>;
+
+	/**
+	 * Start the app. Optionally realizes a root element and starts the router, if any.
+	 *
+	 * @param options Start options. If the root option is provided, the root element is realized before the app is
+	 *   started.
+	 * @return A handle to detach rendered widgets from the DOM and remove them from the widget registry, to pause, resume
+	 *   or stop the router's observation of its history manager.
+	 */
+	start(options?: StartOptions): Promise<PausableHandle>;
+}
+
+/**
+ * Options for starting the app.
+ */
+export interface StartOptions {
+	/**
+	 * Callback that is run after the root is realized. Called even if root was not provided.
+	 *
+	 * @return May return a promise, in which case the router won't be started until the promise is fulfilled.
+	 */
+	afterRealize?: () => void | Promise<any>;
+
+	/**
+	 * Whether to immediately dispatch the router with its history's current value.
+	 */
+	dispatchCurrent?: boolean;
+
+	/**
+	 * Element to extract declarative definition custom elements and render widgets from.
+	 */
+	root?: Element;
 }
 
 export type App = AppMixin & ReadOnlyRegistry;
@@ -565,6 +598,7 @@ interface PrivateState {
 	readonly registryProvider: RegistryProvider;
 	readonly resolveMid: ResolveMid;
 	router?: Router<Context>;
+	started: boolean;
 	readonly storeFactories: IdentityRegistry<RegisteredFactory<StoreLike>>;
 	readonly widgetFactories: IdentityRegistry<RegisteredFactory<WidgetLike>>;
 	readonly widgetInstances: IdentityRegistry<WidgetLike>;
@@ -995,6 +1029,53 @@ const createApp = compose({
 					};
 				});
 			});
+	},
+
+	start(this: App, { afterRealize, dispatchCurrent, root }: StartOptions = {}): Promise<PausableHandle> {
+		const state = privateStateMap.get(this);
+		if (state.started) {
+			throw new Error('start can only be called once');
+		}
+		state.started = true;
+
+		const promise = root ? this.realize(root) : Promise.resolve({ destroy() {} });
+		return promise
+			.then((handle) => {
+				if (!afterRealize) {
+					return handle;
+				}
+
+				return Promise.resolve(afterRealize()).then(() => handle);
+			})
+			.then((realizationHandle) => {
+				if (!state.router) {
+					return {
+						pause() {},
+						resume() {},
+						destroy() {
+							realizationHandle.destroy();
+						}
+					};
+				}
+
+				let options: RouterStartOptions | undefined;
+				if (dispatchCurrent !== undefined) {
+					options = { dispatchCurrent };
+				}
+				const routerHandle = state.router.start(options);
+				return {
+					destroy() {
+						realizationHandle.destroy();
+						routerHandle.destroy();
+					},
+					pause() {
+						routerHandle.pause();
+					},
+					resume() {
+						routerHandle.resume();
+					}
+				};
+			});
 	}
 })
 .mixin({
@@ -1159,6 +1240,7 @@ const createApp = compose({
 			registryProvider: new RegistryProvider(instance),
 			resolveMid: makeMidResolver(toAbsMid),
 			router,
+			started: false,
 			storeFactories: new IdentityRegistry<RegisteredFactory<StoreLike>>(),
 			widgetFactories: new IdentityRegistry<RegisteredFactory<WidgetLike>>(),
 			widgetInstances: new IdentityRegistry<WidgetLike>()
