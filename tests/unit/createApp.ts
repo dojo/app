@@ -214,6 +214,7 @@ registerSuite({
 
 			'get(\'widgets\') returns a widget registry'() {
 				const registry = registryProvider.get('widgets');
+				assert.isTrue(registry.has('widget'));
 				assert.equal(registry.identify(widget), 'widget');
 				return strictEqual(registry.get('widget'), widget);
 			},
