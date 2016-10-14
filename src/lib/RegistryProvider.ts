@@ -67,7 +67,7 @@ export interface WidgetRegistry<I, T extends Child> extends Registry<I, T> {
 	 * Checks if an instance exists in the registry for a given identifier.
 	 *
 	 * @param id identifier of the instance to check exists in the registry.
-	 * @return a boolean indicating if the instance exists in the registry.
+	 * @return a Promise that resolves to a boolean indicating if the instance exists in the registry.
 	 */
 	has(id: I): Promise<boolean>;
 }
