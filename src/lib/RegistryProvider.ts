@@ -44,7 +44,7 @@ interface UnderlyingRegistry {
 		O extends WidgetFactoryOptions
 	>(factory: ComposeFactory<U, O>, options?: O): Promise<[string, U]>;
 	getWidget(id: Identifier): Promise<WidgetLike>;
-	hasWidget(id: Identifier): boolean;
+	hasWidget(id: Identifier): Promise<boolean>;
 	identifyWidget(widget: WidgetLike): Identifier;
 }
 
@@ -69,7 +69,7 @@ export interface WidgetRegistry<I, T extends Child> extends Registry<I, T> {
 	 * @param id identifier of the instance to check exists in the registry.
 	 * @return a boolean indicating if the instance exists in the registry.
 	 */
-	has(id: I): boolean;
+	has(id: I): Promise<boolean>;
 }
 
 /**

@@ -879,35 +879,45 @@ registerSuite({
 		'is added to the registry under the data-uid value'() {
 			root.innerHTML = '<app-projector><app-widget data-uid="foo" data-from="tests/fixtures/widget-instance"></app-widget></app-projector>';
 			return app.realize(root).then(() => {
-				assert.isTrue(app.hasWidget('foo'));
+				return app.hasWidget('foo').then((result) => {
+					assert.isTrue(result);
+				});
 			});
 		},
 
 		'is added to the registry under the id value'() {
 			root.innerHTML = '<app-projector><app-widget id="foo" data-from="tests/fixtures/widget-instance"></app-widget></app-projector>';
 			return app.realize(root).then(() => {
-				assert.isTrue(app.hasWidget('foo'));
+				return app.hasWidget('foo').then((result) => {
+					assert.isTrue(result);
+				});
 			});
 		},
 
 		'data-uid takes precedence over id'() {
 			root.innerHTML = '<app-projector><app-widget data-uid="foo" id="bar" data-from="tests/fixtures/widget-instance"></app-widget></app-projector>';
 			return app.realize(root).then(() => {
-				assert.isTrue(app.hasWidget('foo'));
+				return app.hasWidget('foo').then((result) => {
+					assert.isTrue(result);
+				});
 			});
 		},
 
 		'is added to the registry under the data-import value (if no data-uid or id)'() {
 			root.innerHTML = '<app-projector><app-widget data-import="member1" data-from="tests/fixtures/widget-exports"></app-widget></app-projector>';
 			return app.realize(root).then(() => {
-				assert.isTrue(app.hasWidget('member1'));
+				return app.hasWidget('member1').then((result) => {
+					assert.isTrue(result);
+				});
 			});
 		},
 
 		'is added to the registry under file part of the data-from MID (if no data-uid, id or data-import)'() {
 			root.innerHTML = '<app-projector><app-widget data-from="tests/fixtures/widget-instance"></app-widget></app-projector>';
 			return app.realize(root).then(() => {
-				assert.isTrue(app.hasWidget('widget-instance'));
+				return app.hasWidget('widget-instance').then((result) => {
+					assert.isTrue(result);
+				});
 			});
 		},
 

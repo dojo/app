@@ -764,11 +764,15 @@ registerSuite({
 
 			projector.innerHTML = '<managed-widget id="foo"></managed-widget>';
 			return app.realize(root).then((handle) => {
-				assert.isTrue(app.hasWidget('foo'));
-				assert.equal(app.identifyWidget(managedWidget), 'foo');
-				handle.destroy();
-				assert.isFalse(app.hasWidget('foo'));
-				assert.throws(() => app.identifyWidget(managedWidget));
+				return app.hasWidget('foo').then((result) => {
+					assert.isTrue(result);
+					assert.equal(app.identifyWidget(managedWidget), 'foo');
+					handle.destroy();
+					return app.hasWidget('foo').then((result) => {
+						assert.isFalse(result);
+						assert.throws(() => app.identifyWidget(managedWidget));
+					});
+				});
 			});
 		},
 
@@ -861,7 +865,9 @@ registerSuite({
 			app.registerCustomElementFactory('foo-bar', () => widget);
 			projector.innerHTML = '<foo-bar id="foo"></foo-bar>';
 			return app.realize(root).then(() => {
-				assert.isTrue(app.hasWidget('foo'));
+				return app.hasWidget('foo').then((result) => {
+					assert.isTrue(result);
+				});
 			});
 		},
 
