@@ -7,7 +7,7 @@ export const environments = [
 	{ browserName: 'firefox', version: '43', platform: 'Windows 10' },
 	{ browserName: 'chrome', platform: 'Windows 10' },
 	{ browserName: 'android', deviceName: 'Google Nexus 7 HD Emulator' },
-	{ browserName: 'iphone', version: '7.1' }
+	{ browserName: 'iphone', version: '9.3' }
 ];
 
 /* SauceLabs supports more max concurrency */
