@@ -582,7 +582,8 @@ function createCustomWidget(app: App, id: string) {
 		try {
 			// add final check before attempting to register the factory
 			factory = factories.get(id);
-		} catch (err) {
+		}
+		catch (err) {
 			factoryHandle = app.registerWidgetFactory(id, customFactory);
 			factory = factories.get(id);
 		}
