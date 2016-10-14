@@ -263,7 +263,32 @@ registerSuite({
 			return app.hasWidget('foo').then((result) => {
 				assert.isTrue(result);
 			});
+		},
+
+		'registered custom element for the type associated to the widget ids state'() {
+			const defaultWidgetStore = createSpyStore();
+			const app = createApp({ defaultWidgetStore });
+			app.registerCustomElementFactory('custom-element', createSpyWidget);
+
+			return defaultWidgetStore.add({ id: 'foo', type: 'custom-element' }).then(() => {
+				return app.hasWidget('foo').then((result) => {
+					assert.isTrue(result);
+				});
+			});
+		},
+
+		'no registered custom element for the type associated to the widget ids state'() {
+			const defaultWidgetStore = createSpyStore();
+			const app = createApp({ defaultWidgetStore });
+			app.registerCustomElementFactory('custom-element', createSpyWidget);
+
+			return defaultWidgetStore.add({ id: 'foo', type: 'unregistered-type' }).then(() => {
+				return app.hasWidget('foo').then((result) => {
+					assert.isFalse(result);
+				});
+			});
 		}
+
 	},
 
 	'#identifyWidget': {
@@ -537,9 +562,9 @@ registerSuite({
 				app.hasWidget('foo'),
 				app.hasWidget('bar')
 			])
-			.then((results) => {
-				assert.isTrue(results[0]);
-				assert.isTrue(results[1]);
+			.then(([fooResult, barResult]) => {
+				assert.isTrue(fooResult);
+				assert.isTrue(barResult);
 				return Promise.all([
 					strictEqual(app.getWidget('foo'), expected.foo),
 					strictEqual(app.getWidget('bar'), expected.bar)
