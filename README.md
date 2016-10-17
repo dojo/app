@@ -188,7 +188,7 @@ app.getWidget('my-widget');
 
 Each method returns a promise for the respective item. If the item was not registered or could not be loaded, the promise is rejected.
 
-Widgets may be created dynamically based on state in the default widget store. If the store contains an item for the requested `ID`, and that item has a `type` attribute that matches a registered custom element name, the requested widget will be created using the custom element factory. This only happens if there was no registered instance or factory for the requested `ID`.
+Widgets may be created dynamically based on state in the default widget store. If the store contains an item for the requested ID, and that item has a `type` attribute that matches a registered custom element name, the requested widget will be created using the custom element factory. This only happens if there was no registered instance or factory for the requested ID.
 
 Besides accessing `app.defaultActionStore` or `app.defaultWidgetStore` you can use the `DEFAULT_ACTION_STORE` and `DEFAULT_WIDGET_STORE` symbols to get the respective default store:
 
