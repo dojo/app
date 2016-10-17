@@ -576,19 +576,15 @@ function createCustomWidget(app: App, id: string) {
 	}
 
 	return defaultWidgetStore.get(id).then((state: any) => {
-		const customFactory = customElementFactories.get(app).get(state.type);
-		const factories = widgetFactories.get(app);
-		let factory: RegisteredFactory<WidgetLike>;
-		try {
-			// add final check before attempting to register the factory
-			factory = factories.get(id);
-		}
-		catch (err) {
+		const hasRegisteredFactory = widgetFactories.get(app).has(id);
+		const hasRegisteredInstance = widgetInstances.get(app).has(id);
+
+		if (!hasRegisteredFactory && !hasRegisteredInstance) {
+			const customFactory = customElementFactories.get(app).get(state.type);
 			factoryHandle = app.registerWidgetFactory(id, customFactory);
-			factory = factories.get(id);
 		}
 
-		return factory();
+		return app.getWidget(id);
 	}).then((widget) => {
 		widget.own(factoryHandle);
 		return widget;
