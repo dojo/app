@@ -72,6 +72,23 @@ registerSuite({
 			});
 		},
 
+		'multiple calls to getWidget for the same id, do not result in duplicate widgets being created'() {
+			const defaultWidgetStore = createSpyStore();
+			const app = createApp({ defaultWidgetStore });
+
+			app.registerCustomElementFactory('custom-element', createAsyncSpyWidget);
+
+			return defaultWidgetStore.add({id: 'foo', type: 'custom-element'}).then(() => {
+				const promise1 = app.getWidget('foo');
+				const promise2 = app.getWidget('foo');
+
+				return Promise.all([promise1, promise2]);
+			})
+			.then(([widget1, widget2]) => {
+				assert.equal(widget1, widget2);
+			});
+		},
+
 		'widget created for custom type observes state'() {
 			const defaultWidgetStore = createMemoryStore();
 			const app = createApp({ defaultWidgetStore });
