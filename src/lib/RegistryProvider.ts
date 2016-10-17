@@ -44,6 +44,7 @@ interface UnderlyingRegistry {
 		O extends WidgetFactoryOptions
 	>(factory: ComposeFactory<U, O>, options?: O): Promise<[string, U]>;
 	getWidget(id: Identifier): Promise<WidgetLike>;
+	hasWidget(id: Identifier): Promise<boolean>;
 	identifyWidget(widget: WidgetLike): Identifier;
 }
 
@@ -61,6 +62,14 @@ export interface WidgetRegistry<I, T extends Child> extends Registry<I, T> {
 	 * @return A promise for a tuple containing the ID of the created widget, and the widget instance itself.
 	 */
 	create<U extends T, O>(factory: ComposeFactory<U, O>, options?: O): Promise<[string, U]>;
+
+	/**
+	 * Checks if an instance exists in the registry for a given identifier.
+	 *
+	 * @param id identifier of the instance to check exists in the registry.
+	 * @return a Promise that resolves to a boolean indicating if the instance exists in the registry.
+	 */
+	has(id: I): Promise<boolean>;
 }
 
 /**
@@ -80,6 +89,7 @@ export default class RegistryProvider {
 			identifyStore: registry.identifyStore.bind(registry),
 			createWidget: registry.createWidget.bind(registry),
 			getWidget: registry.getWidget.bind(registry),
+			hasWidget: registry.hasWidget.bind(registry),
 			identifyWidget: registry.identifyWidget.bind(registry)
 		});
 	}
@@ -110,6 +120,7 @@ export default class RegistryProvider {
 				return this.widgetRegistry || (this.widgetRegistry = {
 					create: this.underlyingRegistry.createWidget,
 					get: this.underlyingRegistry.getWidget,
+					has: this.underlyingRegistry.hasWidget,
 					identify: this.underlyingRegistry.identifyWidget
 				});
 			default:

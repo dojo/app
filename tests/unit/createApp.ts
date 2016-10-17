@@ -113,7 +113,9 @@ registerSuite({
 				assert.isTrue(app.hasAction('remains'));
 				assert.isFalse(app.hasAction('foo'));
 				assert.isFalse(app.hasStore('bar'));
-				assert.isFalse(app.hasWidget('baz'));
+				return app.hasWidget('baz').then((result) => {
+					assert.isFalse(result);
+				});
 			}
 		},
 
@@ -214,8 +216,11 @@ registerSuite({
 
 			'get(\'widgets\') returns a widget registry'() {
 				const registry = registryProvider.get('widgets');
-				assert.equal(registry.identify(widget), 'widget');
-				return strictEqual(registry.get('widget'), widget);
+				return registry.has('widget').then((result) => {
+					assert.isTrue(result);
+					assert.equal(registry.identify(widget), 'widget');
+					return strictEqual(registry.get('widget'), widget);
+				});
 			},
 
 			'any other get() call throws'() {

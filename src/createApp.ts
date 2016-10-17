@@ -368,12 +368,12 @@ export interface ReadOnlyRegistry {
 	getWidget(id: Identifier): Promise<WidgetLike>;
 
 	/**
-	 * Check whether a widget has been registered with the given identifier.
+	 * Check whether a widget has been registered or would be created based on an associated state record for the given identifier.
 	 *
 	 * @param id Identifier for the widget
-	 * @return `true` if a widget has been registered, `false` otherwise.
+	 * @return A promise that will resolve to `true` if a widget has been registered or would be created, `false` otherwise.
 	 */
-	hasWidget(id: Identifier): boolean;
+	hasWidget(id: Identifier): Promise<boolean>;
 
 	/**
 	 * Look up the identifier for which the given widget has been registered.
@@ -967,7 +967,7 @@ const createApp = compose({
 			// Like for custom elements, don't add the generated ID to the options.
 
 			// Ensure no other widget with this ID exists.
-			if (this.hasWidget(id)) {
+			if (widgetFactories.get(this).has(id) || widgetInstances.get(this).has(id)) {
 				return Promise.reject(new Error(`A widget with ID '${id}' already exists`));
 			}
 
@@ -1044,9 +1044,17 @@ const createApp = compose({
 			});
 		},
 
-		hasWidget(this: App, id: Identifier): boolean {
-			// See if there is a widget factory, or else an existing custom element instance.
-			return widgetFactories.get(this).has(id) || widgetInstances.get(this).has(id);
+		hasWidget(this: App, id: Identifier): Promise<boolean> {
+			const { defaultWidgetStore } = this;
+
+			let exists: Promise<boolean> | boolean = widgetFactories.get(this).has(id) || widgetInstances.get(this).has(id);
+
+			if (exists || !defaultWidgetStore) {
+				return Promise.resolve(exists);
+			}
+			else {
+				return defaultWidgetStore.get(id).then(({ type }) => customElementFactories.get(this).has(type));
+			}
 		},
 
 		identifyWidget(this: App, widget: WidgetLike): string {

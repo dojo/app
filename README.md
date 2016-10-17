@@ -149,8 +149,9 @@ app.hasAction('my-action');
 app.hasStore('my-store');
 app.hasWidget('my-widget');
 ```
+The `hasAction` and `hasStore` methods return `true` if the respective item was registered, and `false` if not.
 
-Each method returns `true` if the respective item was registered, and `false` if not.
+The `hasWidget` method returns a promise, rather than a boolean. It is resolved with `true` if a widget instance or factory has been registered with that ID, or if a widget can be created based on the default widget store and registered custom elements. Otherwise it's resolved with `false`. See [Loading an action, store or widget](#loading-an-action-store-or-widget) for more.
 
 Besides checking `app.defaultActionStore` or `app.defaultWidgetStore` you can use the `DEFAULT_ACTION_STORE` and `DEFAULT_WIDGET_STORE` symbols to see if the respective default store was provided:
 
@@ -186,6 +187,8 @@ app.getWidget('my-widget');
 ```
 
 Each method returns a promise for the respective item. If the item was not registered or could not be loaded, the promise is rejected.
+
+Widgets may be created dynamically based on state in the default widget store. If the store contains an item for the requested ID, and that item has a `type` attribute that matches a registered custom element name, the requested widget will be created using the custom element factory. This only happens if there was no registered instance or factory for the requested ID.
 
 Besides accessing `app.defaultActionStore` or `app.defaultWidgetStore` you can use the `DEFAULT_ACTION_STORE` and `DEFAULT_WIDGET_STORE` symbols to get the respective default store:
 
