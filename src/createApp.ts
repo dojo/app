@@ -1049,15 +1049,12 @@ const createApp = compose({
 
 			let exists: Promise<boolean> | boolean = widgetFactories.get(this).has(id) || widgetInstances.get(this).has(id);
 
-			if (!exists && defaultWidgetStore) {
-				const registeredCustomElementFactories = customElementFactories.get(this);
-				exists = defaultWidgetStore.get(id).then((state: any) => {
-					return registeredCustomElementFactories.has(state.type);
-				});
+			if (exists || !defaultWidgetStore) {
+				return Promise.resolve(exists);
 			}
-
-			// See if there is a widget factory, or else an existing custom element instance.
-			return Promise.resolve(exists);
+			else {
+				return defaultWidgetStore.get(id).then(({ type }) => customElementFactories.get(this).has(type));
+			}
 		},
 
 		identifyWidget(this: App, widget: WidgetLike): string {

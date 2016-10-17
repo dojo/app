@@ -142,7 +142,7 @@ Note that a widget instance may only be registered once. A factory is not allowe
 
 #### Seeing if an action, store or widget is registered
 
-To see whether a particular action, store is registered, use the `has*()` methods:
+To see whether a particular action, store or widget is registered, use the `has*()` methods:
 
 ```ts
 app.hasAction('my-action');
@@ -151,7 +151,7 @@ app.hasWidget('my-widget');
 ```
 The `hasAction` and `hasStore` methods return `true` if the respective item was registered, and `false` if not.
 
-The `hasWidget()` method returns a promise which will resolve to the `true` or `false` state, this is because not only does the `hasWidget()` method check the `instance` and `factory` registries it checks if the `getWidget()` method was called whether it would dynmically create the widget based on state associated to the `id`, see [Loading an action, store or widget](#Loading-an-action-store-or-widget).
+The `hasWidget` method returns a promise, rather than a boolean. It is resolved with `true` if a widget instance or factory has been registered with that ID, or if a widget can be created based on the default widget store and registered custom elements. Otherwise it's resolved with `false`. See [Loading an action, store or widget](#loading-an-action-store-or-widget) for more.
 
 Besides checking `app.defaultActionStore` or `app.defaultWidgetStore` you can use the `DEFAULT_ACTION_STORE` and `DEFAULT_WIDGET_STORE` symbols to see if the respective default store was provided:
 
@@ -188,9 +188,7 @@ app.getWidget('my-widget');
 
 Each method returns a promise for the respective item. If the item was not registered or could not be loaded, the promise is rejected.
 
-For `widgets`, it is possible for `app` to dynamically create widgets requested via `getWidget()` when the requested `id` has entry in the `defaultWidgetStore` with a `type` attribute that matches a registered `customElememt` name.
-
-**note:** dynamically creating widgets is *only* supported with the registered `defaultWidgetStore`, if there is no registered default store or the state record exists in a non default store the `widget` will not be created.
+Widgets may be created dynamically based on state in the default widget store. If the store contains an item for the requested `ID`, and that item has a `type` attribute that matches a registered custom element name, the requested widget will be created using the custom element factory. This only happens if there was no registered instance or factory for the requested `ID`.
 
 Besides accessing `app.defaultActionStore` or `app.defaultWidgetStore` you can use the `DEFAULT_ACTION_STORE` and `DEFAULT_WIDGET_STORE` symbols to get the respective default store:
 
