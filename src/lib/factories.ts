@@ -133,8 +133,8 @@ export function makeActionFactory(definition: ActionDefinition, resolveMid: Reso
 			resolveFactory('action', definition, resolveMid),
 			resolveStore(registry, definition)
 		]).then(([_factory, _store]) => {
-			const factory = <ActionFactory> _factory;
-			const store = <StoreLike> _store || defaultActionStore;
+			const factory: ActionFactory = _factory;
+			const store: StoreLike = _store || defaultActionStore;
 
 			const options = { registryProvider, stateFrom: store };
 
@@ -230,9 +230,9 @@ export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: Reso
 			resolveListenersMap(registry, definition.listeners),
 			resolveStore(registry, definition)
 		]).then(([_factory, _listeners, _store]) => {
-			const factory = <WidgetFactory> _factory;
-			const listeners = <EventedListenersMap> _listeners;
-			const store = <StoreLike> _store || defaultWidgetStore;
+			const factory: WidgetFactory = _factory;
+			const listeners: EventedListenersMap = _listeners;
+			const store: StoreLike = _store || defaultWidgetStore;
 
 			if (listeners) {
 				options.listeners = listeners;
