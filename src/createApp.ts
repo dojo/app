@@ -1009,7 +1009,7 @@ const createApp = compose({
 			const instances = widgetInstances.get(this);
 
 			let missingFactory: any;
-			return new Promise((resolve, reject) => {
+			return new Promise((resolve) => {
 				let factory: WidgetFactory;
 				try {
 					factory = factories.get(id);
@@ -1018,7 +1018,7 @@ const createApp = compose({
 				}
 				catch (err) {
 					missingFactory = err;
-					reject();
+					resolve(Promise.reject(err));
 					return;
 				}
 
