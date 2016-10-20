@@ -1042,7 +1042,7 @@ const createApp = compose({
 			const { widgetFactories: factories, widgetInstances: instances } = privateStateMap.get(this);
 
 			let missingFactory: any;
-			return new Promise((resolve, reject) => {
+			return new Promise((resolve) => {
 				let factory: WidgetFactory;
 				try {
 					factory = factories.get(id);
@@ -1051,18 +1051,18 @@ const createApp = compose({
 				}
 				catch (err) {
 					missingFactory = err;
-					reject();
+					resolve(Promise.reject(err));
 					return;
 				}
 
 				// Be sure to call the factory synchronously.
 				resolve(factory());
 			}).catch((err) => {
-				if (missingFactory) {
+				if (missingFactory && instances.has(id)) {
 					return instances.get(id);
 				}
 				else {
-					throw err;
+					return Promise.reject(err);
 				}
 			}).catch((err) => {
 				if (missingFactory && this.defaultWidgetStore) {
@@ -1070,10 +1070,10 @@ const createApp = compose({
 					return createCustomWidget(this, id);
 				}
 				else {
-					throw err;
+					return Promise.reject(err);
 				}
 			}).catch((err) => {
-				throw missingFactory || err;
+				return Promise.reject(missingFactory || err);
 			});
 		},
 
