@@ -427,17 +427,19 @@ function createWidgetDefinition(
 		stateFrom
 	}: WidgetTask
 ): WidgetDefinition {
+	const factory: WidgetFactory = (options) => {
+		if (isFactoryResolver(resolver)) {
+			return resolveMid<WidgetFactory>(resolver.factory)
+				.then((factory) => factory(options));
+		}
+		else {
+			return resolveMid<WidgetLike>(resolver.from, resolver.importName || 'default');
+		}
+	};
+
 	return {
 		id,
-		factory(options) {
-			if (isFactoryResolver(resolver)) {
-				return resolveMid<WidgetFactory>(resolver.factory)
-					.then((factory) => factory(options));
-			}
-			else {
-				return resolveMid<WidgetLike>(resolver.from, resolver.importName || 'default');
-			}
-		},
+		factory,
 		listeners,
 		options,
 		state,

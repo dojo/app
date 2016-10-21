@@ -589,6 +589,22 @@ registerSuite({
 			});
 		},
 
+		'options cannot include the children property'() {
+			assert.throws(() => {
+				createApp().loadDefinition({
+					widgets: [
+						{
+							id: 'foo',
+							factory: createWidget,
+							options: {
+								children: []
+							}
+						}
+					]
+				});
+			}, TypeError, 'children, id, listeners and stateFrom options should be in the widget definition itself, not its options value');
+		},
+
 		'options cannot include the id property'() {
 			assert.throws(() => {
 				createApp().loadDefinition({
@@ -602,7 +618,7 @@ registerSuite({
 						}
 					]
 				});
-			}, TypeError, 'id, listeners and stateFrom options should be in the widget definition itself, not its options value');
+			}, TypeError, 'children, id, listeners and stateFrom options should be in the widget definition itself, not its options value');
 		},
 
 		'options cannot include the listeners property'() {
@@ -620,7 +636,7 @@ registerSuite({
 						}
 					]
 				});
-			}, TypeError, 'id, listeners and stateFrom options should be in the widget definition itself, not its options value');
+			}, TypeError, 'children, id, listeners and stateFrom options should be in the widget definition itself, not its options value');
 		},
 
 		'options cannot include the stateFrom property'() {
@@ -636,7 +652,7 @@ registerSuite({
 						}
 					]
 				});
-			}, TypeError, 'id, listeners and stateFrom options should be in the widget definition itself, not its options value');
+			}, TypeError, 'children, id, listeners and stateFrom options should be in the widget definition itself, not its options value');
 		},
 
 		'options cannot include the registryProvider property'() {
@@ -988,6 +1004,173 @@ registerSuite({
 				});
 			},
 
+			'with children option': {
+				'an array is passed': {
+					'child definitions are loaded'() {
+						const app = createApp();
+						app.loadDefinition({
+							widgets: [
+								{
+									id: 'foo',
+									factory: createWidget,
+									children: [
+										{
+											id: 'bar',
+											factory: createWidget
+										}
+									]
+								}
+							]
+						});
+
+						return app.hasWidget('bar').then((result) => {
+							assert.isTrue(result);
+						});
+					},
+
+					'parent factory is passed child instances in its children option'() {
+						let actual: WidgetLike[] = [];
+
+						const app = createApp();
+						app.loadDefinition({
+							widgets: [
+								{
+									id: 'foo',
+									factory(options: any) {
+										actual = options.children;
+										return createWidget();
+									},
+									children: [
+										{
+											id: 'bar',
+											factory: createWidget
+										}
+									]
+								}
+							]
+						});
+
+						return app.getWidget('foo').then(() => {
+							assert.lengthOf(actual, 1);
+							return app.getWidget('bar').then((child) => {
+								assert.strictEqual(actual[0], child);
+							});
+						});
+					},
+
+					'array may contain widget IDs'() {
+						let actual: WidgetLike[] = [];
+
+						const app = createApp();
+						app.loadDefinition({
+							widgets: [
+								{
+									id: 'foo',
+									factory(options: any) {
+										actual = options.children;
+										return createWidget();
+									},
+									children: ['bar']
+								},
+								{
+									id: 'bar',
+									factory: createWidget
+								}
+							]
+						});
+
+						return app.getWidget('foo').then(() => {
+							assert.lengthOf(actual, 1);
+							return app.getWidget('bar').then((child) => {
+								assert.strictEqual(actual[0], child);
+							});
+						});
+					}
+				},
+				'an object is passed': {
+					'child definitions are loaded'() {
+						const app = createApp();
+						app.loadDefinition({
+							widgets: [
+								{
+									id: 'foo',
+									factory: createWidget,
+									children: {
+										barChild: {
+											id: 'bar',
+											factory: createWidget
+										}
+									}
+								}
+							]
+						});
+
+						return app.hasWidget('bar').then((result) => {
+							assert.isTrue(result);
+						});
+					},
+
+					'parent factory is passed child instances in its children option'() {
+						let actual: { [key: string]: WidgetLike } = {};
+
+						const app = createApp();
+						app.loadDefinition({
+							widgets: [
+								{
+									id: 'foo',
+									factory(options: any) {
+										actual = options.children;
+										return createWidget();
+									},
+									children: {
+										barChild: {
+											id: 'bar',
+											factory: createWidget
+										}
+									}
+								}
+							]
+						});
+
+						return app.getWidget('foo').then(() => {
+							assert.lengthOf(Object.keys(actual), 1);
+							return app.getWidget('bar').then((child) => {
+								assert.strictEqual(actual['barChild'], child);
+							});
+						});
+					},
+
+					'object may contain widget IDs'() {
+						let actual: { [key: string]: WidgetLike } = {};
+
+						const app = createApp();
+						app.loadDefinition({
+							widgets: [
+								{
+									id: 'foo',
+									factory(options: any) {
+										actual = options.children;
+										return createWidget();
+									},
+									children: { barChild: 'bar' }
+								},
+								{
+									id: 'bar',
+									factory: createWidget
+								}
+							]
+						});
+
+						return app.getWidget('foo').then(() => {
+							assert.lengthOf(Object.keys(actual), 1);
+							return app.getWidget('bar').then((child) => {
+								assert.strictEqual(actual['barChild'], child);
+							});
+						});
+					}
+				}
+			},
+
 			'with listeners option': {
 				'factory is passed action references in its listeners option'() {
 					const expected = {
@@ -1306,6 +1489,20 @@ registerSuite({
 				});
 
 				return rejects(app.getWidget('foo'), Error, 'Could not resolve \'../../fixtures/no-instance-export\' to a widget instance');
+			},
+
+			'children option is not allowed'() {
+				assert.throws(() => {
+					createApp().loadDefinition({
+						widgets: [
+							{
+								id: 'foo',
+								instance: createWidget(),
+								children: []
+							}
+						]
+					});
+				}, TypeError, 'Cannot specify children option when widget definition points directly at an instance');
 			},
 
 			'listeners option is not allowed'() {
