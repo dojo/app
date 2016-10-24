@@ -26,7 +26,7 @@ import realizeCustomElements, {
 	normalizeName
 } from './lib/realizeCustomElements';
 import RegistryProvider from './lib/RegistryProvider';
-import { render as renderScene, SceneElement } from './lib/sceneManagement';
+import { render as renderScene, RootNodes } from './lib/sceneManagement';
 
 export { RegistryProvider, ToAbsMid };
 
@@ -269,7 +269,7 @@ export interface WidgetListenersMap {
 
 export interface SceneOptions {
 	root: Element;
-	nodes: SceneElement[];
+	nodes: RootNodes;
 }
 
 /**
