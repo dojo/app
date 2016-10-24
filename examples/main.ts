@@ -12,28 +12,22 @@ global.renderFoo = () => {
 	app.renderScene({
 		// FIXME: App must be created with the root element, disallow it from changing between scenes.
 		root: document.body,
-		tree: {
-			projector: true,
-			append: [
-				{
-					widget: 'foo'
-				}
-			]
-		}
+		nodes: [
+			{
+				widget: 'foo'
+			}
+		]
 	});
 };
 
 global.renderBar = () => {
 	app.renderScene({
 		root: document.body,
-		tree: {
-			projector: true,
-			append: [
-				{
-					widget: 'bar'
-				}
-			]
-		}
+		nodes: [
+			{
+				widget: 'bar'
+			}
+		]
 	});
 };
 

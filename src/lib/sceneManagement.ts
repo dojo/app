@@ -3,8 +3,9 @@ import { includes } from 'dojo-shim/array';
 import Map from 'dojo-shim/Map';
 import Promise from 'dojo-shim/Promise';
 import WeakMap from 'dojo-shim/WeakMap';
+import createWidget from 'dojo-widgets/createWidget';
 import { createProjector, Projector } from 'dojo-widgets/projector';
-import { List } from 'immutable';
+import { VNode } from 'maquette';
 
 import {
 	Identifier,
@@ -12,16 +13,7 @@ import {
 	WidgetLike
 } from '../createApp';
 
-export type SceneElement = SceneProjector | SceneWidget;
-
-export interface SceneProjector {
-	projector: true;
-	append: SceneWidget[];
-}
-
-function isSceneProjector(element: any): element is SceneProjector {
-	return element.projector === true;
-}
+export type SceneElement = SceneWidget;
 
 export interface SceneWidget {
 	widget: Identifier;
@@ -49,93 +41,97 @@ class Counter {
 	}
 }
 
+type RenderFunction = () => VNode;
+
 interface RenderState {
-	root: Element;
-	children: WeakMap<Key, Key[]>;
+	childrenKeys: WeakMap<Key, Key[]>;
 	handles: WeakMap<Key, Handle>;
-	projectorKeys: Map<string, Key>;
-	projectors: WeakMap<Key, Projector>;
+	invalidate: () => void;
+	rootChildren: (VNode | RenderFunction)[];
+	rootKey: Key;
+	rootProjector: Projector;
 	widgetKeys: Map<Identifier, Key>;
 	widgets: WeakMap<Key, WidgetLike>;
 }
 
 const renderState = new WeakMap<ReadOnlyRegistry, RenderState>();
 
-export function render(registry: ReadOnlyRegistry, root: Element, tree: SceneElement) {
-	if (!isSceneProjector(tree)) {
-		return Promise.reject(new Error('Tree must start with a SceneProjector for now, sorry'));
-	}
-
-	const state = renderState.get(registry) || {
-		root,
-		children: new WeakMap<Key, Key[]>(),
-		handles: new WeakMap<Key, Handle>(),
-		projectorKeys: new Map<number, Key>(),
-		projectors: new WeakMap<Key, Projector>(),
-		widgetKeys: new Map<Identifier, Key>(),
-		widgets: new WeakMap<Key, WidgetLike>()
-	};
+export function render(registry: ReadOnlyRegistry, root: Element, nodes: SceneElement[]) {
+	const state = renderState.get(registry) || initialize(root);
 	if (!renderState.has(registry)) {
 		renderState.set(registry, state);
 	}
 
-	return update(registry, state, new Counter(), tree)
+	return update(registry, state, new Counter(), nodes)
 		.then(() => {
 			return {
 				destroy() {
-					state.projectorKeys.forEach((key) => {
-						if (state.handles.has(key)) {
-							state.handles.get(key).destroy();
-						}
-					});
 					state.widgetKeys.forEach((key) => {
 						if (state.handles.has(key)) {
 							state.handles.get(key).destroy();
 						}
 					});
+					state.rootProjector.destroy();
 				}
 			};
 		});
+}
+
+function initialize(root: Element) {
+	const rootProjector = createProjector({ autoAttach: true, root });
+	const rootKey = { value: 'root' };
+	const childrenKeys = new WeakMap<Key, Key[]>();
+	childrenKeys.set(rootKey, []);
+
+	const proxy = createWidget.extend({
+		getChildrenNodes() {
+			return state.rootChildren.map(function (nodeOrRender) {
+				if (typeof nodeOrRender === 'function') {
+					return nodeOrRender();
+				}
+				return nodeOrRender;
+			});
+		}
+	})({ tagName: 'div' });
+	rootProjector.append(proxy);
+
+	const state = {
+		childrenKeys,
+		handles: new WeakMap<Key, Handle>(),
+		invalidate: proxy.invalidate.bind(proxy),
+		rootChildren: [],
+		rootKey,
+		rootProjector,
+		widgetKeys: new Map<Identifier, Key>(),
+		widgets: new WeakMap<Key, WidgetLike>()
+	};
+
+	return state;
 }
 
 function update(
 	registry: ReadOnlyRegistry,
 	state: RenderState,
 	counter: Counter,
-	tree: SceneProjector
+	nodes: SceneElement[]
 ): Promise<void> {
-	const projectorId = counter.incr();
-	const projectorKey = state.projectorKeys.get(projectorId) || { value: projectorId };
-	if (!state.projectorKeys.has(projectorId)) {
-		state.projectorKeys.set(projectorId, projectorKey);
-	}
+	return updateWidgets(registry, state, state.rootKey, counter.level(), nodes)
+		.then((widgets) => {
+			state.rootChildren = widgets.map((widget) => {
+				return widget.render.bind(widget);
+			});
 
-	// TODO: Check if projector is different (once more options are supported)
-	const projector = state.projectors.get(projectorKey) || createProjector({ root: state.root });
-	if (!state.projectors.has(projectorKey)) {
-		state.projectors.set(projectorKey, projector);
-		state.children.set(projectorKey, []);
-		state.handles.set(projectorKey, {
-			destroy() {
-				state.projectorKeys.delete(projectorKey.value);
-			}
-		});
-	}
-
-	return updateProjectorChildren(registry, state, counter.level(), projectorKey, projector, tree.append)
-		.then(() => {
-			projector.attach();
+			state.invalidate();
 		});
 }
 
-function updateProjectorChildren(
+function updateWidgets(
 	registry: ReadOnlyRegistry,
 	state: RenderState,
+	parentKey: Key,
 	counter: Counter,
-	projectorKey: Key,
-	projector: Projector,
 	append: SceneWidget[]
-): Promise<void> {
+): Promise<WidgetLike[]> {
 	interface Child {
 		key: Key;
 		widget: WidgetLike;
@@ -166,7 +162,7 @@ function updateProjectorChildren(
 	return Promise.all(children)
 		.then((children) => {
 			const newKeys = children.map(({ key }) => key);
-			const previousKeys = state.children.get(projectorKey);
+			const previousKeys = state.childrenKeys.get(parentKey);
 			for (const key of previousKeys) {
 				if (!includes(newKeys, key)) {
 					// TODO: It follows that any registered widget instances should override their destroy() method, as
@@ -179,6 +175,6 @@ function updateProjectorChildren(
 				}
 			}
 
-			projector.children = List(children.map(({ widget }) => widget));
+			return children.map(({ widget }) => widget);
 		});
 }

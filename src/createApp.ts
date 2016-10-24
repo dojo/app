@@ -269,7 +269,7 @@ export interface WidgetListenersMap {
 
 export interface SceneOptions {
 	root: Element;
-	tree: SceneElement;
+	nodes: SceneElement[];
 }
 
 /**
@@ -912,8 +912,8 @@ const createApp = compose({
 		};
 	},
 
-	renderScene(this: App, { root, tree }: SceneOptions) {
-		return renderScene(this, root, tree);
+	renderScene(this: App, { root, nodes }: SceneOptions) {
+		return renderScene(this, root, nodes);
 	},
 
 	realize(this: App, root: Element) {
