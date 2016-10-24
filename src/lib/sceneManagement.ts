@@ -27,23 +27,36 @@ export interface SceneWidget {
 	widget: Identifier;
 }
 
-interface Key<T> {
-	value: T;
+interface Key {
+	value: string;
 }
 
-// FIXME: Each level in the tree needs its own counter, then combine them to generate a unique string…
-interface Counter {
-	value: number;
+class Counter {
+	private readonly prefix: string;
+	private count: number;
+
+	constructor(prefix = '') {
+		this.prefix = prefix;
+		this.count = 0;
+	}
+
+	incr() {
+		return `${this.prefix}.${this.count++}`;
+	}
+
+	level() {
+		return new Counter(`${this.prefix}.${this.count}`);
+	}
 }
 
 interface RenderState {
 	root: Element;
-	children: WeakMap<Key<any>, Key<any>[]>;
-	handles: WeakMap<Key<any>, Handle>;
-	projectorKeys: Map<number, Key<number>>;
-	projectors: WeakMap<Key<number>, Projector>;
-	widgetKeys: Map<Identifier, Key<Identifier>>;
-	widgets: WeakMap<Key<Identifier>, WidgetLike>;
+	children: WeakMap<Key, Key[]>;
+	handles: WeakMap<Key, Handle>;
+	projectorKeys: Map<string, Key>;
+	projectors: WeakMap<Key, Projector>;
+	widgetKeys: Map<Identifier, Key>;
+	widgets: WeakMap<Key, WidgetLike>;
 }
 
 const renderState = new WeakMap<ReadOnlyRegistry, RenderState>();
@@ -55,18 +68,18 @@ export function render(registry: ReadOnlyRegistry, root: Element, tree: SceneEle
 
 	const state = renderState.get(registry) || {
 		root,
-		children: new WeakMap<Key<any>, Key<any>[]>(),
-		handles: new WeakMap<Key<any>, Handle>(),
-		projectorKeys: new Map<number, Key<number>>(),
-		projectors: new WeakMap<Key<number>, Projector>(),
-		widgetKeys: new Map<Identifier, Key<Identifier>>(),
-		widgets: new WeakMap<Key<Identifier>, WidgetLike>()
+		children: new WeakMap<Key, Key[]>(),
+		handles: new WeakMap<Key, Handle>(),
+		projectorKeys: new Map<number, Key>(),
+		projectors: new WeakMap<Key, Projector>(),
+		widgetKeys: new Map<Identifier, Key>(),
+		widgets: new WeakMap<Key, WidgetLike>()
 	};
 	if (!renderState.has(registry)) {
 		renderState.set(registry, state);
 	}
 
-	return update(registry, state, { value: 0 }, tree)
+	return update(registry, state, new Counter(), tree)
 		.then(() => {
 			return {
 				destroy() {
@@ -91,7 +104,7 @@ function update(
 	counter: Counter,
 	tree: SceneProjector
 ): Promise<void> {
-	const projectorId = counter.value++;
+	const projectorId = counter.incr();
 	const projectorKey = state.projectorKeys.get(projectorId) || { value: projectorId };
 	if (!state.projectorKeys.has(projectorId)) {
 		state.projectorKeys.set(projectorId, projectorKey);
@@ -109,7 +122,7 @@ function update(
 		});
 	}
 
-	return updateProjectorChildren(registry, state, counter, projectorKey, projector, tree.append)
+	return updateProjectorChildren(registry, state, counter.level(), projectorKey, projector, tree.append)
 		.then(() => {
 			projector.attach();
 		});
@@ -119,12 +132,12 @@ function updateProjectorChildren(
 	registry: ReadOnlyRegistry,
 	state: RenderState,
 	counter: Counter,
-	projectorKey: Key<number>,
+	projectorKey: Key,
 	projector: Projector,
 	append: SceneWidget[]
 ): Promise<void> {
 	interface Child {
-		key: Key<Identifier>;
+		key: Key;
 		widget: WidgetLike;
 	}
 	const children: (Promise<Child> | Child)[] = append.map(({ widget: value }) => {
