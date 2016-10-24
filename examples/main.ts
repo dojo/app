@@ -6,4 +6,15 @@ const app = createApp();
 
 app.registerWidget('foo', createWidget({ state: { label: 'foo' }, tagName: 'h1' }));
 
-app.realize(document.body);
+app.renderScene({
+	// FIXME: App must be created with the root element, disallow it from changing between scenes.
+	root: document.body,
+	tree: {
+		projector: true,
+		append: [
+			{
+				widget: 'foo'
+			}
+		]
+	}
+});

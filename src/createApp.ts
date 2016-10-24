@@ -26,6 +26,7 @@ import realizeCustomElements, {
 	normalizeName
 } from './lib/realizeCustomElements';
 import RegistryProvider from './lib/RegistryProvider';
+import { render as renderScene, SceneElement } from './lib/sceneManagement';
 
 export { RegistryProvider, ToAbsMid };
 
@@ -266,6 +267,11 @@ export interface WidgetListenersMap {
 	[eventType: string]: WidgetListenerOrArray;
 }
 
+export interface SceneOptions {
+	root: Element;
+	tree: SceneElement;
+}
+
 /**
  * Read-only interface to access actions, custom element factories, stores and widgets.
  *
@@ -492,6 +498,8 @@ export interface AppMixin {
 	 * @return A handle to deregister *all* actions, stores and widgets that were registered.
 	 */
 	loadDefinition(definitions: Definitions): Handle;
+
+	renderScene(options: SceneOptions): Promise<Handle>;
 
 	/**
 	 * Extract declarative definition custom elements in the root and render widgets.
@@ -902,6 +910,10 @@ const createApp = compose({
 				}
 			}
 		};
+	},
+
+	renderScene(this: App, { root, tree }: SceneOptions) {
+		return renderScene(this, root, tree);
 	},
 
 	realize(this: App, root: Element) {
