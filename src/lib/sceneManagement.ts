@@ -197,18 +197,24 @@ function update(
 			}
 			else if (isSceneElement(node)) {
 				counter.incr();
-				// TODO: Compare against previous VNode to avoid rerendering, but need to take into account children
-				// const { key } = counter;
+				// FIXME: Reuse previous key if (for the same value) it describes a VNode with the same tagName and
+				// properties.
+				const { key } = counter;
 
-				const vNode = h(node.tagName);
-				siblings.push(vNode);
+				const vnode = h(node.tagName, { key });
+				siblings.push(vnode);
+
 				if (node.children) {
-					processing.push([ vNode.children!, counter.level(), node.children ]);
+					processing.push([ vnode.children!, counter.level(), node.children ]);
 				}
 			}
 			else {
-				const vNode = h('', node);
-				siblings.push(vNode);
+				counter.incr();
+				// FIXME: Reuse previous key if (for the same value) it describes a VNode with the same text value.
+				const { key } = counter;
+
+				const vnode = h('', { key }, node);
+				siblings.push(vnode);
 			}
 		}
 	}
