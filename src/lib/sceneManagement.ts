@@ -149,8 +149,71 @@ function update(
 	state: RenderState,
 	nodes: RootNodes
 ): Promise<void> {
-	return updateNodes(registry, state, state.rootKey, state.counter.level(), nodes)
-		.then(({ currentWidgetKeys, newWidgetsInVNodes, vNodes: rootVNodes }) => {
+	const counter = state.counter.level();
+
+	const currentWidgetKeys: Key[] = [];
+	const newWidgetsInVNodes: WidgetInVNode[] = [];
+	const promises: Promise<void>[] = [];
+	const rootVNodes: FlatVNodeChildren = [];
+
+	const processing: [ FlatVNodeChildren, Counter, SceneNode[] ][] = [ [ rootVNodes, counter, nodes ] ];
+	while (true) {
+		const next = processing.shift();
+		if (!next) {
+			break;
+		}
+
+		const [ siblings, counter, nodes ] = next;
+		for (const node of nodes) {
+			if (isSceneWidget(node)) {
+				const { widget: value } = node;
+				const key = state.widgetKeys.get(value) || { value };
+				if (!state.widgetKeys.has(value)) {
+					state.widgetKeys.set(value, key);
+				}
+
+				// TODO: Support nested children?
+
+				currentWidgetKeys.push(key);
+				const index = siblings.push('') - 1;
+				const widget = state.widgets.get(key);
+				if (widget) {
+					newWidgetsInVNodes.push({ index, siblings, widget });
+				}
+				else {
+					const promise = registry.getWidget(value).then((widget) => {
+						state.widgets.set(key, widget);
+						state.handles.set(key, {
+							destroy() {
+								widget.destroy();
+								state.widgetKeys.delete(key.value);
+							}
+						});
+
+						newWidgetsInVNodes.push({ index, siblings, widget });
+					});
+					promises.push(promise);
+				}
+			}
+			else if (isSceneElement(node)) {
+				counter.incr();
+				// TODO: Compare against previous VNode to avoid rerendering, but need to take into account children
+				// const { key } = counter;
+
+				const vNode = h(node.tagName);
+				siblings.push(vNode);
+				if (node.children) {
+					processing.push([ vNode.children!, counter.level(), node.children ]);
+				}
+			}
+			else {
+				const vNode = h('', node);
+				siblings.push(vNode);
+			}
+		}
+	}
+
+	return Promise.all(promises).then(() => {
 			state.rootVNodes = rootVNodes;
 			state.unrenderedWidgetsInVNodes = newWidgetsInVNodes;
 			state.invalidate();
@@ -168,139 +231,5 @@ function update(
 					state.handles.get(key).destroy();
 				}
 			});
-		});
-}
-
-interface UpdateResult {
-	currentWidgetKeys: Key[];
-	newWidgetsInVNodes: WidgetInVNode[];
-	vNodes: FlatVNodeChildren;
-}
-
-function updateNodes(
-	registry: ReadOnlyRegistry,
-	state: RenderState,
-	parentKey: Key,
-	counter: Counter,
-	nodes: SceneNode[]
-): Promise<UpdateResult> {
-	interface Child {
-		currentWidgetKeys?: Key[];
-		key: Key;
-		newWidgetsInVNodes?: WidgetInVNode[];
-		text?: string;
-		vNode?: VNode;
-		widget?: WidgetLike;
-	}
-
-	const children: (Promise<Child> | Child)[] = nodes.map((node, index) => {
-		if (isSceneWidget(node)) {
-			const { widget: value } = node;
-			const key = state.widgetKeys.get(value) || { value };
-			if (!state.widgetKeys.has(value)) {
-				state.widgetKeys.set(value, key);
-			}
-
-			// TODO: Support nested children?
-
-			const widget = state.widgets.get(key);
-			if (widget) {
-				return { key, widget };
-			}
-
-			return registry.getWidget(value).then((widget) => {
-				state.widgets.set(key, widget);
-				state.handles.set(key, {
-					destroy() {
-						widget.destroy();
-						state.widgetKeys.delete(key.value);
-					}
-				});
-				return { key, widget };
-			});
-		}
-		else if (isSceneElement(node)) {
-			counter.incr();
-			const { key } = counter;
-			// TODO: Compare against previous VNode to avoid rerendering, but need to take into account children
-
-			if (!node.children) {
-				return {
-					key,
-					vNode: h(node.tagName)
-				};
-			}
-
-			return updateNodes(registry, state, key, counter.level(), node.children)
-				.then(({ currentWidgetKeys, vNodes, newWidgetsInVNodes }) => {
-					const vNode = h(node.tagName, vNodes);
-					for (
-						let i = newWidgetsInVNodes.length - 1;
-						i >= 0 && newWidgetsInVNodes[i].siblings === vNodes;
-						i--
-					) {
-						newWidgetsInVNodes[i].siblings = vNode.children!;
-					}
-
-					return {
-						currentWidgetKeys,
-						key,
-						newWidgetsInVNodes,
-						vNode
-					};
-				});
-		}
-		else {
-			counter.incr();
-			const { key } = counter;
-			return {
-				key,
-				text: node
-			};
-		}
-	});
-
-	return Promise.all(children)
-		.then((children) => {
-			const result: UpdateResult = {
-				currentWidgetKeys: [],
-				newWidgetsInVNodes: [],
-				vNodes: new Array(children.length)
-			};
-
-			children.forEach((child, index) => {
-				const {
-					currentWidgetKeys,
-					key,
-					newWidgetsInVNodes,
-					text,
-					vNode,
-					widget
-				} = child;
-
-				if (currentWidgetKeys) {
-					result.currentWidgetKeys = result.currentWidgetKeys.concat(currentWidgetKeys);
-				}
-				if (newWidgetsInVNodes) {
-					result.newWidgetsInVNodes = result.newWidgetsInVNodes.concat(newWidgetsInVNodes);
-				}
-
-				if (vNode) {
-					result.vNodes[index] = vNode;
-				}
-				else if (widget) {
-					result.currentWidgetKeys.push(key);
-					result.newWidgetsInVNodes.push({
-						index,
-						siblings: result.vNodes,
-						widget
-					});
-				}
-				else {
-					result.vNodes[index] = text!;
-				}
-			});
-
-			return result;
 		});
 }
