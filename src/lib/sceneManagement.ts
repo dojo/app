@@ -1,12 +1,12 @@
 import { Handle } from 'dojo-core/interfaces';
+import { remove } from 'dojo-dom/dom';
 import { includes } from 'dojo-shim/array';
 import Map from 'dojo-shim/Map';
 import Promise from 'dojo-shim/Promise';
 import WeakMap from 'dojo-shim/WeakMap';
-import createWidget from 'dojo-widgets/createWidget';
-import { createProjector, Projector } from 'dojo-widgets/projector';
+import { Parent as WidgetParent } from 'dojo-widgets/mixins/interfaces';
 import { List } from 'immutable';
-import { h, VNode } from 'maquette';
+import { createProjector, h, Projector, VNode } from 'maquette';
 
 import {
 	Identifier,
@@ -64,84 +64,117 @@ class Counter {
 	}
 }
 
+class AdoptiveWidgetParent implements WidgetParent {
+	private readonly invalidateFn: () => void;
+
+	constructor(invalidateFn: () => void) {
+		this.invalidateFn = invalidateFn;
+	}
+
+	append(ignore: any): Handle {
+		return { destroy() {} };
+	}
+
+	get children() {
+		return List();
+	}
+
+	set children(ignore: any) {}
+
+	invalidate() {
+		this.invalidateFn();
+	}
+}
+
 type FlatVNodeChildren = (string | VNode)[];
 
-interface WidgetInVNode {
-	index: number;
-	siblings: FlatVNodeChildren;
-	widget: WidgetLike;
+interface AttachedWidget {
+	vnode?: VNode;
+	boundRender(): VNode;
 }
 
 interface RenderState {
-	childrenKeys: WeakMap<Key, Key[]>;
+	attachedWidgets: Map<Key, AttachedWidget>;
 	counter: Counter;
 	handles: WeakMap<Key, Handle>;
-	invalidate: () => void;
+	placeholderCache: WeakMap<Key, VNode>;
+	projector: Projector;
+	pruneOnUpdate: { vnode: VNode; domNode: Node; }[];
+	rootElement: Element;
+	rootRender?: () => VNode;
 	rootVNodes: FlatVNodeChildren;
-	rootKey: Key;
-	rootProjector: Projector;
-	unrenderedWidgetsInVNodes: WidgetInVNode[];
-	vNodes: WeakMap<Key, VNode>;
+	widgetCache: WeakMap<Key, WidgetLike>;
 	widgetKeys: Map<Identifier, Key>;
-	widgets: WeakMap<Key, WidgetLike>;
+	widgetParent: AdoptiveWidgetParent;
 }
 
 const renderState = new WeakMap<ReadOnlyRegistry, RenderState>();
 
 export function render(registry: ReadOnlyRegistry, root: Element, nodes: RootNodes) {
 	const state = renderState.get(registry) || initialize(root);
-	if (!renderState.has(registry)) {
+	const isInitial = !renderState.has(registry);
+	if (isInitial) {
 		renderState.set(registry, state);
 	}
 
 	return update(registry, state, nodes)
 		.then(() => {
+			if (isInitial) {
+				const properties = {
+					afterUpdate() {
+						for (const { vnode, domNode } of state.pruneOnUpdate) {
+							if (vnode.domNode !== domNode) {
+								remove(domNode);
+							}
+						}
+						state.pruneOnUpdate = [];
+					}
+				};
+				state.rootRender = () => h('div', properties, state.rootVNodes);
+				state.projector.merge(state.rootElement, state.rootRender);
+			}
+			else {
+				state.projector.scheduleRender();
+			}
+
 			return {
 				destroy() {
+					renderState.delete(registry);
+
+					state.projector.stop();
+					state.projector.detach(state.rootRender!);
+
 					state.widgetKeys.forEach((key) => {
-						if (state.handles.has(key)) {
-							state.handles.get(key).destroy();
+						const handle = state.handles.get(key);
+						if (handle) {
+							handle.destroy();
 						}
 					});
-					state.rootProjector.destroy();
+
+					// FIXME: Should pruneOnUpdate be processed here?
 				}
 			};
 		});
 }
 
-function initialize(root: Element) {
-	const rootProjector = createProjector({ autoAttach: true, root });
+function initialize(rootElement: Element): RenderState {
+	const projector = createProjector();
 	const counter = new Counter();
-	const { key: rootKey } = counter;
-	const childrenKeys = new WeakMap<Key, Key[]>();
-	childrenKeys.set(rootKey, []);
+	const widgetParent = new AdoptiveWidgetParent(() => projector.scheduleRender());
 
-	const proxy = createWidget.extend({
-		getChildrenNodes() {
-			for (const { index, siblings, widget } of state.unrenderedWidgetsInVNodes) {
-				siblings[index] = widget.render();
-			}
-			state.unrenderedWidgetsInVNodes = [];
-			return state.rootVNodes;
-		}
-	})({ tagName: 'div' });
-	rootProjector.append(proxy);
-
-	const state: RenderState = {
-		childrenKeys,
+	return {
+		attachedWidgets: new Map<Key, AttachedWidget>(),
 		counter,
 		handles: new WeakMap<Key, Handle>(),
-		invalidate: proxy.invalidate.bind(proxy),
+		placeholderCache: new WeakMap<Key, VNode>(),
+		projector,
+		pruneOnUpdate: [],
+		rootElement,
 		rootVNodes: [],
-		rootKey,
-		rootProjector,
-		unrenderedWidgetsInVNodes: [],
-		vNodes: new WeakMap<Key, VNode>(),
+		widgetCache: new WeakMap<Key, WidgetLike>(),
 		widgetKeys: new Map<Identifier, Key>(),
-		widgets: new WeakMap<Key, WidgetLike>()
+		widgetParent
 	};
-
-	return state;
 }
 
 function update(
@@ -152,11 +185,11 @@ function update(
 	const counter = state.counter.level();
 
 	const currentWidgetKeys: Key[] = [];
-	const newWidgetsInVNodes: WidgetInVNode[] = [];
 	const promises: Promise<void>[] = [];
-	const rootVNodes: FlatVNodeChildren = [];
+	const rootVNodes: VNode[] = [];
 
-	const processing: [ FlatVNodeChildren, Counter, SceneNode[] ][] = [ [ rootVNodes, counter, nodes ] ];
+	type Processing = [ FlatVNodeChildren, Counter, SceneNode[] ];
+	const processing: Processing[] = [ [ rootVNodes, counter, nodes ] ];
 	while (true) {
 		const next = processing.shift();
 		if (!next) {
@@ -174,23 +207,58 @@ function update(
 
 				// TODO: Support nested children?
 
-				currentWidgetKeys.push(key);
-				const index = siblings.push('') - 1;
-				const widget = state.widgets.get(key);
-				if (widget) {
-					newWidgetsInVNodes.push({ index, siblings, widget });
+				const placeholder = state.placeholderCache.get(key) || h('div', {
+					afterCreate: afterPlaceholderCreate,
+					key: {
+						fn(element: Element) {
+							const existing = state.attachedWidgets.get(key);
+							if (existing) {
+								const { boundRender, vnode } = existing;
+								state.projector.detach(boundRender);
+								// The widget may be moved to a different place entirely, in which case Maquette won't
+								// update the current domNode. It has to be removed manually, so prepare for that.
+								if (vnode && vnode.domNode) {
+									state.pruneOnUpdate.push({ vnode, domNode: vnode.domNode });
+								}
+							}
+
+							const widget = state.widgetCache.get(key);
+							const attached: AttachedWidget = {
+								boundRender(): VNode {
+									attached.vnode = widget.render();
+									return attached.vnode;
+								}
+							};
+							state.attachedWidgets.set(key, attached);
+							state.projector.replace(element, attached.boundRender);
+						}
+					}
+				});
+				if (!state.placeholderCache.has(key)) {
+					state.placeholderCache.set(key, placeholder);
 				}
-				else {
+
+				siblings.push(placeholder);
+				currentWidgetKeys.push(key);
+
+				if (!state.widgetCache.has(key)) {
 					const promise = registry.getWidget(value).then((widget) => {
-						state.widgets.set(key, widget);
+						state.widgetCache.set(key, widget);
 						state.handles.set(key, {
 							destroy() {
 								widget.destroy();
 								state.widgetKeys.delete(key.value);
+
+								const attached = state.attachedWidgets.get(key);
+								if (attached) {
+									state.projector.detach(attached.boundRender);
+									state.attachedWidgets.delete(key);
+								}
 							}
 						});
 
-						newWidgetsInVNodes.push({ index, siblings, widget });
+						// Ensures a render is scheduled when the widget is invalidated.
+						widget.parent = state.widgetParent;
 					});
 					promises.push(promise);
 				}
@@ -219,13 +287,8 @@ function update(
 		}
 	}
 
-	return Promise.all(promises).then(() => {
-			state.rootVNodes = rootVNodes;
-			state.unrenderedWidgetsInVNodes = newWidgetsInVNodes;
-			state.invalidate();
-
-			// TODO: Destroy after render, not before, especially given the asynchronous promise chains and render
-			// scheduling.
+	return Promise.all(promises)
+		.then(() => {
 			state.widgetKeys.forEach((key) => {
 				if (!includes(currentWidgetKeys, key)) {
 					// TODO: It follows that any registered widget instances should override their destroy() method, as
@@ -234,8 +297,20 @@ function update(
 					//
 					// Also, upon destruction factories should revert to creating a new instance. And if a factory
 					// always returns the same instance then the above applies.
-					state.handles.get(key).destroy();
+					const handle = state.handles.get(key);
+					if (handle) {
+						handle.destroy();
+					}
 				}
 			});
+
+			state.rootVNodes = rootVNodes;
 		});
+}
+
+interface PlaceholderProperties {
+	key: { fn: (element: Element) => void };
+}
+function afterPlaceholderCreate(element: Element, _: any, __: any, props: PlaceholderProperties) {
+	props.key.fn(element);
 }
