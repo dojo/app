@@ -2,6 +2,9 @@ import { Handle } from 'dojo-core/interfaces';
 import Promise from 'dojo-shim/Promise';
 import * as registerSuite from 'intern!object';
 import * as assert from 'intern/chai!assert';
+import { spy, stub, SinonStub } from 'sinon';
+
+import createRouter from 'dojo-routing/createRouter';
 
 import createApp, { DEFAULT_ACTION_STORE, DEFAULT_WIDGET_STORE } from 'src/createApp';
 
@@ -13,6 +16,8 @@ import {
 	rejects,
 	strictEqual
 } from '../support/createApp';
+import stubDom from '../support/stubDom';
+import { defer } from '../support/util';
 
 const { toAbsMid } = require;
 
@@ -80,6 +85,29 @@ registerSuite({
 			return app.getStore(DEFAULT_WIDGET_STORE).then((actual) => {
 				assert.strictEqual(actual, store);
 			});
+		}
+	},
+
+	'#router': {
+		'defaults to undefined'() {
+			assert.isUndefined(createApp().router);
+		},
+		'can be set at creation time'() {
+			const router = createRouter();
+			const app = createApp({ router });
+			assert.strictEqual(app.router, router);
+		},
+		'can be set after creation'() {
+			const router = createRouter();
+			const app = createApp();
+			app.router = router;
+			assert.strictEqual(app.router, router);
+		},
+		'can only be set once'() {
+			const router = createRouter();
+			const app = createApp({ router });
+			assert.throws(() => app.router = createRouter(), Error);
+			assert.strictEqual(app.router, router);
 		}
 	},
 
@@ -225,6 +253,263 @@ registerSuite({
 
 			'any other get() call throws'() {
 				assert.throws(() => registryProvider.get('foo'), Error, 'No such store: foo');
+			}
+		};
+	})(),
+
+	'#start': (() => {
+		let root: Element;
+		let stubbedGlobals: Handle;
+
+		return {
+			before() {
+				stubbedGlobals = stubDom();
+				root = document.createElement('div');
+			},
+
+			after() {
+				stubbedGlobals.destroy();
+			},
+
+			'can be called without options'() {
+				return createApp().start();
+			},
+
+			'realizes root if provided as option'() {
+				const app = createApp();
+				const realize = spy(app, 'realize');
+				app.start({ root });
+				assert.isTrue(realize.calledOnce);
+			},
+
+			'does not realize if called without root option'() {
+				const app = createApp();
+				const realize = spy(app, 'realize');
+				app.start({});
+				assert.isFalse(realize.calledOnce);
+			},
+
+			'invokes afterRealize': {
+				'if provided as option'() {
+					const app = createApp();
+					const afterRealize = spy();
+					return app.start({ afterRealize }).then(() => {
+						assert.isTrue(afterRealize.calledOnce);
+					});
+				},
+
+				'after root is realized'() {
+					const app = createApp();
+					const { promise, resolve } = defer();
+					stub(app, 'realize').returns(promise);
+
+					const afterRealize = spy();
+					const done = app.start({ afterRealize, root });
+
+					return new Promise((resolve) => setTimeout(resolve, 10))
+						.then(() => {
+							assert.isTrue(afterRealize.notCalled);
+							resolve({});
+							return done;
+						})
+						.then(() => {
+							assert.isTrue(afterRealize.calledOnce);
+						});
+				},
+
+				'in a next turn if there is no root to realize'() {
+					const app = createApp();
+					const afterRealize = spy();
+					const done = app.start({ afterRealize });
+					assert.isTrue(afterRealize.notCalled);
+					return done.then(() => {
+						assert.isTrue(afterRealize.calledOnce);
+					});
+				}
+			},
+
+			'starts router': {
+				'if the app has one'() {
+					const router = createRouter();
+					const app = createApp({ router });
+					const start = spy(router, 'start');
+					return app.start({}).then(() => {
+						assert.isTrue(start.calledOnce);
+					});
+				},
+
+				'even if set by afterRealize'() {
+					const router = createRouter();
+					const app = createApp();
+					const start = spy(router, 'start');
+					return app.start({ afterRealize() { app.router = router; }}).then(() => {
+						assert.isTrue(start.calledOnce);
+					});
+				},
+
+				'starts without options if dispatchCurrent is not provided as an option'() {
+					const router = createRouter();
+					const app = createApp({ router });
+					const start = spy(router, 'start');
+					return app.start({}).then(() => {
+						assert.deepEqual(start.firstCall.args, [undefined]);
+					});
+				},
+
+				'starts with dispatchCurrent=true if dispatchCurrent option is provided and true'() {
+					const router = createRouter();
+					const app = createApp({ router });
+					const start = spy(router, 'start');
+					return app.start({ dispatchCurrent: true }).then(() => {
+						assert.deepEqual(start.firstCall.args, [ { dispatchCurrent: true } ]);
+					});
+				},
+
+				'starts with dispatchCurrent=false if dispatchCurrent option is provided and false'() {
+					const router = createRouter();
+					const app = createApp({ router });
+					const start = spy(router, 'start');
+					return app.start({}).then(() => {
+						assert.deepEqual(start.firstCall.args, [undefined]);
+					});
+				},
+
+				'after afterRealize'() {
+					const router = createRouter();
+					const app = createApp({ router });
+					const start = spy(router, 'start');
+
+					const { promise, resolve } = defer();
+					const done = app.start({ afterRealize() { return promise; } });
+
+					return new Promise((resolve) => setTimeout(resolve, 10))
+						.then(() => {
+							assert.isTrue(start.notCalled);
+							resolve({});
+							return done;
+						})
+						.then(() => {
+							assert.isTrue(start.calledOnce);
+						});
+				},
+
+				'after root is realized (no afterRealize)'() {
+					const router = createRouter();
+					const app = createApp({ router });
+					const start = spy(router, 'start');
+
+					const { promise, resolve } = defer();
+					stub(app, 'realize').returns(promise);
+
+					const done = app.start({ root });
+
+					return new Promise((resolve) => setTimeout(resolve, 10))
+						.then(() => {
+							assert.isTrue(start.notCalled);
+							resolve({});
+							return done;
+						})
+						.then(() => {
+							assert.isTrue(start.calledOnce);
+						});
+				}
+			},
+
+			'destroying the resulting handle': {
+				'destroys the realization handle'() {
+					const app = createApp();
+
+					const realizationHandle = <any> stub({ destroy() {} });
+					stub(app, 'realize').returns(Promise.resolve(realizationHandle));
+
+					return app.start({ root }).then((handle) => {
+						handle.destroy();
+						assert.isTrue((<SinonStub> realizationHandle.destroy).calledOnce);
+					});
+				},
+
+				'destroys the realization handle *and* router handle'() {
+					const router = createRouter();
+					const app = createApp({ router });
+
+					const realizationHandle = <any> stub({ destroy() {} });
+					stub(app, 'realize').returns(Promise.resolve(realizationHandle));
+					const routerHandle = <any> stub({ destroy() {} });
+					stub(router, 'start').returns(routerHandle);
+
+					return app.start({ root }).then((handle) => {
+						handle.destroy();
+						assert.isTrue((<SinonStub> realizationHandle.destroy).calledOnce);
+						assert.isTrue((<SinonStub> routerHandle.destroy).calledOnce);
+					});
+				},
+
+				'destroys the router handle if there is no realization handle'() {
+					const router = createRouter();
+					const app = createApp({ router });
+
+					const routerHandle = <any> stub({ destroy() {} });
+					stub(router, 'start').returns(routerHandle);
+
+					return app.start({}).then((handle) => {
+						handle.destroy();
+						assert.isTrue((<SinonStub> routerHandle.destroy).calledOnce);
+					});
+				}
+			},
+
+			'pausing the resulting handle': {
+				'is a noop if there is no router handle'() {
+					return createApp().start({}).then((handle) => {
+						assert.doesNotThrow(() => {
+							handle.pause();
+						});
+					});
+				},
+
+				'pauses the router handle'() {
+					const router = createRouter();
+					const app = createApp({ router });
+
+					const routerHandle = <any> stub({ pause() {} });
+					stub(router, 'start').returns(routerHandle);
+
+					return app.start({}).then((handle) => {
+						handle.pause();
+						assert.isTrue((<SinonStub> routerHandle.pause).calledOnce);
+					});
+				}
+			},
+
+			'resuming the resulting handle': {
+				'is a noop if there is no router handle'() {
+					return createApp().start({}).then((handle) => {
+						assert.doesNotThrow(() => {
+							handle.resume();
+						});
+					});
+				},
+
+				'resumes the router handle'() {
+					const router = createRouter();
+					const app = createApp({ router });
+
+					const routerHandle = <any> stub({ resume() {} });
+					stub(router, 'start').returns(routerHandle);
+
+					return app.start({}).then((handle) => {
+						handle.resume();
+						assert.isTrue((<SinonStub> routerHandle.resume).calledOnce);
+					});
+				}
+			},
+
+			'app can only be started once'() {
+				const app = createApp();
+				app.start();
+				assert.throws(() => {
+					app.start();
+				}, Error, 'start can only be called once');
 			}
 		};
 	})(),

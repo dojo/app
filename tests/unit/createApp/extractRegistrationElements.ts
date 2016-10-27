@@ -3,6 +3,7 @@ import Promise from 'dojo-shim/Promise';
 import createWidget from 'dojo-widgets/createWidget';
 import * as registerSuite from 'intern!object';
 import * as assert from 'intern/chai!assert';
+import createRouter from 'dojo-routing/createRouter';
 
 import createApp, {
 	ActionFactoryOptions,
@@ -12,9 +13,11 @@ import createApp, {
 } from 'src/createApp';
 
 import actionFixture from 'tests/fixtures/action-instance';
+import routerFixture from 'tests/fixtures/router-instance';
 import storeFixture from 'tests/fixtures/store-instance';
 import widgetFixture from 'tests/fixtures/widget-instance';
 import * as actionExports from 'tests/fixtures/action-exports';
+import * as routerExports from 'tests/fixtures/router-exports';
 import * as storeExports from 'tests/fixtures/store-exports';
 import * as widgetExports from 'tests/fixtures/widget-exports';
 import { stub as stubActionFactory } from 'tests/fixtures/action-factory';
@@ -609,6 +612,79 @@ registerSuite({
 
 		'is removed from the DOM'() {
 			root.innerHTML = '<app-element data-name="foo-bar" data-factory="tests/fixtures/widget-factory"></app-element>';
+			return app.realize(root).then(() => {
+				assert.isFalse(root.hasChildNodes());
+			});
+		}
+	},
+
+	'<app-router>': {
+		'requires data-from'() {
+			root.innerHTML = '<app-router></app-router>';
+			return rejects(app.realize(root), Error, 'app-router requires data-from');
+		},
+
+		'lazily resolves store instances': {
+			'declared with data-from'() {
+				root.innerHTML = '<app-router id="foo" data-from="tests/fixtures/router-instance"></app-router>';
+				return app.realize(root).then(() => {
+					return assert.strictEqual(app.router, routerFixture);
+				});
+			},
+
+			'declared with data-from, pointing at an AMD module'() {
+				root.innerHTML = '<app-router id="foo" data-from="tests/fixtures/router-instance-amd"></app-router>';
+				return app.realize(root).then(() => {
+					return new Promise((resolve) => {
+						require(['tests/fixtures/router-instance-amd'], resolve);
+					}).then((expected) => {
+						return assert.strictEqual(app.router, expected);
+					});
+				});
+			},
+
+			'declared with data-import and data-from'() {
+				root.innerHTML = '<app-router id="foo" data-import="member1" data-from="tests/fixtures/router-exports"></app-router>';
+				return app.realize(root).then(() => {
+					return assert.strictEqual(app.router, routerExports['member1']);
+				});
+			},
+
+			'declared with data-import and data-from, pointing at an AMD module'() {
+				root.innerHTML = '<app-router id="foo" data-import="member1" data-from="tests/fixtures/router-exports-amd"></app-router>';
+				return app.realize(root).then(() => {
+					return new Promise((resolve) => {
+						require(['tests/fixtures/router-exports-amd'], resolve);
+					}).then((exports: any) => {
+						return assert.strictEqual(app.router, exports['member1']);
+					});
+				});
+			}
+		},
+
+		'is immediately added as the router'() {
+			root.innerHTML = '<app-router data-from="tests/fixtures/router-instance"></app-router>';
+			return app.realize(root).then(() => {
+				assert.strictEqual(app.router, routerFixture);
+			});
+		},
+
+		'causes realize() to reject if used more than once'() {
+			root.innerHTML = `
+				<app-router data-from="tests/fixtures/router-instance"></app-router>;
+				<app-router data-from="tests/fixtures/router-instance"></app-router>
+			`;
+			return rejects(app.realize(root), Error);
+		},
+
+		'causes realize() to reject if there already is a router'() {
+			root.innerHTML = '<app-router data-from="tests/fixtures/router-instance"></app-router>';
+			app.router = createRouter();
+			return rejects(app.realize(root), Error);
+		},
+
+		'is removed from the DOM'() {
+			root.innerHTML = '<app-router data-from="tests/fixtures/router-instance"></app-router>';
 			return app.realize(root).then(() => {
 				assert.isFalse(root.hasChildNodes());
 			});

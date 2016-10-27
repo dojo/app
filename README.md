@@ -48,6 +48,24 @@ app.defaultWidgetStore = createMemoryStore();
 
 This store will be used as the `stateFrom` option to widget and custom element factories, unless another store is specified.
 
+Similarly you can define a [router](https://github.com/dojo/routing) at creation time:
+
+```ts
+import createRouter from 'dojo-routing/createRouter';
+
+const router = createRouter();
+const app = createApp({ router });
+```
+
+Or (again just once), assign the router:
+
+```ts
+import createRouter from 'dojo-routing/createRouter';
+
+const app = createApp();
+app.router = createRouter();
+```
+
 ### Functional API
 
 #### Registering actions
@@ -382,8 +400,9 @@ The following custom elements are recognized:
 * `<app-action>`
 * `<app-actions>`
 * `<app-element>`
-* `<app-store>`
 * `<app-projector>`
+* `<app-router>`
+* `<app-store>`
 * `<app-widget>`
 
 These are matched case-insensitively. You can also use the `is` attribute, for example `<div is="app-projector">`.
@@ -401,6 +420,10 @@ The `data-state-from` attribute may be used to specify a store that the action s
 Use the `data-state` attribute to specify an initial state object, encoded as a JSON string. This initial state will be added to the action's store before it's created. The store is assumed to reject the initial state if it already contains state for the action. This error will be ignored and the action will be created with whatever state was already in the store.
 
 Use `<app-actions>` to load action instances from a module. The `data-from` attribute must be used to specify the module ID. The module is loaded immediately. Its non-default members are assumed to be action instances. The member names will be used as the action IDs.
+
+#### Defining the router
+
+Use `<app-router>` to define a router. Use the `data-from` attribute to import the router, again by specifying its module ID. To import a specific member, use the `data-import` attribute. Note that a router can only be defined once.
 
 #### Defining stores
 
@@ -531,6 +554,31 @@ The realized DOM will be:
 		</div>
 	</app-projector>
 </body>
+```
+
+### Starting the application
+
+Use `App#start()` to start the application. If you provide the `root` option the `root` element is realized first. If a router was defined it is automatically started upon realization. The `dispatchCurrent` option is forwarded to `Router#start()`.
+
+Sometimes an application requires more setup after realization, but before the router is started. Provide a callback for the `afterRealize` option that takes care of it. It may return a promise if necessary.
+
+`App#start()` returns a promise for a pausable handle. Pausing and resuming is forwarded to the handle returned by `Router#start()`. Destroying the handle destroys the router and the realization of the `root` element.
+
+`App#start()` may only be called once.
+
+For example:
+
+```ts
+app.start({
+	root: document.body,
+	afterRealize() {
+		return new Promise((resolve) => {
+			// further setup
+			resolve();
+		});
+	},
+	dispatchCurrent: false
+});
 ```
 
 ## How do I use this package?
