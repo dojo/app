@@ -1,11 +1,11 @@
 import { Action } from 'dojo-actions/createAction';
 import compose, { ComposeFactory } from 'dojo-compose/compose';
-import { EventedListener, EventedListenersMap } from 'dojo-compose/mixins/createEvented';
-import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
-import { Handle } from 'dojo-core/interfaces';
+import { ObservableState } from 'dojo-compose/bases/createStateful';
 import IdentityRegistry from 'dojo-core/IdentityRegistry';
 import { assign } from 'dojo-core/lang';
 import { PausableHandle } from 'dojo-core/on';
+import { EventedListener, EventedListenersMap, State } from 'dojo-interfaces/bases';
+import { Handle } from 'dojo-interfaces/core';
 import { Router, StartOptions as RouterStartOptions } from 'dojo-routing/createRouter';
 import { Context } from 'dojo-routing/interfaces';
 import Promise from 'dojo-shim/Promise';
@@ -79,7 +79,7 @@ export interface WidgetFactoryOptions {
 	/**
 	 * Listeners that should be attached when the widget is created.
 	 */
-	listeners?: EventedListenersMap;
+	listeners?: EventedListenersMap<any>;
 
 	/**
 	 * Provides access to read-only registries for actions, stores and widgets.
@@ -258,7 +258,7 @@ export interface WidgetDefinition extends ItemDefinition<WidgetFactory, WidgetLi
 /**
  * A listener for widgets, as used in definitions. May be an identifier for an action or an actual event listener.
  */
-export type WidgetListener = Identifier | EventedListener<any>;
+export type WidgetListener = Identifier | EventedListener<any, any>;
 
 export type WidgetListenerOrArray = WidgetListener | WidgetListener[];
 

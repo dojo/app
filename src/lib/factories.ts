@@ -1,4 +1,4 @@
-import { EventedListenersMap } from 'dojo-compose/mixins/createEvented';
+import { EventedListenersMap } from 'dojo-interfaces/bases';
 import { assign } from 'dojo-core/lang';
 import Promise from 'dojo-shim/Promise';
 
@@ -231,7 +231,7 @@ export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: Reso
 			resolveStore(registry, definition)
 		]).then(([_factory, _listeners, _store]) => {
 			const factory = <WidgetFactory> _factory;
-			const listeners = <EventedListenersMap> _listeners;
+			const listeners = <EventedListenersMap<any>> _listeners;
 			const store = <StoreLike> _store || defaultWidgetStore;
 
 			if (listeners) {
