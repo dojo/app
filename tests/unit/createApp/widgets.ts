@@ -54,7 +54,7 @@ registerSuite({
 
 			return defaultWidgetStore.add({id: 'foo', type: 'custom-element'}).then(() => {
 				return app.getWidget('foo').then((widget) => {
-					assert.isObject(widget);
+					assert.equal(widget.tagName, 'div');
 				});
 			});
 		},
@@ -67,7 +67,7 @@ registerSuite({
 
 			return defaultWidgetStore.add({id: 'foo', type: 'custom-element'}).then(() => {
 				return app.getWidget('foo').then((widget) => {
-					assert.isObject(widget);
+					assert.equal(widget.tagName, 'div');
 				});
 			});
 		},
