@@ -10,6 +10,8 @@ import {
 	rejects,
 	strictEqual
 } from '../../support/createApp';
+import { Require } from 'dojo-interfaces/loader';
+declare const require: Require;
 
 const { toAbsMid } = require;
 

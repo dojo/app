@@ -1,4 +1,5 @@
-import { EventedListener, EventedListenersMap, TargettedEventObject } from 'dojo-compose/mixins/createEvented';
+import { EventedListener, EventedListenersMap } from 'dojo-interfaces/bases';
+import { EventTargettedObject } from 'dojo-interfaces/core';
 import Promise from 'dojo-shim/Promise';
 
 import {
@@ -29,9 +30,9 @@ function withoutPromises<T>(mixed: MixedResults<T>): mixed is T[][] & MixedResul
 function resolveListeners(
 	registry: ReadOnlyRegistry,
 	ref: WidgetListenerOrArray
-): ResolvedListeners<EventedListener<TargettedEventObject>> {
+): ResolvedListeners<EventedListener<any, EventTargettedObject<any>>> {
 	if (Array.isArray(ref)) {
-		const mixed: MixedResults<EventedListener<TargettedEventObject>> = [];
+		const mixed: MixedResults<EventedListener<any, EventTargettedObject<any>>> = [];
 		for (const item of ref) {
 			const result = resolveListeners(registry, item);
 			if (carriesValue(result)) {
@@ -43,7 +44,7 @@ function resolveListeners(
 			}
 		}
 
-		const flattened: EventedListener<TargettedEventObject>[] = [];
+		const flattened: EventedListener<any, EventTargettedObject<any>>[] = [];
 		if (withoutPromises(mixed)) {
 			return [flattened.concat(...mixed), undefined];
 		}
@@ -56,7 +57,7 @@ function resolveListeners(
 	}
 
 	if (typeof ref !== 'string') {
-		return [ [ <EventedListener<TargettedEventObject>> ref ], undefined ];
+		return [ [ <EventedListener<any, EventTargettedObject<any>>> ref ], undefined ];
 	}
 
 	return [
@@ -65,12 +66,12 @@ function resolveListeners(
 	];
 }
 
-export default function resolveListenersMap(registry: ReadOnlyRegistry, listeners?: WidgetListenersMap): null | Promise<EventedListenersMap> {
+export default function resolveListenersMap(registry: ReadOnlyRegistry, listeners?: WidgetListenersMap): null | Promise<EventedListenersMap<any>> {
 	if (!listeners) {
 		return null;
 	}
 
-	const map: EventedListenersMap = {};
+	const map: any = {};
 	const eventTypes = Object.keys(listeners);
 	return eventTypes.reduce((promise, eventType) => {
 		const result = resolveListeners(registry, listeners[eventType]);

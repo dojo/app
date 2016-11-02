@@ -4,6 +4,8 @@ import createWidget from 'dojo-widgets/createWidget';
 import * as registerSuite from 'intern!object';
 import * as assert from 'intern/chai!assert';
 import createRouter from 'dojo-routing/createRouter';
+import { Require } from 'dojo-interfaces/loader';
+declare const require: Require;
 
 import createApp, {
 	ActionFactoryOptions,

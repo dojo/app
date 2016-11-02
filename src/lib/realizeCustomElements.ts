@@ -1,5 +1,5 @@
-import { EventedListenersMap } from 'dojo-compose/mixins/createEvented';
-import { Handle } from 'dojo-core/interfaces';
+import { EventedListenersMap } from 'dojo-interfaces/bases';
+import { Handle } from 'dojo-interfaces/core';
 import { from as arrayFrom } from 'dojo-shim/array';
 import Promise from 'dojo-shim/Promise';
 import Set from 'dojo-shim/Set';
@@ -164,12 +164,12 @@ interface JsonOptions {
 
 interface Options {
 	id?: string;
-	readonly listeners?: EventedListenersMap;
+	readonly listeners?: EventedListenersMap<any>;
 	registryProvider: RegistryProvider;
 	readonly stateFrom?: StoreLike;
 }
 
-function resolveListeners(registry: ReadOnlyRegistry, element: Element): null | Promise<EventedListenersMap> {
+function resolveListeners(registry: ReadOnlyRegistry, element: Element): null | Promise<EventedListenersMap<any>> {
 	const str = element.getAttribute('data-listeners');
 	if (!str) {
 		return null;
@@ -333,7 +333,7 @@ export default function realizeCustomElements(
 							projectorStateFrom
 						]).then(([_factory, _listeners, _options, _store, projectorStore]) => {
 							const factory: WidgetFactory = _factory;
-							const listeners: EventedListenersMap = _listeners;
+							const listeners: EventedListenersMap<any> = _listeners;
 							const options: WidgetFactoryOptions = _options;
 							// `data-state-from` store of the element takes precedence, then of the projector, then
 							// the application's default widget store.

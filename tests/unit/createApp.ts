@@ -18,6 +18,8 @@ import {
 } from '../support/createApp';
 import stubDom from '../support/stubDom';
 import { defer } from '../support/util';
+import { Require } from 'dojo-interfaces/loader';
+declare const require: Require;
 
 const { toAbsMid } = require;
 

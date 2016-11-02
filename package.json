@@ -31,6 +31,7 @@
   "devDependencies": {
     "codecov.io": "0.1.6",
     "dojo-actions": ">=2.0.0-alpha.8",
+    "dojo-interfaces": "^2.0.0-alpha.3",
     "dojo-loader": ">=2.0.0-beta.7",
     "dojo-routing": "^2.0.0-alpha.6",
     "dojo-stores": "^2.0.0-alpha.1",
@@ -51,6 +52,10 @@
     "remap-istanbul": "^0.6.4",
     "sinon": "^1.17.6",
     "tslint": "^3.15.1",
-    "typescript": "~2.0.3"
+    "typescript": "~2.0.3",
+    "@types/node": "^6.0.46",
+    "@types/chai": "~3.4.0",
+    "@types/es6-shim": "~0.31.0",
+    "@types/grunt": "~0.4.0"
   }
 }
