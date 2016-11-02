@@ -18,6 +18,8 @@ import {
 import { defer } from '../../support/util';
 
 const { toAbsMid } = require;
+import { Require } from 'dojo-interfaces/loader';
+declare const require: Require;
 
 registerSuite({
 	name: 'createApp (stores)',

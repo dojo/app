@@ -1,6 +1,7 @@
 import Promise from 'dojo-shim/Promise';
 import Symbol from 'dojo-shim/Symbol';
-
+import { Require } from 'dojo-interfaces/loader';
+declare const require: Require;
 /**
  * Internal interface to asynchronously resolve a module by its identifier.
  */

@@ -26,6 +26,8 @@ import {
 	strictEqual
 } from '../../support/createApp';
 import { defer } from '../../support/util';
+import { Require } from 'dojo-interfaces/loader';
+declare const require: Require;
 
 const { toAbsMid } = require;
 
