@@ -638,7 +638,10 @@ function createCustomWidget(app: App, id: string) {
 
 		if (!hasRegisteredFactory && !hasRegisteredInstance) {
 			const customFactory = customElementFactories.get(state.type);
-			factoryHandle = app.registerWidgetFactory(id, customFactory);
+			factoryHandle = app.registerWidgetFactory(id, (options: any) => {
+				options.state = state;
+				return customFactory(options);
+			});
 		}
 
 		return app.getWidget(id);
