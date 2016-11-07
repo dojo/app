@@ -2,7 +2,7 @@ import { Action } from 'dojo-actions/createAction';
 import compose, { ComposeFactory } from 'dojo-compose/compose';
 import { EventedListener, EventedListenersMap } from 'dojo-compose/mixins/createEvented';
 import { ObservableState, State } from 'dojo-compose/mixins/createStateful';
-import { Handle } from 'dojo-core/interfaces';
+import { Handle, Hash } from 'dojo-core/interfaces';
 import IdentityRegistry from 'dojo-core/IdentityRegistry';
 import { assign } from 'dojo-core/lang';
 import { PausableHandle } from 'dojo-core/on';
@@ -99,6 +99,20 @@ export interface WidgetFactoryOptions {
 	stateFrom?: StoreLike;
 }
 
+export interface ContainerListWidgetFactoryOptions extends WidgetFactoryOptions {
+	/**
+	 * Children that should be appended when the widget is created.
+	 */
+	children: WidgetLike[];
+}
+
+export interface ContainerMapWidgetFactoryOptions extends WidgetFactoryOptions {
+	/**
+	 * Children that should be appended when the widget is created.
+	 */
+	children: Hash<WidgetLike>;
+}
+
 /**
  * Factory method to (asynchronously) create an action.
  *
@@ -122,9 +136,24 @@ export interface StoreFactory {
  *
  * @return The widget, or a promise for it
  */
-export interface WidgetFactory {
-	(options?: WidgetFactoryOptions): WidgetLike | Promise<WidgetLike>;
+export interface GenericWidgetFactory<O extends WidgetFactoryOptions> {
+	(options?: O): WidgetLike | Promise<WidgetLike>;
 }
+
+/**
+ * Factory method to (asynchronously) create a regular widget.
+ */
+export type WidgetFactory = GenericWidgetFactory<WidgetFactoryOptions>;
+
+/**
+ * Factory method to (asynchronously) create a container widget, which uses a list to manage its children.
+ */
+export type ContainerListWidgetFactory = GenericWidgetFactory<ContainerListWidgetFactoryOptions>;
+
+/**
+ * Factory method to (asynchronously) create a container widget, which uses a map to manage its children.
+ */
+export type ContainerMapWidgetFactory = GenericWidgetFactory<ContainerMapWidgetFactoryOptions>;
 
 /**
  * Plain old JavaScript object that contains definitions of actions, stores and widgets.
@@ -227,7 +256,7 @@ export interface StoreDefinition extends ItemDefinition<StoreFactory, StoreLike>
 /**
  * Definition for a single widget.
  */
-export interface WidgetDefinition extends ItemDefinition<WidgetFactory, WidgetLike> {
+export interface GenericWidgetDefinition<F extends WidgetFactory> extends ItemDefinition<F, WidgetLike> {
 	/**
 	 * Any listeners that should automatically be attached to the widget.
 	 */
@@ -249,10 +278,46 @@ export interface WidgetDefinition extends ItemDefinition<WidgetFactory, WidgetLi
 	stateFrom?: Identifier | StoreLike;
 
 	/**
-	 * Optional options object passed to the widget factory. Must not contain `id`, `listeners` and `stateFrom`
-	 * properties.
+	 * Optional options object passed to the widget factory. Must not contain `children`, `id`, `listeners` and
+	 * `stateFrom` properties.
 	 */
 	options?: Object;
+}
+
+/**
+ * Definition for a container widget, which uses a list to manage its children.
+ */
+export interface ContainerListWidgetDefinition extends GenericWidgetDefinition<ContainerListWidgetFactory> {
+	/**
+	 * Any children that should automatically be resolved and set on the parent (the widget being defined).
+	 *
+	 * Child definitions are available across the app. They are not scoped to their parent.
+	 */
+	children: WidgetDefinition[];
+}
+
+/**
+ * Definition for a container widget, which uses a map to manage its children.
+ */
+export interface ContainerMapWidgetDefinition extends GenericWidgetDefinition<ContainerMapWidgetFactory> {
+	/**
+	 * Any children that should automatically be resolved and set on the parent (the widget being defined).
+	 *
+	 * Child definitions are available across the app. They are not scoped to their parent.
+	 */
+	children: Hash<WidgetDefinition>;
+}
+
+/**
+ * Definition for a single regular or container widget.
+ */
+export type WidgetDefinition =
+	GenericWidgetDefinition<WidgetFactory> | ContainerListWidgetDefinition | ContainerMapWidgetDefinition;
+
+function isContainerDefinition(
+	definition: WidgetDefinition
+): definition is ContainerListWidgetDefinition | ContainerMapWidgetDefinition {
+	return 'children' in definition;
 }
 
 /**
@@ -977,10 +1042,36 @@ const createApp = compose({
 		}
 
 		if (widgets) {
-			for (const definition of widgets) {
-				const factory = makeWidgetFactory(definition, resolveMid, this);
+			const processWidget = (definition: WidgetDefinition) => {
+				const { id } = definition;
+
+				let lookup: Identifier[] | Hash<Identifier> | undefined;
+				if (isContainerDefinition(definition)) {
+					const { children } = definition;
+
+					if (Array.isArray(children)) {
+						lookup = children.map((definition) => {
+							return typeof definition === 'string' ? definition : processWidget(definition);
+						});
+					}
+					else {
+						lookup = Object.keys(children).reduce<Hash<Identifier>>((acc, key) => {
+							const definition = children[key];
+							acc[key] = typeof definition === 'string' ? definition : processWidget(definition);
+							return acc;
+						}, {});
+					}
+				}
+
+				const factory = makeWidgetFactory(definition, resolveMid, this, lookup);
 				const handle = this.registerWidgetFactory(definition.id, factory);
 				handles.push(handle);
+
+				return id;
+			};
+
+			for (const definition of widgets) {
+				processWidget(definition);
 			}
 		}
 

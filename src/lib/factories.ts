@@ -1,4 +1,5 @@
 import { EventedListenersMap } from 'dojo-compose/mixins/createEvented';
+import { Hash } from 'dojo-core/interfaces';
 import { assign } from 'dojo-core/lang';
 import Promise from 'dojo-shim/Promise';
 
@@ -7,6 +8,7 @@ import {
 	ActionFactory,
 	ActionLike,
 	CustomElementDefinition,
+	Identifier,
 	ItemDefinition,
 	ReadOnlyRegistry,
 	StoreDefinition,
@@ -31,6 +33,26 @@ function resolveStore(registry: ReadOnlyRegistry, definition: ActionDefinition |
 	}
 
 	return registry.getStore(<string> stateFrom);
+}
+
+type WidgetChildren = WidgetLike[] | Hash<WidgetLike>;
+
+function resolveChildren(registry: ReadOnlyRegistry, children: Identifier[] | Hash<Identifier>): Promise<WidgetChildren> {
+	if (Array.isArray(children)) {
+		const widgetPromises = children.map((id) => registry.getWidget(id));
+		return Promise.all(widgetPromises);
+	}
+	else {
+		const keys = Object.keys(children);
+		const widgetPromises = keys.map((key) => registry.getWidget(children[key]));
+		return Promise.all(widgetPromises)
+			.then((widgets) => {
+				return keys.reduce<Hash<WidgetLike>>((acc, key, index) => {
+					acc[key] = widgets[index];
+					return acc;
+				}, {});
+			});
+	}
 }
 
 type Factory = ActionFactory | StoreFactory | WidgetFactory;
@@ -133,8 +155,8 @@ export function makeActionFactory(definition: ActionDefinition, resolveMid: Reso
 			resolveFactory('action', definition, resolveMid),
 			resolveStore(registry, definition)
 		]).then(([_factory, _store]) => {
-			const factory = <ActionFactory> _factory;
-			const store = <StoreLike> _store || defaultActionStore;
+			const factory: ActionFactory = _factory;
+			const store: StoreLike = _store || defaultActionStore;
 
 			const options = { registryProvider, stateFrom: store };
 
@@ -189,11 +211,19 @@ export function makeStoreFactory(definition: StoreDefinition, resolveMid: Resolv
 	};
 }
 
-export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: ResolveMid, registry: ReadOnlyRegistry): WidgetFactory {
+export function makeWidgetFactory(
+	definition: WidgetDefinition,
+	resolveMid: ResolveMid,
+	registry: ReadOnlyRegistry,
+	children?: Identifier[] | Hash<Identifier>
+): WidgetFactory {
 	if (!('factory' in definition || 'instance' in definition)) {
 		throw new TypeError('Widget definitions must specify either the factory or instance option');
 	}
 	if ('instance' in definition) {
+		if ('children' in definition) {
+			throw new TypeError('Cannot specify children option when widget definition points directly at an instance');
+		}
 		if ('listeners' in definition) {
 			throw new TypeError('Cannot specify listeners option when widget definition points directly at an instance');
 		}
@@ -210,8 +240,8 @@ export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: Reso
 
 	const { options: rawOptions } = definition;
 	if (rawOptions) {
-		if ('id' in rawOptions || 'listeners' in rawOptions || 'stateFrom' in rawOptions) {
-			throw new TypeError('id, listeners and stateFrom options should be in the widget definition itself, not its options value');
+		if ('children' in rawOptions || 'id' in rawOptions || 'listeners' in rawOptions || 'stateFrom' in rawOptions) {
+			throw new TypeError('children, id, listeners and stateFrom options should be in the widget definition itself, not its options value');
 		}
 		if ('registryProvider' in rawOptions) {
 			throw new TypeError('registryProvider option must not be specified');
@@ -226,14 +256,21 @@ export function makeWidgetFactory(definition: WidgetDefinition, resolveMid: Reso
 		}, rawOptions);
 
 		return Promise.all<any>([
+			children ? resolveChildren(registry, children) : null,
 			resolveFactory('widget', definition, resolveMid),
 			resolveListenersMap(registry, definition.listeners),
 			resolveStore(registry, definition)
-		]).then(([_factory, _listeners, _store]) => {
-			const factory = <WidgetFactory> _factory;
-			const listeners = <EventedListenersMap> _listeners;
-			const store = <StoreLike> _store || defaultWidgetStore;
+		]).then(([_children, _factory, _listeners, _store]) => {
+			const children: WidgetChildren = _children;
+			const factory: WidgetFactory = _factory;
+			const listeners: EventedListenersMap = _listeners;
+			const store: StoreLike = _store || defaultWidgetStore;
 
+			if (children) {
+				// Assigning children to non-container widget factory options should be harmless, and the factory is
+				// typed such that it doesn't accept children options anyway. Use the <any> hammer to make life easier.
+				(<any> options).children = children;
+			}
 			if (listeners) {
 				options.listeners = listeners;
 			}

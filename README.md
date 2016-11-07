@@ -343,6 +343,8 @@ Like stores, widget factories typically take an options argument. Widget definit
 
 The `options` object must not contain `id`, `listeners`, `state` and `stateFrom` properties. These need to be specified in the widget definition itself.
 
+Use the `children` property to define nested widgets that are lazily loaded when their parent widget is needed. Values may be arrays or objects. The array may contain widget IDs or nested definitions. Similarly the object values may be widget IDs or nested definitions. Widgets from nested definitions are available across the app. It is assumed the parent widget can handle the array or object `children` option.
+
 Use the `listeners` object to automatically wire events emitted by the widget. Keys are event types. Values are event listeners, actions, string identifiers for actions that are registered with the application factory, or an array containing such values.
 
 Use the `state` property to define an initial state that is added to the widget's store before the widget is created, if any. This will be done lazily once the widget is needed. The store is assumed to reject the initial state if it already contains state for the widget. This error will be ignored and the widget will be created with whatever state was already in the store.
