@@ -59,6 +59,19 @@ registerSuite({
 			});
 		},
 
+		'widget factory registered for custom type preserves state'() {
+			const defaultWidgetStore = createSpyStore();
+			const app = createApp({ defaultWidgetStore });
+
+			app.registerCustomElementFactory('custom-element', createSpyWidget);
+
+			return defaultWidgetStore.add({id: 'foo', type: 'custom-element', bar: 'bar'}).then(() => {
+				return app.getWidget('foo').then((widget: any) => {
+					assert.strictEqual(widget._options.state.bar, 'bar');
+				});
+			});
+		},
+
 		'creates (async) and provides widget using factory registered for the states custom type'() {
 			const defaultWidgetStore = createSpyStore();
 			const app = createApp({ defaultWidgetStore });
