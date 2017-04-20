@@ -1,3 +1,4 @@
+import load from 'dojo-core/load';
 import Promise from 'dojo-shim/Promise';
 import Symbol from 'dojo-shim/Symbol';
 
@@ -38,26 +39,23 @@ export const RESOLVE_CONTENTS = Symbol();
  */
 export default function makeResolver(toAbsMid: ToAbsMid): ResolveMid {
 	return function resolveMid<T>(mid: string, member: string | symbol = 'default'): Promise<T> {
-		return new Promise((resolve) => {
-			// Assumes require() is an AMD loader!
-			require([toAbsMid(mid)], resolve);
-		})
-		.then((module: any) => {
-			if (member === 'default') {
-				return module.__esModule ? module.default : module;
-			}
-			else if (member === RESOLVE_CONTENTS) {
-				const contents: { [member: string]: any } = {};
-				for (const member of Object.keys(module)) {
-					if (member !== '__esModule' && member !== 'default') {
-						contents[member] = module[member];
-					}
+		return load(toAbsMid(mid))
+			.then(([ module ]) => {
+				if (member === 'default') {
+					return module.__esModule ? module.default : module;
 				}
-				return contents;
-			}
-			else {
-				return module[member];
-			}
-		});
+				else if (member === RESOLVE_CONTENTS) {
+					const contents: { [member: string]: any } = {};
+					for (const member of Object.keys(module)) {
+						if (member !== '__esModule' && member !== 'default') {
+							contents[member] = module[member];
+						}
+					}
+					return contents;
+				}
+				else {
+					return module[member];
+				}
+			});
 	};
 }
