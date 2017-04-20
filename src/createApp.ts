@@ -555,9 +555,10 @@ export interface AppMixin {
 	 *
 	 * @param id How the widget is identified
 	 * @param factory A factory function that (asynchronously) creates a widget.
+	 * @param state An optional state object that gets passed with the factory options.
 	 * @return A handle to deregister the widget factory, or the widget itself once it's been created
 	 */
-	registerWidgetFactory(id: Identifier, factory: WidgetFactory): Handle;
+	registerWidgetFactory(id: Identifier, factory: WidgetFactory, state?: State): Handle;
 
 	/**
 	 * Load a POJO definition containing actions, stores and widgets that need to be registered.
@@ -703,7 +704,7 @@ function createCustomWidget(app: App, id: string) {
 
 		if (!hasRegisteredFactory && !hasRegisteredInstance) {
 			const customFactory = customElementFactories.get(state.type);
-			factoryHandle = app.registerWidgetFactory(id, customFactory);
+			factoryHandle = app.registerWidgetFactory(id, customFactory, state);
 		}
 
 		return app.getWidget(id);
@@ -968,7 +969,7 @@ const createApp = compose({
 		};
 	},
 
-	registerWidgetFactory(this: App, id: Identifier, factory: WidgetFactory): Handle {
+	registerWidgetFactory(this: App, id: Identifier, factory: WidgetFactory, state: State): Handle {
 		const { instanceRegistry, widgetFactories } = privateStateMap.get(this);
 
 		const idHandle = addIdentifier(this, id);
@@ -984,6 +985,9 @@ const createApp = compose({
 				const options: WidgetFactoryOptions = { id, registryProvider };
 				if (defaultWidgetStore) {
 					options.stateFrom = defaultWidgetStore;
+				}
+				if (state) {
+					options.state = state;
 				}
 				return factory(options);
 			}).then((widget) => {
